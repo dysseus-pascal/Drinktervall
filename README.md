@@ -64,13 +64,15 @@ Pebble waf verträgt keine Pfade mit Leerzeichen, deshalb wird in WSL unter
 `~/aquatakt` gebaut:
 
 ```sh
-~/sync_aqua.sh                       # Quellen spiegeln + pebble build
+tools/sync_aqua.sh <Quellordner>    # Quellen spiegeln + pebble build
 pebble install --emulator emery      # oder flint / gabbro
 pebble install --phone <IP>          # Developer Connection der Pebble-App
 ```
 
-Test-Skripte: `~/aquatest.sh <plattform>` (Screenshots der Screens),
-`~/aquawake.sh` (Testbuild mit Erinnerung 60 s nach dem Start; setzt
+Die Skripte liegen unter `tools/` (nach `~` kopieren oder direkt aufrufen):
+`sync_aqua.sh [<Quellordner>]` spiegelt und baut, `aquatest.sh <plattform>`
+macht Screenshots der Screens nach /tmp/aqua, `aquawake.sh` ist der
+Wakeup-Test (Testbuild mit Erinnerung 60 s nach dem Start; setzt
 `AT_TEST_WAKEUP` nur in der WSL-Kopie).
 
 Das fertige Paket liegt nach dem Build unter `build/aquatakt.pbw`, eine Kopie
