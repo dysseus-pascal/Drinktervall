@@ -1,0 +1,39 @@
+{
+  "name": "aquatakt",
+  "author": "dysseus-pascal",
+  "version": "1.0.0",
+  "keywords": ["pebble-app"],
+  "private": true,
+  "dependencies": {},
+  "pebble": {
+    "displayName": "AquaTakt",
+    "uuid": "5b0f7a3e-2c8d-4b61-9e4f-7d2a1c9b8e50",
+    "sdkVersion": "3",
+    "enableMultiJS": true,
+    "targetPlatforms": [
+      "emery",
+      "flint",
+      "gabbro"
+    ],
+    "watchapp": {
+      "watchface": false
+    },
+    "messageKeys": [
+      "REQUEST",
+      "START_HOUR",
+      "INTERVAL_MIN",
+      "GLASSES",
+      "COUNT"
+    ],
+    "resources": {
+      "media": [
+        {
+          "menuIcon": true,
+          "type": "bitmap",
+          "name": "IMAGE_ICON",
+          "file": "images/system_icon.png"
+        }
+      ]
+    }
+  }
+}
