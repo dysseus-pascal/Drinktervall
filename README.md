@@ -43,12 +43,13 @@ Angelegte Pin-IDs werden im localStorage gemerkt, damit nur neue Pins gesendet
 werden. Jeder Pin hat die Aktionen "Getrunken" (öffnet die App und zählt +1)
 und "App öffnen".
 
-Übertragung: Die neue Pebble-App (Core Devices) bietet die lokale Schnittstelle
-`Pebble.insertTimelinePin(pin)`; sie wird bevorzugt. Fehlt sie (klassische
-App), holt das JS per `Pebble.getTimelineToken` einen Token und sendet die
-Pins an `https://timeline-api.rebble.io`, was eine Rebble-Anmeldung in der
-Telefon-App voraussetzt. Im Emulator gibt es weder das eine noch das andere;
-die Pins werden dann übersprungen (Log: "timeline: kein Token").
+Übertragung: Das JS holt per `Pebble.getTimelineToken` einen Token und sendet
+die Pins an `https://timeline-api.rebble.io`. Das funktioniert mit der neuen
+Pebble-App (Core Devices), sofern sie bei Rebble angemeldet ist. Nur wenn kein
+Token zu bekommen ist, wird die lokale Schnittstelle `Pebble.insertTimelinePin`
+versucht. Gesendete Pins werden nach 12 Stunden erneut gesendet, damit sie
+eine Neuinstallation überstehen. Im Emulator gibt es keinen Token; die Pins
+werden dann übersprungen (Log: "timeline: kein Token").
 
 ## Farben
 

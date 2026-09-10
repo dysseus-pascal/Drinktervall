@@ -2,14 +2,19 @@
 // pro Erinnerung an. Die Plan-Konfiguration kommt per AppMessage von der
 // Watch (src/c/phone.c), damit sie nur an einer Stelle (config.h) lebt.
 //
-// Pins gehen bevorzugt ueber die lokale Schnittstelle der neuen Pebble-App
-// (Pebble.insertTimelinePin, Core Devices), sonst ueber die Rebble-REST-API
-// mit Timeline-Token.
+// Uebertragung: zuerst der bewaehrte Weg ueber Pebble.getTimelineToken und
+// die Rebble-REST-API (funktioniert mit der neuen Pebble-App, verifiziert
+// 2026-09-10). Nur wenn kein Token zu bekommen ist, wird die lokale
+// Schnittstelle Pebble.insertTimelinePin versucht.
 
 var API_URL = 'https://timeline-api.rebble.io/v1/user/pins/';
 // Muss zu AT_COLOR_PRIMARY in src/c/theme.h passen (handgepflegte Kopie)
 var PIN_COLOR = '#0055FF';
-var STORE_KEY = 'aquatakt_pins';   // bereits angelegte Pin-IDs -> Tagesschluessel
+// Angelegte Pin-IDs -> Zeitpunkt des Sendens. Der Schluessel traegt eine
+// Version: aendern, wenn alte Eintraege verworfen werden sollen.
+var STORE_KEY = 'aquatakt_pins_v2';
+var RESEND_AFTER_MS = 12 * 3600 * 1000;   // Pins nach 12 h erneut senden
+var FORGET_AFTER_MS = 3 * 86400 * 1000;   // alte Eintraege vergessen
 
 var LAUNCH_CODE_DRUNK = 1;
 var LAUNCH_CODE_OPEN = 2;
@@ -45,22 +50,22 @@ function buildPin(id, when, index, cfg) {
   };
 }
 
-// Pins fuer heute und morgen, die noch nicht angelegt wurden
+// Pins fuer heute und morgen, die noch nie oder vor mehr als 12 h gesendet wurden
 function pendingPins(cfg) {
   var store = loadStore();
   var pins = [];
   var now = new Date();
-  var yesterday = dayKey(new Date(now.getTime() - 86400000));
-  // alte Eintraege vergessen
-  Object.keys(store).forEach(function (id) { if (store[id] < yesterday) delete store[id]; });
+  Object.keys(store).forEach(function (id) {
+    if (now.getTime() - store[id] > FORGET_AFTER_MS) delete store[id];
+  });
   for (var day = 0; day < 2; day++) {
     var base = new Date(now.getFullYear(), now.getMonth(), now.getDate() + day, 0, 0, 0, 0);
     var key = dayKey(base);
     for (var i = 0; i < cfg.glasses; i++) {
       var id = 'aquatakt-' + key + '-' + (i + 1);
-      if (store[id]) continue;
+      if (store[id] && now.getTime() - store[id] < RESEND_AFTER_MS) continue;
       var when = new Date(base.getTime() + (cfg.startHour * 60 + i * cfg.intervalMin) * 60000);
-      pins.push({ pin: buildPin(id, when, i, cfg), key: key });
+      pins.push(buildPin(id, when, i, cfg));
     }
   }
   saveStore(store);
@@ -71,54 +76,65 @@ function hasLocalApi() {
   return typeof Pebble.insertTimelinePin === 'function';
 }
 
-// Einen Pin anlegen; callback(ok, info).
-// Lokale API: Core Devices nimmt nur den Pin (synchron), die klassische App
-// pin/success/failure. REST: PUT mit X-User-Token.
-function insertPin(pin, token, callback) {
-  if (hasLocalApi()) {
-    try {
-      if (Pebble.insertTimelinePin.length >= 3) {
-        var done = false;
-        var finish = function (ok) { if (!done) { done = true; callback(ok, 'lokal'); } };
-        setTimeout(function () { finish(false); }, 5000);
-        Pebble.insertTimelinePin(pin, function () { finish(true); }, function () { finish(false); });
-      } else {
-        Pebble.insertTimelinePin(pin);
-        callback(true, 'lokal');
-      }
-    } catch (e) {
-      callback(false, 'lokal: ' + e);
-    }
-    return;
-  }
+function insertViaRest(pin, token, callback) {
   var xhr = new XMLHttpRequest();
-  xhr.onload = function () { callback(this.status >= 200 && this.status < 300, this.status); };
-  xhr.onerror = function () { callback(false, 'Netzwerk'); };
+  xhr.onload = function () { callback(this.status >= 200 && this.status < 300, 'REST ' + this.status); };
+  xhr.onerror = function () { callback(false, 'REST Netzwerkfehler'); };
   xhr.open('PUT', API_URL + pin.id);
   xhr.setRequestHeader('Content-Type', 'application/json');
   xhr.setRequestHeader('X-User-Token', '' + token);
   xhr.send(JSON.stringify(pin));
 }
 
+// Lokale API: Core Devices nimmt nur den Pin (synchron), die klassische App
+// pin/success/failure.
+function insertViaLocal(pin, callback) {
+  try {
+    if (Pebble.insertTimelinePin.length >= 3) {
+      var done = false;
+      var finish = function (ok) { if (!done) { done = true; callback(ok, 'lokal'); } };
+      setTimeout(function () { finish(false); }, 5000);
+      Pebble.insertTimelinePin(pin, function () { finish(true); }, function () { finish(false); });
+    } else {
+      Pebble.insertTimelinePin(pin);
+      callback(true, 'lokal');
+    }
+  } catch (e) {
+    callback(false, 'lokal: ' + e);
+  }
+}
+
+function sendAll(queue, insert) {
+  var store = loadStore();
+  (function next() {
+    var pin = queue.shift();
+    if (!pin) { saveStore(store); console.log('timeline: fertig'); return; }
+    insert(pin, function (ok, info) {
+      console.log('timeline: ' + pin.id + ' -> ' + (ok ? 'ok' : 'fehlgeschlagen') + ' (' + info + ')');
+      if (ok) store[pin.id] = Date.now();
+      next();
+    });
+  })();
+}
+
 function pushPins(cfg) {
   var queue = pendingPins(cfg);
-  if (queue.length === 0) { console.log('timeline: alle Pins vorhanden'); return; }
-  var run = function (token) {
-    var store = loadStore();
-    (function next() {
-      var item = queue.shift();
-      if (!item) { saveStore(store); console.log('timeline: fertig'); return; }
-      insertPin(item.pin, token, function (ok, info) {
-        console.log('timeline: ' + item.pin.id + ' -> ' + (ok ? 'ok' : 'fehlgeschlagen') + ' (' + info + ')');
-        if (ok) store[item.pin.id] = item.key;
-        next();
-      });
-    })();
+  console.log('timeline: ' + queue.length + ' Pins zu senden');
+  if (queue.length === 0) return;
+  var useLocal = function (reason) {
+    if (hasLocalApi()) {
+      console.log('timeline: ' + reason + ', nutze lokale API');
+      sendAll(queue, insertViaLocal);
+    } else {
+      console.log('timeline: ' + reason + ', keine lokale API - Pins uebersprungen');
+    }
   };
-  if (hasLocalApi()) { run(null); return; }
-  if (typeof Pebble.getTimelineToken !== 'function') { console.log('timeline: keine Timeline-API'); return; }
-  Pebble.getTimelineToken(run, function (error) {
-    console.log('timeline: kein Token (' + error + ') - Pins uebersprungen');
+  if (typeof Pebble.getTimelineToken !== 'function') { useLocal('kein getTimelineToken'); return; }
+  Pebble.getTimelineToken(function (token) {
+    console.log('timeline: Token erhalten, sende per REST');
+    sendAll(queue, function (pin, cb) { insertViaRest(pin, token, cb); });
+  }, function (error) {
+    useLocal('kein Token (' + error + ')');
   });
 }
 

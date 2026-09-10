@@ -1,7 +1,7 @@
 {
   "name": "aquatakt",
   "author": "dysseus-pascal",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "keywords": ["pebble-app"],
   "private": true,
   "dependencies": {},
