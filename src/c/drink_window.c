@@ -4,12 +4,21 @@
 #include "glass_fx.h"
 #include "schedule.h"
 
+// Nach dem Ende der Animation bleibt der leere Grund noch so lange stehen
+#define HOLD_AFTER_MS 350
+
 static Window *s_window;
 static TextLayer *s_text;
+static AppTimer *s_close_timer;
 static char s_title[24];
 
-static void prv_done(void) {
+static void prv_close(void *data) {
+  s_close_timer = NULL;
   if (s_window) window_stack_remove(s_window, true);
+}
+
+static void prv_done(void) {
+  if (!s_close_timer) s_close_timer = app_timer_register(HOLD_AFTER_MS, prv_close, NULL);
 }
 
 static void prv_load(Window *window) {
@@ -33,6 +42,10 @@ static void prv_appear(Window *window) {
 }
 
 static void prv_unload(Window *window) {
+  if (s_close_timer) {
+    app_timer_cancel(s_close_timer);
+    s_close_timer = NULL;
+  }
   glass_fx_deinit();
   text_layer_destroy(s_text);
   window_destroy(s_window);
