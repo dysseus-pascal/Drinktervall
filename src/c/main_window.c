@@ -30,7 +30,7 @@ static int s_shown_count;
 #define HINT_SPACE  46
 
 static GRect prv_water_frame(GRect full) {
-  const int16_t h = (int16_t)((int32_t)full.size.h * s_shown_count / DT_GLASSES);
+  const int16_t h = (int16_t)((int32_t)full.size.h * s_shown_count / schedule_goal());
   return GRect(0, full.size.h - h, full.size.w, h);
 }
 
@@ -60,7 +60,7 @@ static void prv_draw_content(GContext *ctx, GRect full, int16_t shift_y, bool on
                      GRect(margin, num_y, col_w, 46),
                      GTextOverflowModeTrailingEllipsis, GTextAlignmentCenter, NULL);
   char of[12];
-  snprintf(of, sizeof(of), "von %d", DT_GLASSES);
+  snprintf(of, sizeof(of), "von %d", schedule_goal());
   graphics_draw_text(ctx, of, fonts_get_system_font(FONT_KEY_GOTHIC_18),
                      GRect(margin, num_y + 48, col_w, 22),
                      GTextOverflowModeTrailingEllipsis, GTextAlignmentCenter, NULL);
@@ -86,7 +86,7 @@ static void prv_draw_content(GContext *ctx, GRect full, int16_t shift_y, bool on
                      GRect(margin, next_y + 14, col_w, 30),
                      GTextOverflowModeTrailingEllipsis, GTextAlignmentCenter, NULL);
 
-  draw_button_hints(ctx, area, "Plan", "+1", NULL, tag_bg, tag_fg);
+  draw_button_hints(ctx, area, "Plan", "+1", "Ziel+", tag_bg, tag_fg);
 }
 
 static void prv_canvas_update(Layer *layer, GContext *ctx) {
@@ -168,15 +168,23 @@ static void prv_up(ClickRecognizerRef recognizer, void *context) {
 }
 
 static void prv_select(ClickRecognizerRef recognizer, void *context) {
-  if (schedule_count() >= DT_GLASSES) return;
+  if (schedule_count() >= schedule_goal()) return;
   schedule_set_count(schedule_count() + 1);
   vibes_short_pulse();
   prv_sync(true);
 }
 
+// Tagesziel um ein Glas erhoehen, damit ueber das Maximum hinaus geloggt werden kann
+static void prv_down(ClickRecognizerRef recognizer, void *context) {
+  schedule_raise_goal();
+  layer_mark_dirty(s_canvas);
+  prv_set_level(true);
+}
+
 static void prv_click_config(void *context) {
   window_single_click_subscribe(BUTTON_ID_UP, prv_up);
   window_single_click_subscribe(BUTTON_ID_SELECT, prv_select);
+  window_single_click_subscribe(BUTTON_ID_DOWN, prv_down);
 }
 
 static void prv_load(Window *window) {

@@ -5,6 +5,7 @@
 #define LEAD_S      30   // Wakeups muessen etwas in der Zukunft liegen
 
 static int s_count;
+static int s_goal = DT_GLASSES;
 
 static int32_t prv_day_key(time_t t) {
   struct tm *lt = localtime(&t);
@@ -17,11 +18,16 @@ void schedule_init(void) {
   int32_t stored_day = persist_exists(DT_PERSIST_DAY) ? persist_read_int(DT_PERSIST_DAY) : 0;
   s_count = (stored_day == today && persist_exists(DT_PERSIST_COUNT))
       ? persist_read_int(DT_PERSIST_COUNT) : 0;
+  s_goal = (stored_day == today && persist_exists(DT_PERSIST_GOAL))
+      ? persist_read_int(DT_PERSIST_GOAL) : DT_GLASSES;
+  if (s_goal < DT_GLASSES) s_goal = DT_GLASSES;
+  if (s_goal > DT_GOAL_MAX) s_goal = DT_GOAL_MAX;
   if (s_count < 0) s_count = 0;
-  if (s_count > DT_GLASSES) s_count = DT_GLASSES;
+  if (s_count > s_goal) s_count = s_goal;
   if (stored_day != today) {
     persist_write_int(DT_PERSIST_DAY, today);
     persist_write_int(DT_PERSIST_COUNT, 0);
+    persist_write_int(DT_PERSIST_GOAL, DT_GLASSES);
   }
 }
 
@@ -31,10 +37,21 @@ int schedule_count(void) {
 
 void schedule_set_count(int count) {
   if (count < 0) count = 0;
-  if (count > DT_GLASSES) count = DT_GLASSES;
+  if (count > s_goal) count = s_goal;
   s_count = count;
   persist_write_int(DT_PERSIST_DAY, prv_day_key(time(NULL)));
   persist_write_int(DT_PERSIST_COUNT, s_count);
+}
+
+int schedule_goal(void) {
+  return s_goal;
+}
+
+void schedule_raise_goal(void) {
+  if (s_goal >= DT_GOAL_MAX) return;
+  s_goal++;
+  persist_write_int(DT_PERSIST_DAY, prv_day_key(time(NULL)));
+  persist_write_int(DT_PERSIST_GOAL, s_goal);
 }
 
 // Ohne mktime: Mitternacht = jetzt minus Sekunden seit lokaler Mitternacht.

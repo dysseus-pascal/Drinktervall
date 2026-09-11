@@ -8,7 +8,7 @@ void phone_send_next(void) {
   if (app_message_outbox_begin(&out) != APP_MSG_OK) return;
   time_t next;
   const int idx = schedule_next(time(NULL), &next);
-  dict_write_int32(out, MESSAGE_KEY_GLASSES, DT_GLASSES);
+  dict_write_int32(out, MESSAGE_KEY_GLASSES, schedule_goal());
   dict_write_int32(out, MESSAGE_KEY_NEXT_TIME, (int32_t)next);
   dict_write_int32(out, MESSAGE_KEY_NEXT_INDEX, idx);
   app_message_outbox_send();

@@ -7,11 +7,15 @@
 // Zaehler laden; bei Tageswechsel auf 0 setzen.
 void schedule_init(void);
 
-// Heute getrunkene Glaeser (0..DT_GLASSES).
+// Heute getrunkene Glaeser (0..Tagesziel).
 int schedule_count(void);
 
-// Zaehler setzen (wird auf 0..DT_GLASSES begrenzt) und persistieren.
+// Zaehler setzen (wird auf 0..Tagesziel begrenzt) und persistieren.
 void schedule_set_count(int count);
+
+// Heutiges Tagesziel (DT_GLASSES, per Taste erhoehbar bis DT_GOAL_MAX).
+int schedule_goal(void);
+void schedule_raise_goal(void);
 
 // Lokale Mitternacht des Tages, in dem `t` liegt (Epoch-Sekunden).
 time_t schedule_midnight(time_t t);

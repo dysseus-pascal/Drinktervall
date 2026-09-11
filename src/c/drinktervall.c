@@ -25,7 +25,7 @@ static void prv_glance_reload(AppGlanceReloadSession *session, size_t limit, voi
   schedule_format_time(next, hhmm, sizeof(hhmm));
   char text[48];
   snprintf(text, sizeof(text), "%d von %d Gläsern, nächste %s",
-           schedule_count(), DT_GLASSES, hhmm);
+           schedule_count(), schedule_goal(), hhmm);
   const AppGlanceSlice slice = {
     .layout = { .icon = APP_GLANCE_SLICE_DEFAULT_ICON, .subtitle_template_string = text },
     .expiration_time = APP_GLANCE_SLICE_NO_EXPIRATION,
@@ -52,7 +52,7 @@ static void prv_init(void) {
       break;
     }
     case APP_LAUNCH_TIMELINE_ACTION:
-      if (launch_get_args() == LAUNCH_CODE_DRUNK && schedule_count() < DT_GLASSES) {
+      if (launch_get_args() == LAUNCH_CODE_DRUNK && schedule_count() < schedule_goal()) {
         schedule_set_count(schedule_count() + 1);
         vibes_short_pulse();
         main_window_refresh();

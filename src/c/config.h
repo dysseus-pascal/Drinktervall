@@ -25,3 +25,7 @@
 // Persist-Schluessel
 #define DT_PERSIST_DAY    1   // Tag (JJJJMMTT), zu dem DT_PERSIST_COUNT gehoert
 #define DT_PERSIST_COUNT  2   // heute getrunkene Glaeser
+#define DT_PERSIST_GOAL   3   // heutiges Tagesziel (Glaeser), morgen wieder DT_GLASSES
+
+// Das Tagesziel laesst sich mit der unteren Taste bis hierher erhoehen.
+#define DT_GOAL_MAX      24

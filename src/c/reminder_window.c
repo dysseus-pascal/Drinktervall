@@ -34,10 +34,10 @@ static void prv_update(Layer *layer, GContext *ctx) {
                      GTextAlignmentCenter, NULL);
 
   char sub[24];
-  if (count >= DT_GLASSES) {
+  if (count >= schedule_goal()) {
     snprintf(sub, sizeof(sub), "Tagesziel erreicht");
   } else {
-    snprintf(sub, sizeof(sub), "Glas %d von %d", count + 1, DT_GLASSES);
+    snprintf(sub, sizeof(sub), "Glas %d von %d", count + 1, schedule_goal());
   }
   const int16_t sub_y = title_box.origin.y + title_size.h + 2;
   graphics_draw_text(ctx, sub, fonts_get_system_font(FONT_KEY_GOTHIC_18),
@@ -52,7 +52,7 @@ static void prv_update(Layer *layer, GContext *ctx) {
   if (glass_h > glass_w * 3 / 2) glass_h = glass_w * 3 / 2;
   if (glass_h > 30) {
     GRect glass = GRect(margin, avail_y + (avail_h - glass_h) / 2, glass_w, glass_h);
-    draw_glass(ctx, glass, count * 1000 / DT_GLASSES, DT_COLOR_ON_PRIMARY, DT_COLOR_WATER_DARK);
+    draw_glass(ctx, glass, count * 1000 / schedule_goal(), DT_COLOR_ON_PRIMARY, DT_COLOR_WATER_DARK);
   }
 
   draw_button_hints(ctx, bounds, NULL, "Getrunken", "Später", DT_COLOR_BG, DT_COLOR_PRIMARY);
@@ -82,14 +82,17 @@ static void prv_timeout(void *data) {
 }
 
 static void prv_select(ClickRecognizerRef recognizer, void *context) {
-  if (schedule_count() < DT_GLASSES) schedule_set_count(schedule_count() + 1);
+  if (schedule_count() < schedule_goal()) schedule_set_count(schedule_count() + 1);
   vibes_short_pulse();
   prv_close(false);
 }
 
+// Spaeter: in DT_SNOOZE_MIN Minuten nochmals erinnern und die App sofort
+// beenden, damit die Uhr zum Zifferblatt zurueckkehrt
 static void prv_down(ClickRecognizerRef recognizer, void *context) {
   schedule_plan_wakeups(time(NULL) + DT_SNOOZE_MIN * 60);
-  prv_close(false);
+  prv_cancel_timers();
+  window_stack_pop_all(false);
 }
 
 static void prv_back(ClickRecognizerRef recognizer, void *context) {

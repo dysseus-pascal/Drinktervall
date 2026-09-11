@@ -20,10 +20,11 @@ Erinnerung stammen aus einem Testbuild mit Zeitlupe und Wakeup nach 60 s).
 
 **Hauptscreen** - die ganze Fläche ist das Glas: hellblauer Grund, der sich
 pro getrunkenem Glas von unten mit Dunkelblau füllt (animiert); darauf
-Uhrzeit, Zähler "n von 8" und die nächste Erinnerung. Schrift und
+Uhrzeit, Zähler "n von Ziel" und die nächste Erinnerung. Schrift und
 Tasten-Hinweise wechseln an der Wasserlinie die Farbe. Einen Zähler nach
 unten gibt es bewusst nicht: ein getrunkenes Glas lässt sich nicht
-zurücknehmen.
+zurücknehmen. Das Tagesziel beginnt bei 8 und lässt sich mit der unteren
+Taste für den laufenden Tag erhöhen.
 
 | Taste  | Aktion                          |
 |--------|---------------------------------|
@@ -31,6 +32,8 @@ zurücknehmen.
 | Mitte  | Glas getrunken: ein Vollbild-Fenster zeigt ein Glas mit Gesicht,
 |        | das aufploppt, sich leert, ins Zentrum schrumpft und in einem
 |        | Strahlenkranz zerplatzt; danach steigen Zähler und Pegel |
+| Unten  | Tagesziel um ein Glas erhöhen (nur heute, morgen wieder 8), damit
+|        | sich über das Ziel hinaus weiter loggen lässt |
 
 **Erinnerung** - erscheint zur geplanten Zeit von selbst (Wakeup), vibriert
 dreimal im Abstand von 20 s und schliesst sich nach 60 s wieder.
@@ -38,7 +41,7 @@ dreimal im Abstand von 20 s und schliesst sich nach 60 s wieder.
 | Taste  | Aktion                                  |
 |--------|-----------------------------------------|
 | Mitte  | Getrunken: Zähler +1                    |
-| Unten  | Später: in 10 Minuten nochmals erinnern |
+| Unten  | Später: in 10 Minuten nochmals erinnern, die App schliesst sich sofort |
 | Zurück | Schliessen ohne zu zählen               |
 
 Der Zähler wird um Mitternacht automatisch auf 0 gesetzt. Die App-Glance im
