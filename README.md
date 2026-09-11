@@ -99,7 +99,7 @@ Vergangenheit steht für jeden heutigen Slot, der vorbei ist, ein Pin: "Glas n
 getrunken" oder "Glas n verpasst" mit der Aktion "Nachholen", die das Glas
 nachträglich zählt. Die kommende Erinnerung trägt `NOTIFICATION_REMINDER`, eine
 Hand mit Trinkglas, getrunkene Gläser `GENERIC_CONFIRMATION` (einen Stern) und
-verpasste das Warndreieck. Jeder Slot hat die feste ID
+verpasste `RESULT_DELETED` (einen Totenkopf). Jeder Slot hat die feste ID
 `drinktervall-JJJJMMTT-n`; der Pin der nächsten Erinnerung wird nach dem
 Slot zum Getrunken- oder Verpasst-Pin. Die Watch schickt der Telefonseite
 (`src/pkjs/index.js`) beim Start, bei jedem Wakeup und nach jeder Änderung
