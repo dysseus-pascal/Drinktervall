@@ -25,7 +25,8 @@ static void prv_update(Layer *layer, GContext *ctx) {
   graphics_context_set_text_color(ctx, DT_COLOR_ON_PRIMARY);
   const char *title = "Zeit für ein Glas Wasser!";
   GFont title_font = fonts_get_system_font(wide ? FONT_KEY_GOTHIC_24_BOLD : FONT_KEY_GOTHIC_18_BOLD);
-  GRect title_box = GRect(margin, PBL_IF_ROUND_ELSE(16, 6), text_w, 90);
+  // Auf runden Displays tiefer, wo die Sehne breit genug fuer die Zeile ist
+  GRect title_box = GRect(margin, PBL_IF_ROUND_ELSE(38, 6), text_w, 90);
   GSize title_size = graphics_text_layout_get_content_size(title, title_font, title_box,
                                                            GTextOverflowModeWordWrap,
                                                            GTextAlignmentCenter);

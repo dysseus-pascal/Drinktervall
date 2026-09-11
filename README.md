@@ -4,6 +4,18 @@ Trink-Erinnerung für Pebble (Emery, Flint, Gabbro): acht Gläser Wasser zwische
 8 und 20 Uhr, alle 90 Minuten eine Erinnerung direkt auf der Watch, dazu ein
 Pin pro Erinnerung in der Timeline. Farbschema blau/weiss.
 
+## Screenshots
+
+Emery (200 × 228); die Sätze für Flint (schwarz/weiss) und Gabbro (rund)
+liegen unter `screenshots/flint` und `screenshots/gabbro`.
+
+| Start | Drei Gläser | Trinkplan | Trinken | Erinnerung |
+|---|---|---|---|---|
+| ![Start](screenshots/emery/01-start.png) | ![Hauptscreen](screenshots/emery/02-hauptscreen.png) | ![Trinkplan](screenshots/emery/03-trinkplan.png) | ![Trinken](screenshots/emery/04-trinken.png) | ![Erinnerung](screenshots/emery/05-erinnerung.png) |
+
+Erzeugt mit `tools/screenshots.sh <plattform> <projektordner>` (Emulator; Trinken und
+Erinnerung stammen aus einem Testbuild mit Zeitlupe und Wakeup nach 60 s).
+
 ## Bedienung
 
 **Hauptscreen** - die ganze Fläche ist das Glas: hellblauer Grund, der sich
