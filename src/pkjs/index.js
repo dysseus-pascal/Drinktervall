@@ -1,6 +1,6 @@
-// AquaTakt - Telefonseite: legt fuer heute und morgen je einen Timeline-Pin
-// pro Erinnerung an. Die Plan-Konfiguration kommt per AppMessage von der
-// Watch (src/c/phone.c), damit sie nur an einer Stelle (config.h) lebt.
+// AquaTakt - Telefonseite: haelt genau einen Timeline-Pin fuer die naechste
+// Erinnerung. Die Watch schickt Zeitpunkt und Slot per AppMessage
+// (src/c/phone.c), damit die Zeitberechnung samt Versatz nur in C lebt.
 //
 // Uebertragung: zuerst der bewaehrte Weg ueber Pebble.getTimelineToken und
 // die Rebble-REST-API (funktioniert mit der neuen Pebble-App, verifiziert
@@ -10,17 +10,13 @@
 var API_URL = 'https://timeline-api.rebble.io/v1/user/pins/';
 // Muss zu AT_COLOR_PRIMARY in src/c/theme.h passen (handgepflegte Kopie)
 var PIN_COLOR = '#0055FF';
-// Angelegte Pin-IDs -> Zeitpunkt des Sendens. Der Schluessel traegt eine
-// Version: aendern, wenn alte Eintraege verworfen werden sollen.
-var STORE_KEY = 'aquatakt_pins_v2';
-var RESEND_AFTER_MS = 12 * 3600 * 1000;   // Pins nach 12 h erneut senden
-var FORGET_AFTER_MS = 3 * 86400 * 1000;   // alte Eintraege vergessen
+// Ein einziger Pin, der bei jeder Erinnerung auf die naechste Zeit wandert
+var PIN_ID = 'aquatakt-next';
+var STORE_KEY = 'aquatakt_next_v1';       // zuletzt gesendete Zeit + Zeitpunkt
+var RESEND_AFTER_MS = 12 * 3600 * 1000;   // unveraenderten Pin nach 12 h erneut senden
 
 var LAUNCH_CODE_DRUNK = 1;
 var LAUNCH_CODE_OPEN = 2;
-
-function pad(n) { return (n < 10 ? '0' : '') + n; }
-function dayKey(d) { return '' + d.getFullYear() + pad(d.getMonth() + 1) + pad(d.getDate()); }
 
 function loadStore() {
   try { return JSON.parse(localStorage.getItem(STORE_KEY)) || {}; } catch (e) { return {}; }
@@ -29,16 +25,15 @@ function saveStore(store) {
   try { localStorage.setItem(STORE_KEY, JSON.stringify(store)); } catch (e) {}
 }
 
-function buildPin(id, when, index, cfg) {
+function buildPin(when, index, glasses) {
   return {
-    id: id,
+    id: PIN_ID,
     time: when.toISOString(),
     layout: {
       type: 'genericPin',
-      title: 'Glas Wasser ' + (index + 1) + ' von ' + cfg.glasses,
+      title: 'Glas Wasser ' + (index + 1) + ' von ' + glasses,
       subtitle: 'AquaTakt',
-      body: 'Zeit für ein Glas Wasser. Tagesziel: ' + cfg.glasses + ' Gläser zwischen ' +
-            cfg.startHour + ' und ' + (cfg.startHour + cfg.intervalMin * cfg.glasses / 60) + ' Uhr.',
+      body: 'Zeit für ein Glas Wasser. Tagesziel: ' + glasses + ' Gläser.',
       tinyIcon: 'system://images/NOTIFICATION_REMINDER',
       backgroundColor: PIN_COLOR,
       foregroundColor: '#FFFFFF'
@@ -48,28 +43,6 @@ function buildPin(id, when, index, cfg) {
       { title: 'App öffnen', type: 'openWatchApp', launchCode: LAUNCH_CODE_OPEN }
     ]
   };
-}
-
-// Pins fuer heute und morgen, die noch nie oder vor mehr als 12 h gesendet wurden
-function pendingPins(cfg) {
-  var store = loadStore();
-  var pins = [];
-  var now = new Date();
-  Object.keys(store).forEach(function (id) {
-    if (now.getTime() - store[id] > FORGET_AFTER_MS) delete store[id];
-  });
-  for (var day = 0; day < 2; day++) {
-    var base = new Date(now.getFullYear(), now.getMonth(), now.getDate() + day, 0, 0, 0, 0);
-    var key = dayKey(base);
-    for (var i = 0; i < cfg.glasses; i++) {
-      var id = 'aquatakt-' + key + '-' + (i + 1);
-      if (store[id] && now.getTime() - store[id] < RESEND_AFTER_MS) continue;
-      var when = new Date(base.getTime() + (cfg.startHour * 60 + i * cfg.intervalMin) * 60000);
-      pins.push(buildPin(id, when, i, cfg));
-    }
-  }
-  saveStore(store);
-  return pins;
 }
 
 function hasLocalApi() {
@@ -104,35 +77,28 @@ function insertViaLocal(pin, callback) {
   }
 }
 
-function sendAll(queue, insert) {
+function pushNext(msg) {
+  var pin = buildPin(new Date(msg.NEXT_TIME * 1000), msg.NEXT_INDEX, msg.GLASSES);
   var store = loadStore();
-  (function next() {
-    var pin = queue.shift();
-    if (!pin) { saveStore(store); console.log('timeline: fertig'); return; }
-    insert(pin, function (ok, info) {
-      console.log('timeline: ' + pin.id + ' -> ' + (ok ? 'ok' : 'fehlgeschlagen') + ' (' + info + ')');
-      if (ok) store[pin.id] = Date.now();
-      next();
-    });
-  })();
-}
-
-function pushPins(cfg) {
-  var queue = pendingPins(cfg);
-  console.log('timeline: ' + queue.length + ' Pins zu senden');
-  if (queue.length === 0) return;
+  if (store.time === pin.time && Date.now() - store.sentAt < RESEND_AFTER_MS) {
+    console.log('timeline: Pin aktuell (' + pin.time + ')');
+    return;
+  }
+  var done = function (ok, info) {
+    console.log('timeline: ' + pin.id + ' ' + pin.time + ' -> ' + (ok ? 'ok' : 'fehlgeschlagen') + ' (' + info + ')');
+    if (ok) saveStore({ time: pin.time, sentAt: Date.now() });
+  };
   var useLocal = function (reason) {
     if (hasLocalApi()) {
       console.log('timeline: ' + reason + ', nutze lokale API');
-      sendAll(queue, insertViaLocal);
+      insertViaLocal(pin, done);
     } else {
-      console.log('timeline: ' + reason + ', keine lokale API - Pins uebersprungen');
+      console.log('timeline: ' + reason + ', keine lokale API - Pin uebersprungen');
     }
   };
   if (typeof Pebble.getTimelineToken !== 'function') { useLocal('kein getTimelineToken'); return; }
   Pebble.getTimelineToken(function (token) {
-    console.log('timeline: Token erhalten, sende per REST');
-    sendAll(queue, function (pin, cb) { insertViaRest(pin, token, cb); });
+    insertViaRest(pin, token, done);
   }, function (error) {
     useLocal('kein Token (' + error + ')');
   });
@@ -140,12 +106,8 @@ function pushPins(cfg) {
 
 Pebble.addEventListener('appmessage', function (e) {
   var p = e.payload;
-  if (!p.hasOwnProperty('START_HOUR')) return;
-  pushPins({
-    startHour: p.START_HOUR,
-    intervalMin: p.INTERVAL_MIN,
-    glasses: p.GLASSES
-  });
+  if (!p.hasOwnProperty('NEXT_TIME')) return;
+  pushNext(p);
 });
 
 Pebble.addEventListener('ready', function () {

@@ -1,5 +1,8 @@
 #pragma once
 
-// AppMessage: das Telefon (src/pkjs) fragt beim Start die Plan-Konfiguration
-// ab und legt daraus die Timeline-Pins an.
+// AppMessage: das Telefon (src/pkjs) fragt beim Start nach der naechsten
+// Erinnerung und legt daraus den Timeline-Pin an.
 void phone_init(void);
+
+// Naechste Erinnerung (Zeitpunkt, Slot, Tagesziel) ans Telefon schicken.
+void phone_send_next(void);

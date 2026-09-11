@@ -3,18 +3,19 @@
 #include "config.h"
 #include "schedule.h"
 
-static void prv_send_config(void) {
+void phone_send_next(void) {
   DictionaryIterator *out;
   if (app_message_outbox_begin(&out) != APP_MSG_OK) return;
-  dict_write_int32(out, MESSAGE_KEY_START_HOUR, AT_START_HOUR);
-  dict_write_int32(out, MESSAGE_KEY_INTERVAL_MIN, AT_INTERVAL_MIN);
+  time_t next;
+  const int idx = schedule_next(time(NULL), &next);
   dict_write_int32(out, MESSAGE_KEY_GLASSES, AT_GLASSES);
-  dict_write_int32(out, MESSAGE_KEY_COUNT, schedule_count());
+  dict_write_int32(out, MESSAGE_KEY_NEXT_TIME, (int32_t)next);
+  dict_write_int32(out, MESSAGE_KEY_NEXT_INDEX, idx);
   app_message_outbox_send();
 }
 
 static void prv_inbox_received(DictionaryIterator *iter, void *context) {
-  if (dict_find(iter, MESSAGE_KEY_REQUEST)) prv_send_config();
+  if (dict_find(iter, MESSAGE_KEY_REQUEST)) phone_send_next();
 }
 
 void phone_init(void) {

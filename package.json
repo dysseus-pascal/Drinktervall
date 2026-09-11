@@ -1,7 +1,7 @@
 {
   "name": "aquatakt",
   "author": "dysseus-pascal",
-  "version": "1.0.1",
+  "version": "1.1.0",
   "keywords": ["pebble-app"],
   "private": true,
   "dependencies": {},
@@ -20,10 +20,9 @@
     },
     "messageKeys": [
       "REQUEST",
-      "START_HOUR",
-      "INTERVAL_MIN",
       "GLASSES",
-      "COUNT"
+      "NEXT_TIME",
+      "NEXT_INDEX"
     ],
     "resources": {
       "media": [

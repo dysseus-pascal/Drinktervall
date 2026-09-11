@@ -14,6 +14,7 @@ static bool s_launched_by_wakeup;
 static void prv_wakeup_handler(WakeupId id, int32_t cookie) {
   reminder_window_push();
   schedule_plan_wakeups(0);
+  phone_send_next();   // Timeline-Pin auf die naechste Erinnerung schieben
 }
 
 static void prv_glance_reload(AppGlanceReloadSession *session, size_t limit, void *context) {

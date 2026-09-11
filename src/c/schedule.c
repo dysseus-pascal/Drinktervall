@@ -44,8 +44,23 @@ time_t schedule_midnight(time_t t) {
   return t - (lt->tm_hour * 3600 + lt->tm_min * 60 + lt->tm_sec);
 }
 
+// Deterministischer Versatz in [-AT_JITTER_MIN, +AT_JITTER_MIN] Minuten aus Tag
+// und Slot (Integer-Hash), damit Wakeups, Plan-Liste und Glance dieselben
+// Zeiten zeigen.
+static int prv_jitter_min(time_t midnight, int idx) {
+  uint32_t h = (uint32_t)prv_day_key(midnight) * 8u + (uint32_t)idx;
+  h ^= h >> 16; h *= 0x7feb352dU; h ^= h >> 15; h *= 0x846ca68bU; h ^= h >> 16;
+  return (int)(h % (2 * AT_JITTER_MIN + 1)) - AT_JITTER_MIN;
+}
+
 time_t schedule_slot(time_t midnight, int idx) {
-  return midnight + (time_t)(AT_START_HOUR * 60 + idx * AT_INTERVAL_MIN) * 60;
+  const int minutes = AT_START_HOUR * 60 + idx * AT_INTERVAL_MIN + prv_jitter_min(midnight, idx);
+  time_t t = midnight + (time_t)minutes * 60;
+  const time_t lo = midnight + (time_t)AT_START_HOUR * 3600;
+  const time_t hi = midnight + (time_t)AT_END_HOUR * 3600;
+  if (t < lo) t = lo;
+  if (t > hi) t = hi;
+  return t;
 }
 
 int schedule_next(time_t now, time_t *when) {

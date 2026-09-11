@@ -11,6 +11,11 @@
 #define AT_GLASSES       8
 #define AT_INTERVAL_MIN  (((AT_END_HOUR - AT_START_HOUR) * 60) / AT_GLASSES)
 
+// Jede Erinnerung wird pro Tag und Slot deterministisch um bis zu so viele
+// Minuten vor- oder nachverlegt, damit sie nicht immer exakt zur gleichen
+// Zeit kommt. Bleibt innerhalb AT_START_HOUR..AT_END_HOUR.
+#define AT_JITTER_MIN    10
+
 // "Spaeter" im Erinnerungs-Screen verschiebt um so viele Minuten.
 #define AT_SNOOZE_MIN    10
 

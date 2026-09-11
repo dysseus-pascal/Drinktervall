@@ -28,28 +28,31 @@ Launcher zeigt "n von 8 Gläsern, nächste HH:MM".
 
 ## Zeitplan
 
-Erinnerungen: 08:00, 09:30, 11:00, 12:30, 14:00, 15:30, 17:00, 18:30.
-Alle Werte stehen in `src/c/config.h` (`AT_START_HOUR`, `AT_END_HOUR`,
-`AT_GLASSES`, `AT_SNOOZE_MIN`). `AT_GLASSES` darf 8 nicht überschreiten,
+Grundraster: 08:00, 09:30, 11:00, 12:30, 14:00, 15:30, 17:00, 18:30. Jede
+Erinnerung wird um bis zu 10 Minuten vor- oder nachverlegt (`AT_JITTER_MIN`),
+deterministisch aus Datum und Slot, so dass Wakeups, Plan-Liste und Glance
+dieselben Zeiten zeigen; das Fenster 8 bis 20 Uhr wird nicht verlassen. Alle
+Werte stehen in `src/c/config.h` (`AT_START_HOUR`, `AT_END_HOUR`, `AT_GLASSES`,
+`AT_JITTER_MIN`, `AT_SNOOZE_MIN`). `AT_GLASSES` darf 8 nicht überschreiten,
 weil Pebble pro App höchstens 8 Wakeup-Events erlaubt. Die App plant bei jedem
 Start (auch beim Wakeup-Start) alle Wakeups neu, so dass die 8 Slots immer die
 nächsten Erinnerungen über die Tagesgrenze hinweg abdecken.
 
 ## Timeline
 
-Die Telefonseite (`src/pkjs/index.js`) fragt beim Start die Konfiguration von
-der Watch ab und legt für heute und morgen je einen Pin pro Erinnerung an.
-Angelegte Pin-IDs werden im localStorage gemerkt, damit nur neue Pins gesendet
-werden. Jeder Pin hat die Aktionen "Getrunken" (öffnet die App und zählt +1)
-und "App öffnen".
+In der Timeline steht genau ein Pin für die nächste Erinnerung. Die Watch
+schickt der Telefonseite (`src/pkjs/index.js`) beim Start und bei jedem
+Wakeup Zeitpunkt und Slot der nächsten Erinnerung; der Pin (feste ID
+`aquatakt-next`) wandert entsprechend weiter. Er hat die Aktionen "Getrunken"
+(öffnet die App und zählt +1) und "App öffnen".
 
 Übertragung: Das JS holt per `Pebble.getTimelineToken` einen Token und sendet
 die Pins an `https://timeline-api.rebble.io`. Das funktioniert mit der neuen
 Pebble-App (Core Devices), sofern sie bei Rebble angemeldet ist. Nur wenn kein
 Token zu bekommen ist, wird die lokale Schnittstelle `Pebble.insertTimelinePin`
-versucht. Gesendete Pins werden nach 12 Stunden erneut gesendet, damit sie
-eine Neuinstallation überstehen. Im Emulator gibt es keinen Token; die Pins
-werden dann übersprungen (Log: "timeline: kein Token").
+versucht. Der Pin wird erneut gesendet, wenn sich der Zeitpunkt ändert oder
+nach 12 Stunden. Im Emulator gibt es keinen Token; der Pin wird dann
+übersprungen (Log: "timeline: kein Token").
 
 ## Farben
 
