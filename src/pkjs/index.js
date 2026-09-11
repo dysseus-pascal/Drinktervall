@@ -18,7 +18,7 @@ var FORGET_AFTER_MS = 3 * 86400 * 1000;   // alte Eintraege vergessen
 // Steckt in der Signatur jedes Pins: bei JEDER Aenderung am Aussehen (Symbol,
 // Titel, Text, Aktionen) erhoehen. Sonst bleiben schon gesendete Pins auf ihrem
 // alten Stand stehen - ihr Zustand hat sich ja nicht geaendert.
-var LOOK_VERSION = 4;
+var LOOK_VERSION = 5;
 // Einzel-Pin der Versionen 1.1.0 (aquatakt-next) und 1.1.1 (drinktervall-next).
 // Die Tages-Pins aquatakt-JJJJMMTT-n aus 1.0.x stehen bewusst nicht hier: sie
 // liegen in der Vergangenheit und werden nicht mehr aufgeraeumt.
@@ -42,8 +42,9 @@ var SLOT_DRUNK = 2, SLOT_MISSED = 3;
 // github.com/coredevices/mobileapp Issue 275. Sobald das behoben ist, genuegt
 // hier "app://images/GLASS_FULL" bzw. "...GLASS_DRUNK" und ein erhoehtes
 // LOOK_VERSION.
-// NOTIFICATION_REMINDER ist eine Hand mit Trinkglas und damit das einzige
-// System-Symbol, das zur App passt; verpasste Glaeser tragen das Warndreieck.
+// NOTIFICATION_REMINDER ist eine Hand mit Trinkglas und passt damit fuer die
+// kommende Erinnerung; getrunkene tragen GENERIC_CONFIRMATION (einen Stern),
+// verpasste das Warndreieck.
 // Einen Haken gibt es als Timeline-Symbol NICHT. Geprueft gegen die Tabelle
 // der Firmware (timeline_resource_table): in der Liste wird die kleinste
 // Groesse gezeichnet, und kein Eintrag mit dieser Groesse ist ein Haken.
@@ -51,7 +52,7 @@ var SLOT_DRUNK = 2, SLOT_MISSED = 3;
 // haben gar keine kleine Groesse und fallen dort auf die Flagge zurueck.
 var PIN_LOOK = {
   next:   { title: 'Glas Wasser %n von %g', body: 'Zeit für ein Glas Wasser.', icon: 'system://images/NOTIFICATION_REMINDER', action: 'Getrunken' },
-  drunk:  { title: 'Glas %n getrunken', icon: 'system://images/NOTIFICATION_REMINDER' },
+  drunk:  { title: 'Glas %n getrunken', icon: 'system://images/GENERIC_CONFIRMATION' },
   missed: { title: 'Glas %n verpasst', body: 'Nachholen? Die App zählt das Glas.', icon: 'system://images/GENERIC_WARNING', action: 'Nachholen' }
 };
 
