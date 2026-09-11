@@ -9,13 +9,15 @@ Pin pro Erinnerung in der Timeline. Farbschema blau/weiss.
 **Hauptscreen** - die ganze Fläche ist das Glas: hellblauer Grund, der sich
 pro getrunkenem Glas von unten mit Dunkelblau füllt (animiert); darauf
 Uhrzeit, Zähler "n von 8" und die nächste Erinnerung. Schrift und
-Tasten-Hinweise wechseln an der Wasserlinie die Farbe.
+Tasten-Hinweise wechseln an der Wasserlinie die Farbe. Einen Zähler nach
+unten gibt es bewusst nicht: ein getrunkenes Glas lässt sich nicht
+zurücknehmen.
 
 | Taste  | Aktion                          |
 |--------|---------------------------------|
 | Oben   | Trinkplan des Tages (Liste)     |
-| Mitte  | +1 Glas getrunken               |
-| Unten  | -1 Glas (Korrektur)             |
+| Mitte  | Glas getrunken: ein volles Glas erscheint, wird in drei Schlucken
+|        | geleert und verpufft, dann steigen Zähler und Pegel |
 
 **Erinnerung** - erscheint zur geplanten Zeit von selbst (Wakeup), vibriert
 dreimal im Abstand von 20 s und schliesst sich nach 60 s wieder.

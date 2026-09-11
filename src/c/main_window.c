@@ -2,6 +2,7 @@
 #include "config.h"
 #include "theme.h"
 #include "draw.h"
+#include "glass_fx.h"
 #include "schedule.h"
 #include "plan_window.h"
 
@@ -10,6 +11,10 @@
 // Teil (Hoehe = getrunkene Glaeser / Tagesziel), zeichnet dort denselben
 // Inhalt dunkel mit heller Schrift und wird vom eigenen Rahmen beschnitten.
 // So dreht die Schrift an der Wasserlinie die Farbe.
+//
+// Ein neues Glas (mittlere Taste, "Getrunken" im Erinnerungs-Screen) spielt
+// zuerst die Trink-Animation (glass_fx), erst danach steigen Zaehler und
+// Pegel. s_shown_count ist der angezeigte Stand, schedule_count() der echte.
 
 #define FILL_ANIM_MS 350
 
@@ -17,9 +22,14 @@ static Window *s_window;
 static Layer *s_canvas;
 static Layer *s_water;
 static PropertyAnimation *s_anim;
+static int s_shown_count;
+
+// Textspalte links der Tasten-Hinweise
+#define MARGIN      PBL_IF_ROUND_ELSE(28, 6)
+#define HINT_SPACE  46
 
 static GRect prv_water_frame(GRect full) {
-  const int16_t h = (int16_t)((int32_t)full.size.h * schedule_count() / DT_GLASSES);
+  const int16_t h = (int16_t)((int32_t)full.size.h * s_shown_count / DT_GLASSES);
   return GRect(0, full.size.h - h, full.size.w, h);
 }
 
@@ -32,9 +42,8 @@ static void prv_draw_content(GContext *ctx, GRect full, int16_t shift_y, bool on
   const GColor tag_fg = on_dark ? DT_COLOR_LEVEL_DARK : DT_COLOR_ON_DARK;
   const GRect area = GRect(full.origin.x, full.origin.y - shift_y, full.size.w, full.size.h);
   const bool wide = area.size.w >= 180;
-  const int16_t margin = PBL_IF_ROUND_ELSE(28, 6);
-  const int16_t hint_space = 46;   // Spalte der Tasten-Hinweise rechts
-  const int16_t col_w = area.size.w - margin - hint_space;
+  const int16_t margin = MARGIN;
+  const int16_t col_w = area.size.w - MARGIN - HINT_SPACE;
   graphics_context_set_text_color(ctx, text);
 
   char clock[10];
@@ -43,17 +52,20 @@ static void prv_draw_content(GContext *ctx, GRect full, int16_t shift_y, bool on
                      GRect(margin, area.origin.y + PBL_IF_ROUND_ELSE(14, 2), col_w, 22),
                      GTextOverflowModeTrailingEllipsis, GTextAlignmentCenter, NULL);
 
-  char num[4];
-  snprintf(num, sizeof(num), "%d", schedule_count());
-  const int16_t num_y = area.origin.y + area.size.h * 26 / 100;
-  graphics_draw_text(ctx, num, fonts_get_system_font(FONT_KEY_BITHAM_42_BOLD),
-                     GRect(margin, num_y, col_w, 46),
-                     GTextOverflowModeTrailingEllipsis, GTextAlignmentCenter, NULL);
-  char of[12];
-  snprintf(of, sizeof(of), "von %d", DT_GLASSES);
-  graphics_draw_text(ctx, of, fonts_get_system_font(FONT_KEY_GOTHIC_18),
-                     GRect(margin, num_y + 48, col_w, 22),
-                     GTextOverflowModeTrailingEllipsis, GTextAlignmentCenter, NULL);
+  // Waehrend der Trink-Animation steht das Glas an dieser Stelle
+  if (!glass_fx_is_playing()) {
+    char num[4];
+    snprintf(num, sizeof(num), "%d", s_shown_count);
+    const int16_t num_y = area.origin.y + area.size.h * 26 / 100;
+    graphics_draw_text(ctx, num, fonts_get_system_font(FONT_KEY_BITHAM_42_BOLD),
+                       GRect(margin, num_y, col_w, 46),
+                       GTextOverflowModeTrailingEllipsis, GTextAlignmentCenter, NULL);
+    char of[12];
+    snprintf(of, sizeof(of), "von %d", DT_GLASSES);
+    graphics_draw_text(ctx, of, fonts_get_system_font(FONT_KEY_GOTHIC_18),
+                       GRect(margin, num_y + 48, col_w, 22),
+                       GTextOverflowModeTrailingEllipsis, GTextAlignmentCenter, NULL);
+  }
 
   time_t now = time(NULL);
   time_t next;
@@ -76,7 +88,7 @@ static void prv_draw_content(GContext *ctx, GRect full, int16_t shift_y, bool on
                      GRect(margin, next_y + 14, col_w, 30),
                      GTextOverflowModeTrailingEllipsis, GTextAlignmentCenter, NULL);
 
-  draw_button_hints(ctx, area, "Plan", "+1", "-1", tag_bg, tag_fg);
+  draw_button_hints(ctx, area, "Plan", "+1", NULL, tag_bg, tag_fg);
 }
 
 static void prv_canvas_update(Layer *layer, GContext *ctx) {
@@ -94,6 +106,9 @@ static void prv_water_update(Layer *layer, GContext *ctx) {
 }
 
 static void prv_anim_stopped(Animation *animation, bool finished, void *context) {
+  // Das SDK gibt beendete Animationen nicht selbst frei; auch nach
+  // animation_unschedule landet man hier.
+  property_animation_destroy((PropertyAnimation *)animation);
   s_anim = NULL;
 }
 
@@ -121,6 +136,32 @@ static void prv_set_level(bool animate) {
   animation_schedule(anim);
 }
 
+// Nach der Trink-Animation: Zaehler und Pegel auf den echten Stand bringen
+static void prv_fx_done(void) {
+  s_shown_count = schedule_count();
+  layer_mark_dirty(s_canvas);
+  prv_set_level(true);
+}
+
+// Anzeige mit dem echten Stand abgleichen; ein neues Glas wird zuerst
+// getrunken (Animation), alles andere springt direkt.
+static void prv_sync(bool with_fx) {
+  if (with_fx && schedule_count() > s_shown_count) {
+    if (!glass_fx_is_playing()) {
+      // Glas ueber der Zaehler-Spalte, etwas oberhalb der Mitte
+      const GRect full = layer_get_bounds(s_canvas);
+      const GPoint anchor = GPoint(MARGIN + (full.size.w - MARGIN - HINT_SPACE) / 2,
+                                   full.size.h * 44 / 100);
+      glass_fx_play(anchor, prv_fx_done);
+      layer_mark_dirty(s_canvas);   // Zaehler ausblenden
+    }
+    return;
+  }
+  s_shown_count = schedule_count();
+  layer_mark_dirty(s_canvas);
+  prv_set_level(false);
+}
+
 static void prv_tick(struct tm *tick_time, TimeUnits units_changed) {
   layer_mark_dirty(s_canvas);
 }
@@ -133,34 +174,30 @@ static void prv_select(ClickRecognizerRef recognizer, void *context) {
   if (schedule_count() >= DT_GLASSES) return;
   schedule_set_count(schedule_count() + 1);
   vibes_short_pulse();
-  prv_set_level(true);
-}
-
-static void prv_down(ClickRecognizerRef recognizer, void *context) {
-  schedule_set_count(schedule_count() - 1);
-  prv_set_level(true);
+  prv_sync(true);
 }
 
 static void prv_click_config(void *context) {
   window_single_click_subscribe(BUTTON_ID_UP, prv_up);
   window_single_click_subscribe(BUTTON_ID_SELECT, prv_select);
-  window_single_click_subscribe(BUTTON_ID_DOWN, prv_down);
 }
 
 static void prv_load(Window *window) {
   Layer *root = window_get_root_layer(window);
   const GRect bounds = layer_get_bounds(root);
+  s_shown_count = schedule_count();
   s_canvas = layer_create(bounds);
   layer_set_update_proc(s_canvas, prv_canvas_update);
   layer_add_child(root, s_canvas);
   s_water = layer_create(prv_water_frame(bounds));
   layer_set_update_proc(s_water, prv_water_update);
   layer_add_child(s_canvas, s_water);
+  glass_fx_init(root);
   tick_timer_service_subscribe(MINUTE_UNIT, prv_tick);
 }
 
 static void prv_appear(Window *window) {
-  prv_set_level(false);
+  prv_sync(true);
 }
 
 static void prv_unload(Window *window) {
@@ -169,6 +206,7 @@ static void prv_unload(Window *window) {
     animation_unschedule((Animation *)s_anim);
     s_anim = NULL;
   }
+  glass_fx_deinit();
   layer_destroy(s_water);
   layer_destroy(s_canvas);
   window_destroy(s_window);
@@ -189,5 +227,5 @@ void main_window_push(void) {
 }
 
 void main_window_refresh(void) {
-  if (s_canvas) prv_set_level(true);
+  if (s_canvas) prv_sync(true);
 }
