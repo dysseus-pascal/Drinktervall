@@ -22,8 +22,8 @@
 #define SHRINK_END  800
 #define RAYS         12
 
-#define SHAKE_PX     3      // Schuetteln beim Leeren: Versatz links/rechts
-#define SHAKE_MS    40      // ... und Wechsel alle 40 ms
+#define SHAKE_PX     2      // Schuetteln beim Leeren: Versatz links/rechts
+#define SHAKE_MS    50      // ... und Wechsel alle 50 ms
 
 // Strichstaerke wie die Timeline-Sonne: 5 % der Glasbreite (ungerade), das
 // Gesicht in derselben Staerke; weisser Saum darunter, lesbar auf Wasser.
