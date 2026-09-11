@@ -1,5 +1,5 @@
 #include "reminder_window.h"
-#include "aquatakt.h"
+#include "drinktervall.h"
 #include "config.h"
 #include "theme.h"
 #include "draw.h"
@@ -22,7 +22,7 @@ static void prv_update(Layer *layer, GContext *ctx) {
   const int16_t text_w = bounds.size.w - 2 * margin;
   const int count = schedule_count();
 
-  graphics_context_set_text_color(ctx, AT_COLOR_ON_PRIMARY);
+  graphics_context_set_text_color(ctx, DT_COLOR_ON_PRIMARY);
   const char *title = "Zeit für ein Glas Wasser!";
   GFont title_font = fonts_get_system_font(wide ? FONT_KEY_GOTHIC_24_BOLD : FONT_KEY_GOTHIC_18_BOLD);
   GRect title_box = GRect(margin, PBL_IF_ROUND_ELSE(16, 6), text_w, 90);
@@ -33,10 +33,10 @@ static void prv_update(Layer *layer, GContext *ctx) {
                      GTextAlignmentCenter, NULL);
 
   char sub[24];
-  if (count >= AT_GLASSES) {
+  if (count >= DT_GLASSES) {
     snprintf(sub, sizeof(sub), "Tagesziel erreicht");
   } else {
-    snprintf(sub, sizeof(sub), "Glas %d von %d", count + 1, AT_GLASSES);
+    snprintf(sub, sizeof(sub), "Glas %d von %d", count + 1, DT_GLASSES);
   }
   const int16_t sub_y = title_box.origin.y + title_size.h + 2;
   graphics_draw_text(ctx, sub, fonts_get_system_font(FONT_KEY_GOTHIC_18),
@@ -51,10 +51,10 @@ static void prv_update(Layer *layer, GContext *ctx) {
   if (glass_h > glass_w * 3 / 2) glass_h = glass_w * 3 / 2;
   if (glass_h > 30) {
     GRect glass = GRect(margin, avail_y + (avail_h - glass_h) / 2, glass_w, glass_h);
-    draw_glass(ctx, glass, count * 1000 / AT_GLASSES, AT_COLOR_ON_PRIMARY, AT_COLOR_WATER_DARK);
+    draw_glass(ctx, glass, count * 1000 / DT_GLASSES, DT_COLOR_ON_PRIMARY, DT_COLOR_WATER_DARK);
   }
 
-  draw_button_hints(ctx, bounds, NULL, "Getrunken", "Später", AT_COLOR_BG, AT_COLOR_PRIMARY);
+  draw_button_hints(ctx, bounds, NULL, "Getrunken", "Später", DT_COLOR_BG, DT_COLOR_PRIMARY);
 }
 
 static void prv_cancel_timers(void) {
@@ -66,7 +66,7 @@ static void prv_close(bool timed_out) {
   prv_cancel_timers();
   window_stack_remove(s_window, !timed_out);
   main_window_refresh();
-  aquatakt_reminder_closed(timed_out);
+  drinktervall_reminder_closed(timed_out);
 }
 
 static void prv_vibe(void *data) {
@@ -81,13 +81,13 @@ static void prv_timeout(void *data) {
 }
 
 static void prv_select(ClickRecognizerRef recognizer, void *context) {
-  if (schedule_count() < AT_GLASSES) schedule_set_count(schedule_count() + 1);
+  if (schedule_count() < DT_GLASSES) schedule_set_count(schedule_count() + 1);
   vibes_short_pulse();
   prv_close(false);
 }
 
 static void prv_down(ClickRecognizerRef recognizer, void *context) {
-  schedule_plan_wakeups(time(NULL) + AT_SNOOZE_MIN * 60);
+  schedule_plan_wakeups(time(NULL) + DT_SNOOZE_MIN * 60);
   prv_close(false);
 }
 
@@ -108,7 +108,7 @@ static void prv_load(Window *window) {
   layer_add_child(root, s_canvas);
   s_vibes_left = VIBE_REPEATS;
   prv_vibe(NULL);
-  s_close_timer = app_timer_register(AT_REMINDER_TIMEOUT_S * 1000, prv_timeout, NULL);
+  s_close_timer = app_timer_register(DT_REMINDER_TIMEOUT_S * 1000, prv_timeout, NULL);
   light_enable_interaction();
 }
 
@@ -129,7 +129,7 @@ void reminder_window_push(void) {
     return;
   }
   s_window = window_create();
-  window_set_background_color(s_window, AT_COLOR_PRIMARY);
+  window_set_background_color(s_window, DT_COLOR_PRIMARY);
   window_set_click_config_provider(s_window, prv_click_config);
   window_set_window_handlers(s_window, (WindowHandlers) {
     .load = prv_load, .unload = prv_unload,

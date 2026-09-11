@@ -19,19 +19,19 @@ static void prv_update(Layer *layer, GContext *ctx) {
   const GRect glass = GRect(margin, bounds.origin.y + 10,
                             bounds.size.w * 36 / 100, bounds.size.h * 58 / 100);
   const int count = schedule_count();
-  draw_glass(ctx, glass, count * 1000 / AT_GLASSES, AT_COLOR_PRIMARY, AT_COLOR_WATER);
+  draw_glass(ctx, glass, count * 1000 / DT_GLASSES, DT_COLOR_PRIMARY, DT_COLOR_WATER);
 
   const int16_t col_x = glass.origin.x + glass.size.w + 8;
   const int16_t col_w = bounds.size.w - col_x - hint_space;
   char num[4];
   snprintf(num, sizeof(num), "%d", count);
-  graphics_context_set_text_color(ctx, AT_COLOR_TEXT);
+  graphics_context_set_text_color(ctx, DT_COLOR_TEXT);
   GFont big = fonts_get_system_font(FONT_KEY_BITHAM_42_BOLD);
   const int16_t num_y = glass.origin.y + glass.size.h / 2 - 34;
   graphics_draw_text(ctx, num, big, GRect(col_x, num_y, col_w, 46),
                      GTextOverflowModeTrailingEllipsis, GTextAlignmentCenter, NULL);
   char of[12];
-  snprintf(of, sizeof(of), "von %d", AT_GLASSES);
+  snprintf(of, sizeof(of), "von %d", DT_GLASSES);
   GFont small = fonts_get_system_font(col_w >= 44 ? FONT_KEY_GOTHIC_18 : FONT_KEY_GOTHIC_14);
   graphics_draw_text(ctx, of, small, GRect(col_x, num_y + 48, col_w, 22),
                      GTextOverflowModeTrailingEllipsis, GTextAlignmentCenter, NULL);
@@ -58,7 +58,7 @@ static void prv_update(Layer *layer, GContext *ctx) {
                      GRect(margin, band_y + 14, band_w, 30),
                      GTextOverflowModeTrailingEllipsis, GTextAlignmentLeft, NULL);
 
-  draw_button_hints(ctx, bounds, "Plan", "+1", "-1", AT_COLOR_PRIMARY, AT_COLOR_ON_PRIMARY);
+  draw_button_hints(ctx, bounds, "Plan", "+1", "-1", DT_COLOR_PRIMARY, DT_COLOR_ON_PRIMARY);
 }
 
 static void prv_up(ClickRecognizerRef recognizer, void *context) {
@@ -66,7 +66,7 @@ static void prv_up(ClickRecognizerRef recognizer, void *context) {
 }
 
 static void prv_select(ClickRecognizerRef recognizer, void *context) {
-  if (schedule_count() >= AT_GLASSES) return;
+  if (schedule_count() >= DT_GLASSES) return;
   schedule_set_count(schedule_count() + 1);
   vibes_short_pulse();
   layer_mark_dirty(s_canvas);
@@ -87,7 +87,7 @@ static void prv_load(Window *window) {
   Layer *root = window_get_root_layer(window);
   const GRect bounds = layer_get_bounds(root);
   s_status = status_bar_layer_create();
-  status_bar_layer_set_colors(s_status, AT_COLOR_PRIMARY, AT_COLOR_ON_PRIMARY);
+  status_bar_layer_set_colors(s_status, DT_COLOR_PRIMARY, DT_COLOR_ON_PRIMARY);
   status_bar_layer_set_separator_mode(s_status, StatusBarLayerSeparatorModeNone);
   layer_add_child(root, status_bar_layer_get_layer(s_status));
   s_canvas = layer_create(GRect(0, STATUS_BAR_LAYER_HEIGHT, bounds.size.w,
@@ -111,7 +111,7 @@ static void prv_unload(Window *window) {
 void main_window_push(void) {
   if (s_window) return;
   s_window = window_create();
-  window_set_background_color(s_window, AT_COLOR_BG);
+  window_set_background_color(s_window, DT_COLOR_BG);
   window_set_click_config_provider(s_window, prv_click_config);
   window_set_window_handlers(s_window, (WindowHandlers) {
     .load = prv_load, .appear = prv_appear, .unload = prv_unload,

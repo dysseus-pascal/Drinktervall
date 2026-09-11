@@ -1,4 +1,4 @@
-# AquaTakt
+# Drinktervall
 
 Trink-Erinnerung für Pebble (Emery, Flint, Gabbro): acht Gläser Wasser zwischen
 8 und 20 Uhr, alle 90 Minuten eine Erinnerung direkt auf der Watch, dazu ein
@@ -29,11 +29,11 @@ Launcher zeigt "n von 8 Gläsern, nächste HH:MM".
 ## Zeitplan
 
 Grundraster: 08:00, 09:30, 11:00, 12:30, 14:00, 15:30, 17:00, 18:30. Jede
-Erinnerung wird um bis zu 10 Minuten vor- oder nachverlegt (`AT_JITTER_MIN`),
+Erinnerung wird um bis zu 10 Minuten vor- oder nachverlegt (`DT_JITTER_MIN`),
 deterministisch aus Datum und Slot, so dass Wakeups, Plan-Liste und Glance
 dieselben Zeiten zeigen; das Fenster 8 bis 20 Uhr wird nicht verlassen. Alle
-Werte stehen in `src/c/config.h` (`AT_START_HOUR`, `AT_END_HOUR`, `AT_GLASSES`,
-`AT_JITTER_MIN`, `AT_SNOOZE_MIN`). `AT_GLASSES` darf 8 nicht überschreiten,
+Werte stehen in `src/c/config.h` (`DT_START_HOUR`, `DT_END_HOUR`, `DT_GLASSES`,
+`DT_JITTER_MIN`, `DT_SNOOZE_MIN`). `DT_GLASSES` darf 8 nicht überschreiten,
 weil Pebble pro App höchstens 8 Wakeup-Events erlaubt. Die App plant bei jedem
 Start (auch beim Wakeup-Start) alle Wakeups neu, so dass die 8 Slots immer die
 nächsten Erinnerungen über die Tagesgrenze hinweg abdecken.
@@ -43,7 +43,7 @@ nächsten Erinnerungen über die Tagesgrenze hinweg abdecken.
 In der Timeline steht genau ein Pin für die nächste Erinnerung. Die Watch
 schickt der Telefonseite (`src/pkjs/index.js`) beim Start und bei jedem
 Wakeup Zeitpunkt und Slot der nächsten Erinnerung; der Pin (feste ID
-`aquatakt-next`) wandert entsprechend weiter. Er hat die Aktionen "Getrunken"
+`drinktervall-next`) wandert entsprechend weiter. Er hat die Aktionen "Getrunken"
 (öffnet die App und zählt +1) und "App öffnen".
 
 Übertragung: Das JS holt per `Pebble.getTimelineToken` einen Token und sendet
@@ -64,19 +64,19 @@ Grauraster gezeichnet.
 ## Bauen
 
 Pebble waf verträgt keine Pfade mit Leerzeichen, deshalb wird in WSL unter
-`~/aquatakt` gebaut:
+`~/drinktervall` gebaut:
 
 ```sh
-tools/sync_aqua.sh <Quellordner>    # Quellen spiegeln + pebble build
+tools/sync_drinktervall.sh <Quellordner>    # Quellen spiegeln + pebble build
 pebble install --emulator emery      # oder flint / gabbro
 pebble install --phone <IP>          # Developer Connection der Pebble-App
 ```
 
 Die Skripte liegen unter `tools/` (nach `~` kopieren oder direkt aufrufen):
-`sync_aqua.sh [<Quellordner>]` spiegelt und baut, `aquatest.sh <plattform>`
-macht Screenshots der Screens nach /tmp/aqua, `aquawake.sh` ist der
+`sync_drinktervall.sh [<Quellordner>]` spiegelt und baut, `test_screens.sh <plattform>`
+macht Screenshots der Screens nach /tmp/drinktervall, `test_wakeup.sh` ist der
 Wakeup-Test (Testbuild mit Erinnerung 60 s nach dem Start; setzt
-`AT_TEST_WAKEUP` nur in der WSL-Kopie).
+`DT_TEST_WAKEUP` nur in der WSL-Kopie).
 
-Das fertige Paket liegt nach dem Build unter `build/aquatakt.pbw`, eine Kopie
+Das fertige Paket liegt nach dem Build unter `build/drinktervall.pbw`, eine Kopie
 neben dieser README.

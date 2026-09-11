@@ -1,12 +1,12 @@
 {
-  "name": "aquatakt",
+  "name": "drinktervall",
   "author": "dysseus-pascal",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "keywords": ["pebble-app"],
   "private": true,
   "dependencies": {},
   "pebble": {
-    "displayName": "AquaTakt",
+    "displayName": "Drinktervall",
     "uuid": "5b0f7a3e-2c8d-4b61-9e4f-7d2a1c9b8e50",
     "sdkVersion": "3",
     "enableMultiJS": true,

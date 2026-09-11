@@ -1,22 +1,22 @@
 #pragma once
 #include <pebble.h>
 
-// Wakeup-Cookie fuer die "Spaeter"-Erinnerung; regulaere Slots tragen 0..AT_GLASSES-1.
+// Wakeup-Cookie fuer die "Spaeter"-Erinnerung; regulaere Slots tragen 0..DT_GLASSES-1.
 #define SCHEDULE_COOKIE_SNOOZE 100
 
 // Zaehler laden; bei Tageswechsel auf 0 setzen.
 void schedule_init(void);
 
-// Heute getrunkene Glaeser (0..AT_GLASSES).
+// Heute getrunkene Glaeser (0..DT_GLASSES).
 int schedule_count(void);
 
-// Zaehler setzen (wird auf 0..AT_GLASSES begrenzt) und persistieren.
+// Zaehler setzen (wird auf 0..DT_GLASSES begrenzt) und persistieren.
 void schedule_set_count(int count);
 
 // Lokale Mitternacht des Tages, in dem `t` liegt (Epoch-Sekunden).
 time_t schedule_midnight(time_t t);
 
-// Zeitpunkt der Erinnerung `idx` (0..AT_GLASSES-1) an dem Tag mit Mitternacht `midnight`.
+// Zeitpunkt der Erinnerung `idx` (0..DT_GLASSES-1) an dem Tag mit Mitternacht `midnight`.
 time_t schedule_slot(time_t midnight, int idx);
 
 // Naechste Erinnerung nach `now` (heute oder morgen). Rueckgabe: Slot-Index.

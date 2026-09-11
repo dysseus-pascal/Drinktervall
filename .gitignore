@@ -1,4 +1,4 @@
-# Pebble-Build (entsteht in WSL unter ~/aquatakt/build)
+# Pebble-Build (entsteht in WSL unter ~/drinktervall/build)
 build/
 .lock-waf*
 

@@ -1,4 +1,4 @@
-// AquaTakt - Telefonseite: haelt genau einen Timeline-Pin fuer die naechste
+// Drinktervall - Telefonseite: haelt genau einen Timeline-Pin fuer die naechste
 // Erinnerung. Die Watch schickt Zeitpunkt und Slot per AppMessage
 // (src/c/phone.c), damit die Zeitberechnung samt Versatz nur in C lebt.
 //
@@ -8,11 +8,12 @@
 // Schnittstelle Pebble.insertTimelinePin versucht.
 
 var API_URL = 'https://timeline-api.rebble.io/v1/user/pins/';
-// Muss zu AT_COLOR_PRIMARY in src/c/theme.h passen (handgepflegte Kopie)
+// Muss zu DT_COLOR_PRIMARY in src/c/theme.h passen (handgepflegte Kopie)
 var PIN_COLOR = '#0055FF';
 // Ein einziger Pin, der bei jeder Erinnerung auf die naechste Zeit wandert
-var PIN_ID = 'aquatakt-next';
-var STORE_KEY = 'aquatakt_next_v1';       // zuletzt gesendete Zeit + Zeitpunkt
+var PIN_ID = 'drinktervall-next';
+var OLD_PIN_ID = 'aquatakt-next';   // Pin-ID vor der Umbenennung; wird einmal geloescht
+var STORE_KEY = 'drinktervall_next_v1';       // zuletzt gesendete Zeit + Zeitpunkt
 var RESEND_AFTER_MS = 12 * 3600 * 1000;   // unveraenderten Pin nach 12 h erneut senden
 
 var LAUNCH_CODE_DRUNK = 1;
@@ -32,7 +33,7 @@ function buildPin(when, index, glasses) {
     layout: {
       type: 'genericPin',
       title: 'Glas Wasser ' + (index + 1) + ' von ' + glasses,
-      subtitle: 'AquaTakt',
+      subtitle: 'Drinktervall',
       body: 'Zeit für ein Glas Wasser. Tagesziel: ' + glasses + ' Gläser.',
       tinyIcon: 'system://images/NOTIFICATION_REMINDER',
       backgroundColor: PIN_COLOR,
@@ -77,6 +78,19 @@ function insertViaLocal(pin, callback) {
   }
 }
 
+// Den Pin aus der Zeit vor der Umbenennung einmalig entfernen
+function deleteOldPin(token) {
+  if (loadStore().oldDeleted) return;
+  var xhr = new XMLHttpRequest();
+  xhr.onload = function () {
+    console.log('timeline: alter Pin ' + OLD_PIN_ID + ' geloescht (' + this.status + ')');
+    var s = loadStore(); s.oldDeleted = true; saveStore(s);
+  };
+  xhr.open('DELETE', API_URL + OLD_PIN_ID);
+  xhr.setRequestHeader('X-User-Token', '' + token);
+  xhr.send();
+}
+
 function pushNext(msg) {
   var pin = buildPin(new Date(msg.NEXT_TIME * 1000), msg.NEXT_INDEX, msg.GLASSES);
   var store = loadStore();
@@ -86,7 +100,7 @@ function pushNext(msg) {
   }
   var done = function (ok, info) {
     console.log('timeline: ' + pin.id + ' ' + pin.time + ' -> ' + (ok ? 'ok' : 'fehlgeschlagen') + ' (' + info + ')');
-    if (ok) saveStore({ time: pin.time, sentAt: Date.now() });
+    if (ok) { var s = loadStore(); s.time = pin.time; s.sentAt = Date.now(); saveStore(s); }
   };
   var useLocal = function (reason) {
     if (hasLocalApi()) {
@@ -98,6 +112,7 @@ function pushNext(msg) {
   };
   if (typeof Pebble.getTimelineToken !== 'function') { useLocal('kein getTimelineToken'); return; }
   Pebble.getTimelineToken(function (token) {
+    deleteOldPin(token);
     insertViaRest(pin, token, done);
   }, function (error) {
     useLocal('kein Token (' + error + ')');

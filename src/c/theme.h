@@ -18,9 +18,9 @@
 // Pebble-Palette (Auswahl Blau): BlueMoon #0055FF, DukeBlue #0000AA,
 // CobaltBlue #0055AA, VividCerulean #00AAFF, PictonBlue #55AAFF,
 // Celeste #AAFFFF, OxfordBlue #000055.
-#define AT_COLOR_PRIMARY     PBL_IF_COLOR_ELSE(GColorBlueMoon, GColorBlack)
-#define AT_COLOR_WATER       PBL_IF_COLOR_ELSE(GColorVividCerulean, GColorLightGray)
-#define AT_COLOR_WATER_DARK  PBL_IF_COLOR_ELSE(GColorCeleste, GColorLightGray)
-#define AT_COLOR_BG          GColorWhite
-#define AT_COLOR_TEXT        PBL_IF_COLOR_ELSE(GColorOxfordBlue, GColorBlack)
-#define AT_COLOR_ON_PRIMARY  GColorWhite
+#define DT_COLOR_PRIMARY     PBL_IF_COLOR_ELSE(GColorBlueMoon, GColorBlack)
+#define DT_COLOR_WATER       PBL_IF_COLOR_ELSE(GColorVividCerulean, GColorLightGray)
+#define DT_COLOR_WATER_DARK  PBL_IF_COLOR_ELSE(GColorCeleste, GColorLightGray)
+#define DT_COLOR_BG          GColorWhite
+#define DT_COLOR_TEXT        PBL_IF_COLOR_ELSE(GColorOxfordBlue, GColorBlack)
+#define DT_COLOR_ON_PRIMARY  GColorWhite

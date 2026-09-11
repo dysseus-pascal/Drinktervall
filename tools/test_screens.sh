@@ -1,10 +1,10 @@
 #!/bin/sh
-# Screenshot-Durchlauf im Emulator. Aufruf: aquatest.sh <emery|flint|gabbro>
-# Ergebnis in /tmp/aqua/<plattform>/. Erwartet ein gebautes ~/aquatakt.
+# Screenshot-Durchlauf im Emulator. Aufruf: test_screens.sh <emery|flint|gabbro>
+# Ergebnis in /tmp/drinktervall/<plattform>/. Erwartet ein gebautes ~/drinktervall.
 export PATH=$HOME/.local/bin:$PATH
-cd ~/aquatakt || exit 1
+cd ~/drinktervall || exit 1
 P="$1"; E="--emulator $P"
-OUT=/tmp/aqua/$P
+OUT=/tmp/drinktervall/$P
 click() { pebble emu-button $E click "$1"; sleep 1; }
 shot()  { sleep 1; pebble screenshot $E "$OUT/$1.png" >/dev/null 2>&1; echo "  $1"; }
 rm -rf "$OUT"; mkdir -p "$OUT"

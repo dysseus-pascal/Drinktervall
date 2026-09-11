@@ -1,5 +1,5 @@
 #include <pebble.h>
-#include "aquatakt.h"
+#include "drinktervall.h"
 #include "config.h"
 #include "schedule.h"
 #include "main_window.h"
@@ -25,7 +25,7 @@ static void prv_glance_reload(AppGlanceReloadSession *session, size_t limit, voi
   schedule_format_time(next, hhmm, sizeof(hhmm));
   char text[48];
   snprintf(text, sizeof(text), "%d von %d Gläsern, nächste %s",
-           schedule_count(), AT_GLASSES, hhmm);
+           schedule_count(), DT_GLASSES, hhmm);
   const AppGlanceSlice slice = {
     .layout = { .icon = APP_GLANCE_SLICE_DEFAULT_ICON, .subtitle_template_string = text },
     .expiration_time = APP_GLANCE_SLICE_NO_EXPIRATION,
@@ -33,7 +33,7 @@ static void prv_glance_reload(AppGlanceReloadSession *session, size_t limit, voi
   app_glance_add_slice(session, slice);
 }
 
-void aquatakt_reminder_closed(bool timed_out) {
+void drinktervall_reminder_closed(bool timed_out) {
   if (timed_out && s_launched_by_wakeup) window_stack_pop_all(false);
 }
 
@@ -52,7 +52,7 @@ static void prv_init(void) {
       break;
     }
     case APP_LAUNCH_TIMELINE_ACTION:
-      if (launch_get_args() == LAUNCH_CODE_DRUNK && schedule_count() < AT_GLASSES) {
+      if (launch_get_args() == LAUNCH_CODE_DRUNK && schedule_count() < DT_GLASSES) {
         schedule_set_count(schedule_count() + 1);
         vibes_short_pulse();
         main_window_refresh();

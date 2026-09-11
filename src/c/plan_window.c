@@ -7,7 +7,7 @@ static Window *s_window;
 static MenuLayer *s_menu;
 
 static uint16_t prv_num_rows(MenuLayer *menu, uint16_t section, void *ctx) {
-  return AT_GLASSES;
+  return DT_GLASSES;
 }
 
 static int16_t prv_header_height(MenuLayer *menu, uint16_t section, void *ctx) {
@@ -52,8 +52,8 @@ static void prv_load(Window *window) {
     .draw_header = prv_draw_header,
     .draw_row = prv_draw_row,
   });
-  menu_layer_set_normal_colors(s_menu, AT_COLOR_BG, AT_COLOR_TEXT);
-  menu_layer_set_highlight_colors(s_menu, AT_COLOR_PRIMARY, AT_COLOR_ON_PRIMARY);
+  menu_layer_set_normal_colors(s_menu, DT_COLOR_BG, DT_COLOR_TEXT);
+  menu_layer_set_highlight_colors(s_menu, DT_COLOR_PRIMARY, DT_COLOR_ON_PRIMARY);
   menu_layer_set_click_config_onto_window(s_menu, window);
   layer_add_child(root, menu_layer_get_layer(s_menu));
 
@@ -61,7 +61,7 @@ static void prv_load(Window *window) {
   time_t now = time(NULL);
   time_t next;
   int idx = schedule_next(now, &next);
-  if (next >= schedule_midnight(now) + 86400) idx = AT_GLASSES - 1;
+  if (next >= schedule_midnight(now) + 86400) idx = DT_GLASSES - 1;
   menu_layer_set_selected_index(s_menu, MenuIndex(0, idx), MenuRowAlignCenter, false);
 }
 
@@ -74,7 +74,7 @@ static void prv_unload(Window *window) {
 void plan_window_push(void) {
   if (s_window) return;
   s_window = window_create();
-  window_set_background_color(s_window, AT_COLOR_BG);
+  window_set_background_color(s_window, DT_COLOR_BG);
   window_set_window_handlers(s_window, (WindowHandlers) {
     .load = prv_load, .unload = prv_unload,
   });

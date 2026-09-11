@@ -14,14 +14,14 @@ static int32_t prv_day_key(time_t t) {
 void schedule_init(void) {
   time_t now = time(NULL);
   int32_t today = prv_day_key(now);
-  int32_t stored_day = persist_exists(AT_PERSIST_DAY) ? persist_read_int(AT_PERSIST_DAY) : 0;
-  s_count = (stored_day == today && persist_exists(AT_PERSIST_COUNT))
-      ? persist_read_int(AT_PERSIST_COUNT) : 0;
+  int32_t stored_day = persist_exists(DT_PERSIST_DAY) ? persist_read_int(DT_PERSIST_DAY) : 0;
+  s_count = (stored_day == today && persist_exists(DT_PERSIST_COUNT))
+      ? persist_read_int(DT_PERSIST_COUNT) : 0;
   if (s_count < 0) s_count = 0;
-  if (s_count > AT_GLASSES) s_count = AT_GLASSES;
+  if (s_count > DT_GLASSES) s_count = DT_GLASSES;
   if (stored_day != today) {
-    persist_write_int(AT_PERSIST_DAY, today);
-    persist_write_int(AT_PERSIST_COUNT, 0);
+    persist_write_int(DT_PERSIST_DAY, today);
+    persist_write_int(DT_PERSIST_COUNT, 0);
   }
 }
 
@@ -31,10 +31,10 @@ int schedule_count(void) {
 
 void schedule_set_count(int count) {
   if (count < 0) count = 0;
-  if (count > AT_GLASSES) count = AT_GLASSES;
+  if (count > DT_GLASSES) count = DT_GLASSES;
   s_count = count;
-  persist_write_int(AT_PERSIST_DAY, prv_day_key(time(NULL)));
-  persist_write_int(AT_PERSIST_COUNT, s_count);
+  persist_write_int(DT_PERSIST_DAY, prv_day_key(time(NULL)));
+  persist_write_int(DT_PERSIST_COUNT, s_count);
 }
 
 // Ohne mktime: Mitternacht = jetzt minus Sekunden seit lokaler Mitternacht.
@@ -44,20 +44,20 @@ time_t schedule_midnight(time_t t) {
   return t - (lt->tm_hour * 3600 + lt->tm_min * 60 + lt->tm_sec);
 }
 
-// Deterministischer Versatz in [-AT_JITTER_MIN, +AT_JITTER_MIN] Minuten aus Tag
+// Deterministischer Versatz in [-DT_JITTER_MIN, +DT_JITTER_MIN] Minuten aus Tag
 // und Slot (Integer-Hash), damit Wakeups, Plan-Liste und Glance dieselben
 // Zeiten zeigen.
 static int prv_jitter_min(time_t midnight, int idx) {
   uint32_t h = (uint32_t)prv_day_key(midnight) * 8u + (uint32_t)idx;
   h ^= h >> 16; h *= 0x7feb352dU; h ^= h >> 15; h *= 0x846ca68bU; h ^= h >> 16;
-  return (int)(h % (2 * AT_JITTER_MIN + 1)) - AT_JITTER_MIN;
+  return (int)(h % (2 * DT_JITTER_MIN + 1)) - DT_JITTER_MIN;
 }
 
 time_t schedule_slot(time_t midnight, int idx) {
-  const int minutes = AT_START_HOUR * 60 + idx * AT_INTERVAL_MIN + prv_jitter_min(midnight, idx);
+  const int minutes = DT_START_HOUR * 60 + idx * DT_INTERVAL_MIN + prv_jitter_min(midnight, idx);
   time_t t = midnight + (time_t)minutes * 60;
-  const time_t lo = midnight + (time_t)AT_START_HOUR * 3600;
-  const time_t hi = midnight + (time_t)AT_END_HOUR * 3600;
+  const time_t lo = midnight + (time_t)DT_START_HOUR * 3600;
+  const time_t hi = midnight + (time_t)DT_END_HOUR * 3600;
   if (t < lo) t = lo;
   if (t > hi) t = hi;
   return t;
@@ -66,7 +66,7 @@ time_t schedule_slot(time_t midnight, int idx) {
 int schedule_next(time_t now, time_t *when) {
   time_t midnight = schedule_midnight(now);
   for (int day = 0; day < 2; day++) {
-    for (int i = 0; i < AT_GLASSES; i++) {
+    for (int i = 0; i < DT_GLASSES; i++) {
       time_t t = schedule_slot(midnight + day * 86400, i);
       if (t > now) {
         if (when) *when = t;
@@ -93,13 +93,13 @@ void schedule_plan_wakeups(time_t snooze_until) {
   wakeup_cancel_all();
   int n = 0;
   if (snooze_until > now + LEAD_S && prv_schedule(snooze_until, SCHEDULE_COOKIE_SNOOZE)) n++;
-#ifdef AT_TEST_WAKEUP
+#ifdef DT_TEST_WAKEUP
   // Nur fuer Emulator-Tests: Erinnerung eine Minute nach dem Start.
   if (prv_schedule(now + 60, 0)) n++;
 #endif
   time_t midnight = schedule_midnight(now);
   for (int day = 0; day < 3 && n < MAX_WAKEUPS; day++) {
-    for (int i = 0; i < AT_GLASSES && n < MAX_WAKEUPS; i++) {
+    for (int i = 0; i < DT_GLASSES && n < MAX_WAKEUPS; i++) {
       time_t t = schedule_slot(midnight + day * 86400, i);
       if (t <= now + LEAD_S) continue;
       if (prv_schedule(t, i)) n++;
