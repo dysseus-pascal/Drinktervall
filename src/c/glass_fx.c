@@ -10,21 +10,16 @@
 //   ..DRINK_END    Pegel faellt gleichmaessig, Schluck-Gesicht, Glas wackelt
 //   ..SMILE_END    leer, wieder Laecheln
 //   ..SHRINK_END   Glas schrumpft ins Zentrum
-//   ..CHECK_START  Strahlenkranz dort, wo das Glas war
-//   ..1000         Haken poppt auf und bleibt bis zum Schliessen stehen
+//   ..1000         Strahlenkranz dort, wo das Glas war
 
 #ifndef FX_MS
-#define FX_MS 2000          // Gesamtdauer; Testbuilds koennen sie ueberschreiben
+#define FX_MS 1750          // Gesamtdauer; Testbuilds koennen sie ueberschreiben
 #endif
-// Phasengrenzen in Promille von FX_MS; in Millisekunden gerechnet sind das
-// 150 aufploppen, 100 halten, 750 leeren, 150 laecheln, 250 schrumpfen,
-// 350 Strahlenkranz und 250 fuer den Haken.
-#define POP_END      75
-#define HOLD_END    125
-#define DRINK_END   500
-#define SMILE_END   575
-#define SHRINK_END  700
-#define CHECK_START 875
+#define POP_END      86
+#define HOLD_END    143
+#define DRINK_END   571
+#define SMILE_END   657
+#define SHRINK_END  800
 #define RAYS         12
 
 #define SHAKE_PX     2      // Schuetteln beim Leeren: Versatz links/rechts
@@ -188,12 +183,6 @@ static void prv_draw_burst(GContext *ctx, int32_t u) {
   gpath_destroy(star);
 }
 
-// Haken als Bestaetigung, im selben Strichbild wie das Gesicht
-static void prv_draw_check(GContext *ctx) {
-  GPoint check[3] = { prv_gp(-22, 0), prv_gp(-8, 15), prv_gp(22, -17) };
-  prv_polyline(ctx, check, 3);
-}
-
 // smoothstep, Ein- und Ausgabe in Promille
 static int32_t prv_smooth(int32_t f) {
   return f * f * (3000 - 2 * f) / 1000000;
@@ -227,15 +216,8 @@ static void prv_draw(Layer *layer, GContext *ctx) {
   } else if (s_p < SHRINK_END) {
     // leer, ab SMILE_END schrumpfend; das letzte Zwergenglas sparen wir uns
     if (scale > 60) prv_draw_glass(ctx, 0, FaceSmile, DT_COLOR_FX_WATER);
-  } else if (s_p < CHECK_START) {
-    prv_draw_burst(ctx, (s_p - SHRINK_END) * 1000 / (CHECK_START - SHRINK_END));
   } else {
-    // Haken poppt mit Ueberschwingen auf: 0 -> 1200 -> 1000
-    const int32_t t = (s_p - CHECK_START) * 1000 / (1000 - CHECK_START);
-    const int32_t cs = t < 600 ? 1200 * prv_smooth(t * 1000 / 600) / 1000
-                               : 1200 - 200 * (t - 600) / 400;
-    prv_set_metrics(c, s_width, cs);
-    prv_draw_check(ctx);
+    prv_draw_burst(ctx, (s_p - SHRINK_END) * 1000 / (1000 - SHRINK_END));
   }
 }
 
@@ -256,8 +238,7 @@ static void prv_stopped(Animation *animation, bool finished, void *context) {
   // Das SDK gibt beendete Animationen nicht selbst frei
   animation_destroy(animation);
   s_anim = NULL;
-  // Layer sichtbar lassen: das letzte Bild ist der Haken, er soll stehen
-  // bleiben, bis das Fenster schliesst.
+  layer_set_hidden(s_layer, true);
   GlassFxDone done = s_done;
   s_done = NULL;
   if (finished && done) done();

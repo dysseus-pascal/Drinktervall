@@ -58,9 +58,8 @@ Taste für den laufenden Tag erhöhen.
 |        | weisse Pfeilkerbe am gewählten Eintrag |
 | Mitte  | Glas getrunken: ein Vollbild-Fenster zeigt ein Glas mit Gesicht,
 |        | das aufploppt, sich leert, ins Zentrum schrumpft und in einem
-|        | Strahlenkranz zerplatzt und einen Haken als Bestätigung stehen
-|        | lässt; danach steigen Zähler und Pegel. Vom Hauptscreen aus
-|        | bleibt die App danach offen |
+|        | Strahlenkranz zerplatzt; danach steigen Zähler und Pegel. Vom
+|        | Hauptscreen aus bleibt die App danach offen |
 | Unten  | Tagesziel um ein Glas erhöhen (nur heute, morgen wieder 8), damit
 |        | sich über das Ziel hinaus weiter loggen lässt |
 
@@ -71,9 +70,8 @@ Häkchen (Getrunken) und Zz (Später). Erscheint zur geplanten Zeit von selbst (
 
 | Taste  | Aktion                                  |
 |--------|-----------------------------------------|
-| Mitte  | Getrunken: Zähler +1, kurze Trink-Animation mit Haken am Ende,
-|        | dann schliesst sich die App - die Unterbrechung bleibt so kurz
-|        | wie möglich |
+| Mitte  | Getrunken: Zähler +1, kurze Trink-Animation, dann schliesst sich
+|        | die App - die Unterbrechung bleibt so kurz wie möglich |
 | Unten  | Später: in 10 Minuten nochmals erinnern, die App schliesst sich sofort |
 | Zurück | Schliessen ohne zu zählen, das Glas gilt als verpasst; nach einem
 |        | Wakeup-Start beendet sich die App, sonst zurück zum Hauptscreen |
@@ -98,8 +96,8 @@ nächsten Erinnerungen über die Tagesgrenze hinweg abdecken.
 In der Zukunft steht genau ein Pin für die nächste Erinnerung mit den Aktionen
 "Getrunken" (öffnet die App und zählt +1) und "App öffnen". In der
 Vergangenheit steht für jeden heutigen Slot, der vorbei ist, ein Pin: "Glas n
-getrunken" oder "Glas n verpasst" mit der Aktion "Nachholen", die das Glas
-nachträglich zählt. Kommende und getrunkene Pins tragen `NOTIFICATION_REMINDER`,
+getrunken" (mit einem Haken im Titel) oder "Glas n verpasst" mit der Aktion
+"Nachholen", die das Glas nachträglich zählt. Kommende und getrunkene Pins tragen `NOTIFICATION_REMINDER`,
 eine Hand mit Trinkglas; verpasste das Warndreieck, damit sie sich abheben. Jeder Slot hat die feste ID
 `drinktervall-JJJJMMTT-n`; der Pin der nächsten Erinnerung wird nach dem
 Slot zum Getrunken- oder Verpasst-Pin. Die Watch schickt der Telefonseite
