@@ -35,6 +35,6 @@
 #define DT_COLOR_ON_DARK     GColorWhite
 
 // Trink-Animation (Vollbild): weisser Grund, hellblaues Wasser im Glas.
-// S/W: schwarzes Wasser im weissen Glas.
+// S/W: graues (gerastertes) Wasser im weissen Glas.
 #define DT_COLOR_FX_BG       GColorWhite
-#define DT_COLOR_FX_WATER    PBL_IF_COLOR_ELSE(GColorPictonBlue, GColorBlack)
+#define DT_COLOR_FX_WATER    PBL_IF_COLOR_ELSE(GColorPictonBlue, GColorLightGray)

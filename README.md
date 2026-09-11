@@ -77,7 +77,7 @@ nach 12 Stunden. Im Emulator gibt es keinen Token; der Pin wird dann
 `src/c/theme.h`: Hauptscreen LEVEL_LIGHT PictonBlue `#55AAFF` (leer) und
 LEVEL_DARK DukeBlue `#0000AA` (Wasser), Schrift OxfordBlue bzw. Weiss.
 Erinnerungs-Screen und Listen-Hervorhebung PRIMARY BlueMoon `#0055FF`. Der Hex-Wert von PRIMARY ist in `src/pkjs/index.js`
-(`PIN_COLOR`) von Hand kopiert. Auf Flint (Schwarz/Weiss) ist der Grund weiss und das Wasser schwarz.
+(`PIN_COLOR`) von Hand kopiert. Auf Flint (Schwarz/Weiss) ist der Pegel des Hauptscreens schwarz, das Wasser in der Trink-Animation grau gerastert.
 
 ## Bauen
 
