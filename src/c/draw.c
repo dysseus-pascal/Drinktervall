@@ -1,43 +1,5 @@
 #include "draw.h"
 
-void draw_glass(GContext *ctx, GRect box, int level_permille, GColor outline, GColor water) {
-  if (level_permille < 0) level_permille = 0;
-  if (level_permille > 1000) level_permille = 1000;
-  const int16_t top = box.origin.y;
-  const int16_t bottom = box.origin.y + box.size.h - 1;
-  const int16_t h = box.size.h - 1;
-  // Boden ist 3/4 so breit wie der Rand
-  const int16_t inset = box.size.w / 8;
-  const int16_t left_top = box.origin.x;
-  const int16_t right_top = box.origin.x + box.size.w - 1;
-  const int16_t left_bot = left_top + inset;
-  const int16_t right_bot = right_top - inset;
-
-  if (level_permille > 0) {
-    const int16_t water_h = (int16_t)((int32_t)h * level_permille / 1000);
-    const int16_t y = bottom - water_h;
-    // x-Kante auf Hoehe y linear zwischen Boden und Rand
-    const int16_t dx = (int16_t)((int32_t)inset * water_h / h);
-    GPoint pts[4] = {
-      { left_bot, bottom }, { right_bot, bottom },
-      { (int16_t)(right_bot + dx), y }, { (int16_t)(left_bot - dx), y },
-    };
-    GPathInfo info = { .num_points = 4, .points = pts };
-    GPath *path = gpath_create(&info);
-    graphics_context_set_fill_color(ctx, water);
-    gpath_draw_filled(ctx, path);
-    gpath_destroy(path);
-  }
-
-  graphics_context_set_stroke_color(ctx, outline);
-  graphics_context_set_stroke_width(ctx, 3);
-  graphics_draw_line(ctx, GPoint(left_top, top), GPoint(left_bot, bottom));
-  graphics_draw_line(ctx, GPoint(left_bot, bottom), GPoint(right_bot, bottom));
-  graphics_draw_line(ctx, GPoint(right_bot, bottom), GPoint(right_top, top));
-  graphics_context_set_stroke_width(ctx, 1);
-  graphics_draw_line(ctx, GPoint(left_top, top), GPoint(right_top, top));
-}
-
 static void prv_hint(GContext *ctx, GRect bounds, const char *text, int16_t center_y,
                      GColor bg, GColor fg) {
   if (!text) return;

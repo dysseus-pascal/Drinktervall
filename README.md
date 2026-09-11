@@ -35,7 +35,9 @@ Taste für den laufenden Tag erhöhen.
 | Unten  | Tagesziel um ein Glas erhöhen (nur heute, morgen wieder 8), damit
 |        | sich über das Ziel hinaus weiter loggen lässt |
 
-**Erinnerung** - erscheint zur geplanten Zeit von selbst (Wakeup), vibriert
+**Erinnerung** - weisser Screen mit dem Glas aus der Trink-Animation (schwarzer
+Rahmen, hellblaues Wasser, Lächeln); erscheint zur geplanten Zeit von selbst
+(Wakeup), vibriert
 dreimal im Abstand von 20 s und schliesst sich nach 60 s wieder.
 
 | Taste  | Aktion                                  |
@@ -79,7 +81,8 @@ nach 12 Stunden. Im Emulator gibt es keinen Token; der Pin wird dann
 
 `src/c/theme.h`: Hauptscreen LEVEL_LIGHT PictonBlue `#55AAFF` (leer) und
 LEVEL_DARK DukeBlue `#0000AA` (Wasser), Schrift OxfordBlue bzw. Weiss.
-Erinnerungs-Screen und Listen-Hervorhebung PRIMARY BlueMoon `#0055FF`. Der Hex-Wert von PRIMARY ist in `src/pkjs/index.js`
+Listen-Hervorhebung PRIMARY BlueMoon `#0055FF`; Erinnerungs-Screen und
+Trink-Animation weiss (FX_BG) mit hellblauem Wasser (FX_WATER PictonBlue). Der Hex-Wert von PRIMARY ist in `src/pkjs/index.js`
 (`PIN_COLOR`) von Hand kopiert. Auf Flint (Schwarz/Weiss) ist der Pegel des Hauptscreens schwarz, das Wasser in der Trink-Animation grau gerastert.
 
 ## Bauen

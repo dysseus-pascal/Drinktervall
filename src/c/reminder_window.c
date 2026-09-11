@@ -3,6 +3,7 @@
 #include "config.h"
 #include "theme.h"
 #include "draw.h"
+#include "glass_fx.h"
 #include "schedule.h"
 #include "main_window.h"
 
@@ -22,7 +23,7 @@ static void prv_update(Layer *layer, GContext *ctx) {
   const int16_t text_w = bounds.size.w - 2 * margin;
   const int count = schedule_count();
 
-  graphics_context_set_text_color(ctx, DT_COLOR_ON_PRIMARY);
+  graphics_context_set_text_color(ctx, DT_COLOR_ON_LIGHT);
   const char *title = "Zeit für ein Glas Wasser!";
   GFont title_font = fonts_get_system_font(wide ? FONT_KEY_GOTHIC_24_BOLD : FONT_KEY_GOTHIC_18_BOLD);
   // Auf runden Displays tiefer, wo die Sehne breit genug fuer die Zeile ist
@@ -44,18 +45,17 @@ static void prv_update(Layer *layer, GContext *ctx) {
                      GRect(margin, sub_y, text_w, 22), GTextOverflowModeTrailingEllipsis,
                      GTextAlignmentCenter, NULL);
 
-  // Glas unten links; die Tasten-Hinweise sitzen rechts
-  const int16_t glass_w = bounds.size.w * 34 / 100;
+  // Glas unten links wie in der Trink-Animation, gut gefuellt; die
+  // Tasten-Hinweise sitzen rechts
   const int16_t avail_y = sub_y + 26;
   const int16_t avail_h = bounds.size.h - avail_y - PBL_IF_ROUND_ELSE(30, 8);
-  int16_t glass_h = avail_h;
-  if (glass_h > glass_w * 3 / 2) glass_h = glass_w * 3 / 2;
-  if (glass_h > 30) {
-    GRect glass = GRect(margin, avail_y + (avail_h - glass_h) / 2, glass_w, glass_h);
-    draw_glass(ctx, glass, count * 1000 / schedule_goal(), DT_COLOR_ON_PRIMARY, DT_COLOR_WATER_DARK);
+  int16_t glass_w = bounds.size.w * 36 / 100;
+  if (glass_w * 80 / 72 > avail_h) glass_w = avail_h * 72 / 80;
+  if (glass_w > 30) {
+    glass_fx_draw_still(ctx, GPoint(margin + glass_w / 2, avail_y + avail_h / 2), glass_w, 850);
   }
 
-  draw_button_hints(ctx, bounds, NULL, "Getrunken", "Später", DT_COLOR_BG, DT_COLOR_PRIMARY);
+  draw_button_hints(ctx, bounds, NULL, "Getrunken", "Später", DT_COLOR_LEVEL_DARK, DT_COLOR_ON_DARK);
 }
 
 static void prv_cancel_timers(void) {
@@ -133,7 +133,7 @@ void reminder_window_push(void) {
     return;
   }
   s_window = window_create();
-  window_set_background_color(s_window, DT_COLOR_PRIMARY);
+  window_set_background_color(s_window, DT_COLOR_FX_BG);
   window_set_click_config_provider(s_window, prv_click_config);
   window_set_window_handlers(s_window, (WindowHandlers) {
     .load = prv_load, .unload = prv_unload,

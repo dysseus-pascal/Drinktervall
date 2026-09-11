@@ -230,6 +230,16 @@ static void prv_draw(Layer *layer, GContext *ctx) {
   }
 }
 
+void glass_fx_draw_still(GContext *ctx, GPoint center, int16_t width, int32_t level_permille) {
+  s_g.c = center;
+  s_g.gw = width;
+  s_g.scale = 1000;
+  s_g.k = s_g.scale * s_g.gw / BASE_W;
+  s_stroke = (int16_t)((s_g.gw / 20) | 1);
+  s_halo = s_stroke + 2;
+  prv_draw_glass(ctx, level_permille, FaceSmile);
+}
+
 static void prv_update(Animation *animation, const AnimationProgress progress) {
   s_p = (int32_t)progress * 1000 / ANIMATION_NORMALIZED_MAX;
   layer_mark_dirty(s_layer);

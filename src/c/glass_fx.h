@@ -16,3 +16,8 @@ void glass_fx_deinit(void);
 // glass_fx_deinit). Laeuft schon eine, passiert nichts.
 void glass_fx_play(GPoint anchor, int16_t width, GlassFxDone done);
 bool glass_fx_is_playing(void);
+
+// Stehendes Glas im selben Stil (Rahmen, Wasser bis `level_permille`,
+// laechelndes Gesicht) an beliebiger Stelle zeichnen, z.B. im
+// Erinnerungs-Screen. Unabhaengig vom Overlay-Layer.
+void glass_fx_draw_still(GContext *ctx, GPoint center, int16_t width, int32_t level_permille);
