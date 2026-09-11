@@ -65,6 +65,21 @@ static void prv_line(GContext *ctx, GPoint a, GPoint b) {
   graphics_draw_line(ctx, a, b);
 }
 
+// Offene Polylinie in einem Zug (erst Saum, dann Strich), damit am Knick
+// keine Naht entsteht
+static void prv_polyline(GContext *ctx, GPoint *points, uint32_t n) {
+  const GPathInfo info = { .num_points = n, .points = points };
+  GPath *path = gpath_create(&info);
+  if (!path) return;
+  graphics_context_set_stroke_color(ctx, GColorWhite);
+  graphics_context_set_stroke_width(ctx, HALO);
+  gpath_draw_outline_open(ctx, path);
+  graphics_context_set_stroke_color(ctx, GColorBlack);
+  graphics_context_set_stroke_width(ctx, STROKE);
+  gpath_draw_outline_open(ctx, path);
+  gpath_destroy(path);
+}
+
 typedef enum { FaceSmile, FaceGulp } Face;
 
 // Gesicht wie die Timeline-Sonne, leicht nach links versetzt (Seitenblick):
@@ -89,8 +104,8 @@ static void prv_face(GContext *ctx, Face face) {
     graphics_context_set_stroke_width(ctx, STROKE);
     graphics_draw_circle(ctx, m, r);
   } else {
-    prv_line(ctx, prv_gp(-15, fy + 7), prv_gp(-4, fy + 10));
-    prv_line(ctx, prv_gp(-4, fy + 10), prv_gp(8, fy + 7));
+    GPoint mouth[3] = { prv_gp(-15, fy + 7), prv_gp(-4, fy + 10), prv_gp(8, fy + 7) };
+    prv_polyline(ctx, mouth, 3);
   }
 }
 
