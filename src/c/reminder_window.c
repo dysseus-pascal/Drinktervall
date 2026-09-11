@@ -2,12 +2,14 @@
 #include "drinktervall.h"
 #include "config.h"
 #include "theme.h"
-#include "draw.h"
 #include "glass_fx.h"
 #include "schedule.h"
 #include "main_window.h"
 #include "phone.h"
 
+// Erinnerung im Stil eines Timeline-Pin-Details: Kopfband mit Glas und Zeit,
+// schwarze Linie, weisse Karte mit dem Aufruf, rechts die schwarze
+// Aktionsleiste mit Haekchen (Getrunken) und Uhr (Spaeter).
 // Bleibt stehen, bis eine Taste gedrueckt wird:
 //   Mitte   Getrunken: zaehlt +1, zurueck zum Hauptscreen (Trink-Animation)
 //   Unten   Spaeter: in DT_SNOOZE_MIN Minuten nochmals, App beendet sich
@@ -19,49 +21,59 @@
 
 static Window *s_window;
 static Layer *s_canvas;
+static ActionBarLayer *s_bar;
+static GBitmap *s_icon_check, *s_icon_snooze;
 static AppTimer *s_vibe_timer;
 static int s_vibes_left;
 
 static void prv_update(Layer *layer, GContext *ctx) {
-  const GRect bounds = layer_get_bounds(layer);
-  const bool wide = bounds.size.w >= 180;
-  const int16_t margin = PBL_IF_ROUND_ELSE(30, 10);
-  const int16_t text_w = bounds.size.w - 2 * margin;
+  const GRect b = layer_get_bounds(layer);      // ohne Aktionsleiste
+  const bool wide = b.size.w >= 150;
+  const int16_t margin = PBL_IF_ROUND_ELSE(24, 8);
+  const int16_t head_h = wide ? 74 : 60;
   const int count = schedule_count();
 
-  graphics_context_set_text_color(ctx, DT_COLOR_ON_LIGHT);
-  const char *title = "Zeit für ein Glas Wasser!";
+  // Kopfband: Uhrzeit klein, Glas links, Uhrzeit der Erinnerung in LECO
+  graphics_context_set_fill_color(ctx, DT_COLOR_LEVEL_LIGHT);
+  graphics_fill_rect(ctx, GRect(0, 0, b.size.w, head_h), 0, GCornerNone);
+  graphics_context_set_text_color(ctx, DT_COLOR_TEXT);
+  char clock[10];
+  clock_copy_time_string(clock, sizeof(clock));
+  graphics_draw_text(ctx, clock, fonts_get_system_font(FONT_KEY_GOTHIC_14),
+                     GRect(0, PBL_IF_ROUND_ELSE(6, 0), b.size.w, 16),
+                     GTextOverflowModeTrailingEllipsis, GTextAlignmentCenter, NULL);
+  const int16_t glass_w = wide ? 40 : 32;
+  glass_fx_draw_still(ctx, GPoint(margin + glass_w / 2, head_h / 2 + 8), glass_w, 850);
+  graphics_draw_text(ctx, clock,
+                     fonts_get_system_font(wide ? FONT_KEY_LECO_26_BOLD_NUMBERS_AM_PM
+                                                : FONT_KEY_LECO_20_BOLD_NUMBERS),
+                     GRect(margin + glass_w + 10, head_h / 2 - (wide ? 10 : 8),
+                           b.size.w - margin - glass_w - 12, 32),
+                     GTextOverflowModeTrailingEllipsis, GTextAlignmentLeft, NULL);
+  graphics_context_set_fill_color(ctx, GColorBlack);
+  graphics_fill_rect(ctx, GRect(0, head_h, b.size.w, 2), 0, GCornerNone);
+
+  // Karte
+  const int16_t text_w = b.size.w - 2 * margin;
+  int16_t y = head_h + 6;
   GFont title_font = fonts_get_system_font(wide ? FONT_KEY_GOTHIC_24_BOLD : FONT_KEY_GOTHIC_18_BOLD);
-  // Auf runden Displays tiefer, wo die Sehne breit genug fuer die Zeile ist
-  GRect title_box = GRect(margin, PBL_IF_ROUND_ELSE(38, 6), text_w, 90);
+  const char *title = "Zeit für ein Glas Wasser!";
+  GRect title_box = GRect(margin, y, text_w, 90);
   GSize title_size = graphics_text_layout_get_content_size(title, title_font, title_box,
                                                            GTextOverflowModeWordWrap,
-                                                           GTextAlignmentCenter);
+                                                           GTextAlignmentLeft);
   graphics_draw_text(ctx, title, title_font, title_box, GTextOverflowModeWordWrap,
-                     GTextAlignmentCenter, NULL);
-
+                     GTextAlignmentLeft, NULL);
+  y += title_size.h + 4;
   char sub[24];
   if (count >= schedule_goal()) {
     snprintf(sub, sizeof(sub), "Tagesziel erreicht");
   } else {
     snprintf(sub, sizeof(sub), "Glas %d von %d", count + 1, schedule_goal());
   }
-  const int16_t sub_y = title_box.origin.y + title_size.h + 2;
-  graphics_draw_text(ctx, sub, fonts_get_system_font(FONT_KEY_GOTHIC_18),
-                     GRect(margin, sub_y, text_w, 22), GTextOverflowModeTrailingEllipsis,
-                     GTextAlignmentCenter, NULL);
-
-  // Glas unten links wie in der Trink-Animation, gut gefuellt; die
-  // Tasten-Hinweise sitzen rechts
-  const int16_t avail_y = sub_y + 26;
-  const int16_t avail_h = bounds.size.h - avail_y - PBL_IF_ROUND_ELSE(30, 8);
-  int16_t glass_w = bounds.size.w * 36 / 100;
-  if (glass_w * 80 / 72 > avail_h) glass_w = avail_h * 72 / 80;
-  if (glass_w > 30) {
-    glass_fx_draw_still(ctx, GPoint(margin + glass_w / 2, avail_y + avail_h / 2), glass_w, 850);
-  }
-
-  draw_button_hints(ctx, bounds, NULL, "Getrunken", "Später", DT_COLOR_LEVEL_DARK, DT_COLOR_ON_DARK);
+  graphics_draw_text(ctx, sub, fonts_get_system_font(wide ? FONT_KEY_GOTHIC_18 : FONT_KEY_GOTHIC_14),
+                     GRect(margin, y, text_w, 22), GTextOverflowModeTrailingEllipsis,
+                     GTextAlignmentLeft, NULL);
 }
 
 static void prv_cancel_vibes(void) {
@@ -111,9 +123,20 @@ static void prv_click_config(void *context) {
 
 static void prv_load(Window *window) {
   Layer *root = window_get_root_layer(window);
-  s_canvas = layer_create(layer_get_bounds(root));
+  const GRect bounds = layer_get_bounds(root);
+  s_canvas = layer_create(GRect(0, 0, bounds.size.w - ACTION_BAR_WIDTH, bounds.size.h));
   layer_set_update_proc(s_canvas, prv_update);
   layer_add_child(root, s_canvas);
+
+  s_icon_check = gbitmap_create_with_resource(RESOURCE_ID_ICON_CHECK);
+  s_icon_snooze = gbitmap_create_with_resource(RESOURCE_ID_ICON_SNOOZE);
+  s_bar = action_bar_layer_create();
+  action_bar_layer_set_background_color(s_bar, GColorBlack);
+  action_bar_layer_set_icon(s_bar, BUTTON_ID_SELECT, s_icon_check);
+  action_bar_layer_set_icon(s_bar, BUTTON_ID_DOWN, s_icon_snooze);
+  action_bar_layer_set_click_config_provider(s_bar, prv_click_config);
+  action_bar_layer_add_to_window(s_bar, window);
+
   s_vibes_left = VIBE_REPEATS;
   prv_vibe(NULL);
   light_enable_interaction();
@@ -121,6 +144,9 @@ static void prv_load(Window *window) {
 
 static void prv_unload(Window *window) {
   prv_cancel_vibes();
+  action_bar_layer_destroy(s_bar);
+  gbitmap_destroy(s_icon_check);
+  gbitmap_destroy(s_icon_snooze);
   layer_destroy(s_canvas);
   window_destroy(s_window);
   s_window = NULL;
@@ -136,8 +162,7 @@ void reminder_window_push(void) {
     return;
   }
   s_window = window_create();
-  window_set_background_color(s_window, DT_COLOR_FX_BG);
-  window_set_click_config_provider(s_window, prv_click_config);
+  window_set_background_color(s_window, DT_COLOR_BG);
   window_set_window_handlers(s_window, (WindowHandlers) {
     .load = prv_load, .unload = prv_unload,
   });

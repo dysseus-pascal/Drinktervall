@@ -1,7 +1,7 @@
 {
   "name": "drinktervall",
   "author": "dysseus-pascal",
-  "version": "1.3.0",
+  "version": "1.4.0",
   "keywords": ["pebble-app"],
   "private": true,
   "dependencies": {},
@@ -33,6 +33,16 @@
           "type": "bitmap",
           "name": "IMAGE_ICON",
           "file": "images/system_icon.png"
+        },
+        {
+          "type": "bitmap",
+          "name": "ICON_CHECK",
+          "file": "images/icon_check.png"
+        },
+        {
+          "type": "bitmap",
+          "name": "ICON_SNOOZE",
+          "file": "images/action_bar_icon_snooze.png"
         }
       ]
     }

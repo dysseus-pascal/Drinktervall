@@ -1,17 +1,16 @@
 #include "main_window.h"
 #include "config.h"
 #include "theme.h"
-#include "draw.h"
 #include "drink_window.h"
+#include "glass_fx.h"
 #include "schedule.h"
 #include "plan_window.h"
 #include "phone.h"
 
-// Der Hauptscreen ist ein Glas ohne Glas: s_canvas zeichnet die ganze Flaeche
-// hell mit dunkler Schrift, s_water liegt als Kind-Layer ueber dem unteren
-// Teil (Hoehe = getrunkene Glaeser / Tagesziel), zeichnet dort denselben
-// Inhalt dunkel mit heller Schrift und wird vom eigenen Rahmen beschnitten.
-// So dreht die Schrift an der Wasserlinie die Farbe.
+// Hauptscreen im Stil der Timeline: weisser Grund, schwarze Schrift, rechts
+// die dunkle Seitenleiste mit Glas-Symbol und Tasten-Hinweisen. Der Pegel
+// (getrunkene Glaeser / Tagesziel) steigt als hellblaues Band ueber den
+// Inhalt; s_water ist dieses Band, s_canvas zeichnet Text und Leiste darueber.
 //
 // Ein neues Glas (mittlere Taste, "Getrunken" im Erinnerungs-Screen) oeffnet
 // zuerst das Vollbild-Fenster mit der Trink-Animation (drink_window); wenn es
@@ -26,44 +25,24 @@ static Layer *s_water;
 static PropertyAnimation *s_anim;
 static int s_shown_count;
 
-// Textspalte links der Tasten-Hinweise
-#define MARGIN      PBL_IF_ROUND_ELSE(28, 6)
-#define HINT_SPACE  46
-
 static GRect prv_water_frame(GRect full) {
   const int16_t h = (int16_t)((int32_t)full.size.h * s_shown_count / schedule_goal());
-  return GRect(0, full.size.h - h, full.size.w, h);
+  return GRect(0, full.size.h - h, full.size.w - DT_SIDEBAR_W, h);
 }
 
-// Gemeinsamer Inhalt beider Layer. `full` ist die ganze Flaeche; `shift_y`
-// verschiebt sie fuer den Wasser-Layer nach oben, damit beide Zeichnungen
-// auf dem Display deckungsgleich liegen.
-static void prv_draw_content(GContext *ctx, GRect full, int16_t shift_y, bool on_dark) {
-  const GColor text = on_dark ? DT_COLOR_ON_DARK : DT_COLOR_ON_LIGHT;
-  const GColor tag_bg = on_dark ? DT_COLOR_ON_DARK : DT_COLOR_LEVEL_DARK;
-  const GColor tag_fg = on_dark ? DT_COLOR_LEVEL_DARK : DT_COLOR_ON_DARK;
-  const GRect area = GRect(full.origin.x, full.origin.y - shift_y, full.size.w, full.size.h);
-  const bool wide = area.size.w >= 180;
-  const int16_t margin = MARGIN;
-  const int16_t col_w = area.size.w - MARGIN - HINT_SPACE;
-  graphics_context_set_text_color(ctx, text);
+static void prv_canvas_update(Layer *layer, GContext *ctx) {
+  const GRect b = layer_get_bounds(layer);
+  const bool wide = b.size.w >= 180;
+  const int16_t margin = PBL_IF_ROUND_ELSE(38, 9);
+  const int16_t col_w = b.size.w - DT_SIDEBAR_W - margin - 4;
 
+  // Inhalt links, wie ein Timeline-Eintrag: Uhr, naechste Erinnerung in
+  // LECO, Titel, Untertitel
+  graphics_context_set_text_color(ctx, DT_COLOR_TEXT);
   char clock[10];
   clock_copy_time_string(clock, sizeof(clock));
-  graphics_draw_text(ctx, clock, fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD),
-                     GRect(margin, area.origin.y + PBL_IF_ROUND_ELSE(14, 2), col_w, 22),
-                     GTextOverflowModeTrailingEllipsis, GTextAlignmentCenter, NULL);
-
-  char num[4];
-  snprintf(num, sizeof(num), "%d", s_shown_count);
-  const int16_t num_y = area.origin.y + area.size.h * 26 / 100;
-  graphics_draw_text(ctx, num, fonts_get_system_font(FONT_KEY_BITHAM_42_BOLD),
-                     GRect(margin, num_y, col_w, 46),
-                     GTextOverflowModeTrailingEllipsis, GTextAlignmentCenter, NULL);
-  char of[12];
-  snprintf(of, sizeof(of), "von %d", schedule_goal());
-  graphics_draw_text(ctx, of, fonts_get_system_font(FONT_KEY_GOTHIC_18),
-                     GRect(margin, num_y + 48, col_w, 22),
+  graphics_draw_text(ctx, clock, fonts_get_system_font(FONT_KEY_GOTHIC_14),
+                     GRect(0, PBL_IF_ROUND_ELSE(10, 0), b.size.w - DT_SIDEBAR_W, 16),
                      GTextOverflowModeTrailingEllipsis, GTextAlignmentCenter, NULL);
 
   time_t now = time(NULL);
@@ -71,37 +50,62 @@ static void prv_draw_content(GContext *ctx, GRect full, int16_t shift_y, bool on
   schedule_next(now, &next);
   char hhmm[8];
   schedule_format_time(next, hhmm, sizeof(hhmm));
-  char line[20];
-  if (next >= schedule_midnight(now) + 86400) {
-    snprintf(line, sizeof(line), "Morgen %s", hhmm);
-  } else {
-    snprintf(line, sizeof(line), "%s", hhmm);
-  }
-  const int16_t next_y = area.origin.y + area.size.h * 66 / 100;
-  graphics_draw_text(ctx, wide ? "Nächste Erinnerung" : "Nächste",
+  const bool tomorrow = next >= schedule_midnight(now) + 86400;
+  int16_t y = PBL_IF_ROUND_ELSE(46, 18);
+  graphics_draw_text(ctx, tomorrow ? "Morgen" : "Nächste Erinnerung",
                      fonts_get_system_font(FONT_KEY_GOTHIC_14),
-                     GRect(margin, next_y, col_w, 16),
-                     GTextOverflowModeTrailingEllipsis, GTextAlignmentCenter, NULL);
-  graphics_draw_text(ctx, line,
+                     GRect(margin, y, col_w, 16),
+                     GTextOverflowModeTrailingEllipsis, GTextAlignmentLeft, NULL);
+  y += 14;
+  graphics_draw_text(ctx, hhmm,
+                     fonts_get_system_font(wide ? FONT_KEY_LECO_32_BOLD_NUMBERS
+                                                : FONT_KEY_LECO_26_BOLD_NUMBERS_AM_PM),
+                     GRect(margin, y, col_w, wide ? 38 : 32),
+                     GTextOverflowModeTrailingEllipsis, GTextAlignmentLeft, NULL);
+  y += wide ? 46 : 38;
+
+  char title[20];
+  const int count = s_shown_count, goal = schedule_goal();
+  if (count >= goal) {
+    snprintf(title, sizeof(title), "Ziel erreicht");
+  } else {
+    snprintf(title, sizeof(title), "Glas %d von %d", count + 1, goal);
+  }
+  graphics_draw_text(ctx, title,
                      fonts_get_system_font(wide ? FONT_KEY_GOTHIC_24_BOLD : FONT_KEY_GOTHIC_18_BOLD),
-                     GRect(margin, next_y + 14, col_w, 30),
-                     GTextOverflowModeTrailingEllipsis, GTextAlignmentCenter, NULL);
+                     GRect(margin, y, col_w, wide ? 30 : 24),
+                     GTextOverflowModeTrailingEllipsis, GTextAlignmentLeft, NULL);
+  y += wide ? 30 : 24;
+  char sub[20];
+  snprintf(sub, sizeof(sub), "%d getrunken", count);
+  graphics_draw_text(ctx, sub,
+                     fonts_get_system_font(wide ? FONT_KEY_GOTHIC_18 : FONT_KEY_GOTHIC_14),
+                     GRect(margin, y, col_w, 22),
+                     GTextOverflowModeTrailingEllipsis, GTextAlignmentLeft, NULL);
 
-  draw_button_hints(ctx, area, "Plan", "+1", "Ziel+", tag_bg, tag_fg);
-}
-
-static void prv_canvas_update(Layer *layer, GContext *ctx) {
-  const GRect full = layer_get_bounds(layer);
-  graphics_context_set_fill_color(ctx, DT_COLOR_LEVEL_LIGHT);
-  graphics_fill_rect(ctx, full, 0, GCornerNone);
-  prv_draw_content(ctx, full, 0, false);
+  // Seitenleiste: Glas-Symbol oben, Tasten-Hinweise auf Hoehe der Tasten
+  const int16_t sx = b.size.w - DT_SIDEBAR_W;
+  graphics_context_set_fill_color(ctx, DT_COLOR_SIDEBAR);
+  graphics_fill_rect(ctx, GRect(sx, 0, DT_SIDEBAR_W, b.size.h), 0, GCornerNone);
+  const int16_t cx = sx + DT_SIDEBAR_W / 2 - PBL_IF_ROUND_ELSE(9, 0);   // rund: sichtbarer Teil der Leiste
+  glass_fx_draw_still(ctx, GPoint(cx, PBL_IF_ROUND_ELSE(58, 20)), 22, 700);
+  graphics_context_set_text_color(ctx, DT_COLOR_ON_SIDEBAR);
+  const char *hints[3] = { "Plan", "+1", "Ziel+" };
+  for (int i = 0; i < 3; i++) {
+    const int16_t hy = b.size.h * (i + 1) / 4;
+    graphics_draw_text(ctx, hints[i], fonts_get_system_font(FONT_KEY_GOTHIC_14_BOLD),
+                       GRect(cx - 24, hy - 9, 48, 18),
+                       GTextOverflowModeTrailingEllipsis, GTextAlignmentCenter, NULL);
+  }
 }
 
 static void prv_water_update(Layer *layer, GContext *ctx) {
-  const GRect frame = layer_get_frame(layer);
-  graphics_context_set_fill_color(ctx, DT_COLOR_LEVEL_DARK);
-  graphics_fill_rect(ctx, layer_get_bounds(layer), 0, GCornerNone);
-  prv_draw_content(ctx, layer_get_bounds(s_canvas), frame.origin.y, true);
+  const GRect b = layer_get_bounds(layer);
+  graphics_context_set_fill_color(ctx, DT_COLOR_BAND);
+  graphics_fill_rect(ctx, b, 0, GCornerNone);
+  // Wasserlinie als Kante, wie die schwarzen Linien der Timeline
+  graphics_context_set_fill_color(ctx, DT_COLOR_SIDEBAR);
+  graphics_fill_rect(ctx, GRect(0, 0, b.size.w, 2), 0, GCornerNone);
 }
 
 static void prv_anim_stopped(Animation *animation, bool finished, void *context) {
@@ -194,12 +198,12 @@ static void prv_load(Window *window) {
   Layer *root = window_get_root_layer(window);
   const GRect bounds = layer_get_bounds(root);
   s_shown_count = schedule_count();
+  s_water = layer_create(prv_water_frame(bounds));
+  layer_set_update_proc(s_water, prv_water_update);
+  layer_add_child(root, s_water);
   s_canvas = layer_create(bounds);
   layer_set_update_proc(s_canvas, prv_canvas_update);
   layer_add_child(root, s_canvas);
-  s_water = layer_create(prv_water_frame(bounds));
-  layer_set_update_proc(s_water, prv_water_update);
-  layer_add_child(s_canvas, s_water);
   tick_timer_service_subscribe(MINUTE_UNIT, prv_tick);
 }
 
@@ -213,8 +217,8 @@ static void prv_unload(Window *window) {
     animation_unschedule((Animation *)s_anim);
     s_anim = NULL;
   }
-  layer_destroy(s_water);
   layer_destroy(s_canvas);
+  layer_destroy(s_water);
   window_destroy(s_window);
   s_window = NULL;
   s_canvas = NULL;
@@ -224,7 +228,7 @@ static void prv_unload(Window *window) {
 void main_window_push(void) {
   if (s_window) return;
   s_window = window_create();
-  window_set_background_color(s_window, DT_COLOR_LEVEL_LIGHT);
+  window_set_background_color(s_window, DT_COLOR_BG);
   window_set_click_config_provider(s_window, prv_click_config);
   window_set_window_handlers(s_window, (WindowHandlers) {
     .load = prv_load, .appear = prv_appear, .unload = prv_unload,

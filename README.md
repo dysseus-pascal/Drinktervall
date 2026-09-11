@@ -18,26 +18,32 @@ Erinnerung stammen aus einem Testbuild mit Zeitlupe und Wakeup nach 60 s).
 
 ## Bedienung
 
-**Hauptscreen** - die ganze Fläche ist das Glas: hellblauer Grund, der sich
-pro getrunkenem Glas von unten mit Dunkelblau füllt (animiert); darauf
-Uhrzeit, Zähler "n von Ziel" und die nächste Erinnerung. Schrift und
-Tasten-Hinweise wechseln an der Wasserlinie die Farbe. Einen Zähler nach
+**Hauptscreen** - im Stil der Pebble-Timeline: weisser Grund, schwarze Schrift,
+rechts die dunkelblaue Seitenleiste mit dem Glas-Symbol oben und den
+Tasten-Hinweisen. Aufgebaut wie ein Timeline-Eintrag: kleine Uhrzeit, die
+nächste Erinnerung in der LECO-Ziffernschrift, darunter "Glas n von Ziel" und
+"n getrunken". Der Pegel (getrunkene Gläser / Tagesziel) steigt als hellblaues
+Band mit dunkler Wasserlinie von unten über den Inhalt (animiert). Einen Zähler nach
 unten gibt es bewusst nicht: ein getrunkenes Glas lässt sich nicht
 zurücknehmen. Das Tagesziel beginnt bei 8 und lässt sich mit der unteren
 Taste für den laufenden Tag erhöhen.
 
 | Taste  | Aktion                          |
 |--------|---------------------------------|
-| Oben   | Trinkplan des Tages (Liste)     |
+| Oben   | Trinkplan des Tages: Liste wie eine kleine Timeline, Zeit in LECO,
+|        | Seitenleiste dunkel für vergangene und hell für kommende Slots,
+|        | weisse Pfeilkerbe am gewählten Eintrag |
 | Mitte  | Glas getrunken: ein Vollbild-Fenster zeigt ein Glas mit Gesicht,
 |        | das aufploppt, sich leert, ins Zentrum schrumpft und in einem
 |        | Strahlenkranz zerplatzt; danach steigen Zähler und Pegel |
 | Unten  | Tagesziel um ein Glas erhöhen (nur heute, morgen wieder 8), damit
 |        | sich über das Ziel hinaus weiter loggen lässt |
 
-**Erinnerung** - weisser Screen mit dem Glas aus der Trink-Animation (schwarzer
-Rahmen, hellblaues Wasser, Lächeln); erscheint zur geplanten Zeit von selbst
-(Wakeup), vibriert
+**Erinnerung** - wie ein Pin-Detail der Timeline: hellblaues Kopfband mit dem
+Glas aus der Trink-Animation und der Uhrzeit in LECO, schwarze Linie, weisse
+Karte mit dem Aufruf, rechts die schwarze Aktionsleiste mit Häkchen
+(Getrunken) und Zz (Später). Erscheint zur geplanten Zeit von selbst (Wakeup),
+vibriert
 dreimal im Abstand von 20 s und bleibt stehen, bis eine Taste gedrückt wird.
 
 | Taste  | Aktion                                  |

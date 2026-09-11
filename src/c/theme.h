@@ -22,7 +22,7 @@
 #define DT_COLOR_WATER       PBL_IF_COLOR_ELSE(GColorVividCerulean, GColorLightGray)
 #define DT_COLOR_WATER_DARK  PBL_IF_COLOR_ELSE(GColorCeleste, GColorLightGray)
 #define DT_COLOR_BG          GColorWhite
-#define DT_COLOR_TEXT        PBL_IF_COLOR_ELSE(GColorOxfordBlue, GColorBlack)
+#define DT_COLOR_TEXT        GColorBlack   // Timeline-Look: schwarze Schrift
 #define DT_COLOR_ON_PRIMARY  GColorWhite
 
 // Hauptscreen: die ganze Flaeche ist das "Glas". LEVEL_LIGHT ist der leere
@@ -38,3 +38,12 @@
 // S/W: graues (gerastertes) Wasser im weissen Glas.
 #define DT_COLOR_FX_BG       GColorWhite
 #define DT_COLOR_FX_WATER    PBL_IF_COLOR_ELSE(GColorPictonBlue, GColorLightGray)
+
+// Timeline-Look: dunkle Seitenleiste rechts (Breite wie in der Timeline),
+// schwarze Schrift auf Weiss und auf dem hellblauen Pegelband.
+#define DT_SIDEBAR_W          PBL_IF_ROUND_ELSE(51, (PBL_DISPLAY_WIDTH >= 180 ? 34 : 30))
+#define DT_COLOR_SIDEBAR      PBL_IF_COLOR_ELSE(GColorDukeBlue, GColorBlack)
+#define DT_COLOR_ON_SIDEBAR   GColorWhite
+// Pegelband des Hauptscreens und "kommt noch"-Teil der Plan-Leiste: auf
+// S/W ein Grauraster, damit es auf Weiss sichtbar bleibt.
+#define DT_COLOR_BAND         PBL_IF_COLOR_ELSE(GColorPictonBlue, GColorLightGray)
