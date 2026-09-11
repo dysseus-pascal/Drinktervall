@@ -22,8 +22,14 @@
 #define SHRINK_END  800
 #define RAYS         12
 
-#define STROKE  PBL_IF_COLOR_ELSE(3, 3)   // Strichstaerke wie die Timeline-Sonne
-#define HALO    (STROKE + 2)              // weisser Saum darunter, lesbar auf Wasser
+#define SHAKE_PX     3      // Schuetteln beim Leeren: Versatz links/rechts
+#define SHAKE_MS    40      // ... und Wechsel alle 40 ms
+
+// Strichstaerke wie die Timeline-Sonne: 5 % der Glasbreite (ungerade), das
+// Gesicht in derselben Staerke; weisser Saum darunter, lesbar auf Wasser.
+static int16_t s_stroke = 3, s_halo = 5;
+#define STROKE  s_stroke
+#define HALO    s_halo
 
 static Layer *s_layer;
 static Animation *s_anim;
@@ -96,7 +102,9 @@ static void prv_face(GContext *ctx, Face face) {
   for (int i = 0; i < 2; i++) {
     const int32_t x = eyes[i];
     if (face == FaceGulp) {
-      prv_line(ctx, prv_gp(x - 4, fy - 5), prv_gp(x + 4, fy - 5));           // zusammengekniffen
+      // zusammengekniffen: spitzer Bogen wie der Mund, Spitze oben
+      GPoint eye[3] = { prv_gp(x - 5, fy - 3), prv_gp(x, fy - 8), prv_gp(x + 5, fy - 3) };
+      prv_polyline(ctx, eye, 3);
     } else {
       prv_line(ctx, prv_gp(x, fy - 9), prv_gp(x, fy - 2));                   // Strich
     }
@@ -179,7 +187,7 @@ static void prv_draw_burst(GContext *ctx, int32_t u) {
   graphics_context_set_fill_color(ctx, GColorWhite);
   gpath_draw_filled(ctx, star);
   graphics_context_set_stroke_color(ctx, GColorBlack);
-  graphics_context_set_stroke_width(ctx, 1);
+  graphics_context_set_stroke_width(ctx, STROKE > 3 ? 2 : 1);
   gpath_draw_outline(ctx, star);
   gpath_destroy(star);
 }
@@ -188,6 +196,13 @@ static void prv_draw(Layer *layer, GContext *ctx) {
   s_g.c = s_anchor;
   s_g.gw = s_width;
   s_g.scale = 1000;
+  s_stroke = (int16_t)((s_g.gw / 20) | 1);
+  s_halo = s_stroke + 2;
+  if (s_p >= HOLD_END && s_p < DRINK_END) {
+    // Schuetteln nur waehrend der Pegel faellt
+    const int32_t ms = (s_p - HOLD_END) * FX_MS / 1000;
+    s_g.c.x += ((ms / SHAKE_MS) % 2) ? SHAKE_PX : -SHAKE_PX;
+  }
 
   if (s_p < POP_END) {
     // Aufploppen mit Ueberschwingen: 0 -> 1150 -> 1000
