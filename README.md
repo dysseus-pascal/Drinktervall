@@ -16,8 +16,8 @@ zurücknehmen.
 | Taste  | Aktion                          |
 |--------|---------------------------------|
 | Oben   | Trinkplan des Tages (Liste)     |
-| Mitte  | Glas getrunken: ein Glas mit Gesicht ploppt auf, trinkt sich in drei
-|        | Schlucken leer, schrumpft ins Zentrum und zerplatzt in einem
+| Mitte  | Glas getrunken: ein Glas mit Gesicht ploppt auf, leert sich
+|        | gleichmässig, schrumpft ins Zentrum und zerplatzt in einem
 |        | Strahlenkranz; dann steigen Zähler und Pegel |
 
 **Erinnerung** - erscheint zur geplanten Zeit von selbst (Wakeup), vibriert

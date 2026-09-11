@@ -5,9 +5,10 @@
 // Rahmen, weisse Fuellung, Strich-Augen, geknickter Mund, alles mit derselben
 // Strichstaerke. Das Gesicht schaut leicht zur Seite (asymmetrisch wie die
 // Sonne). Ablauf in Promille der Gesamtdauer:
-//   0..POP_END     Glas ploppt mit Ueberschwingen auf
-//   ..DRINK_END    drei Schlucke: Pegel faellt, Oberkante schwingt, Boden fest
-//   ..GRIN_END     Grinsen mit geschlossenen Augen
+//   0..POP_END     Glas ploppt mit Ueberschwingen auf, laechelt
+//   ..HOLD_END     kurz still, voll
+//   ..DRINK_END    Pegel faellt gleichmaessig, Schluck-Gesicht
+//   ..SMILE_END    leer, wieder Laecheln
 //   ..SHRINK_END   Glas schrumpft ins Zentrum
 //   ..1000         Strahlenkranz dort, wo das Glas war
 
@@ -15,11 +16,10 @@
 #define FX_MS 1750          // Gesamtdauer; Testbuilds koennen sie ueberschreiben
 #endif
 #define POP_END      86
-#define DRINK_END   486
-#define GRIN_END    571
-#define SHRINK_END  714
-#define GULPS         3
-#define SHEAR_PX     10     // Ausschlag der Oberkante pro Schluck
+#define HOLD_END    143
+#define DRINK_END   571
+#define SMILE_END   657
+#define SHRINK_END  800
 #define RAYS         12
 
 #define STROKE  PBL_IF_COLOR_ELSE(3, 3)   // Strichstaerke wie die Timeline-Sonne
@@ -47,15 +47,12 @@ static int32_t prv_smooth(int32_t f) {
 // Aktuelle Transformation des Glases
 static struct {
   int32_t gw, gh;       // Breite oben, Hoehe
-  int32_t dx;           // Scherung der Oberkante (Boden fest)
   int32_t scale;        // Promille, um die Glasmitte
   GPoint c;
 } s_g;
 
 static GPoint prv_gp(int32_t x, int32_t y) {
-  const int32_t hh = s_g.gh / 2;
-  const int32_t xs = x + s_g.dx * (hh - y) / (2 * hh);
-  return GPoint(s_g.c.x + (int16_t)(xs * s_g.scale / 1000),
+  return GPoint(s_g.c.x + (int16_t)(x * s_g.scale / 1000),
                 s_g.c.y + (int16_t)(y * s_g.scale / 1000));
 }
 
@@ -68,18 +65,7 @@ static void prv_line(GContext *ctx, GPoint a, GPoint b) {
   graphics_draw_line(ctx, a, b);
 }
 
-// Oberer Halbkreis (froehlich geschlossenes Auge) um `c` mit Radius r
-static void prv_happy_eye(GContext *ctx, GPoint c, int16_t r) {
-  const GRect box = GRect(c.x - r, c.y - r, 2 * r + 1, 2 * r + 1);
-  graphics_context_set_stroke_color(ctx, GColorWhite);
-  graphics_context_set_stroke_width(ctx, HALO);
-  graphics_draw_arc(ctx, box, GOvalScaleModeFitCircle, DEG_TO_TRIGANGLE(-90), DEG_TO_TRIGANGLE(90));
-  graphics_context_set_stroke_color(ctx, GColorBlack);
-  graphics_context_set_stroke_width(ctx, STROKE);
-  graphics_draw_arc(ctx, box, GOvalScaleModeFitCircle, DEG_TO_TRIGANGLE(-90), DEG_TO_TRIGANGLE(90));
-}
-
-typedef enum { FaceSmile, FaceGulp, FaceGrin } Face;
+typedef enum { FaceSmile, FaceGulp } Face;
 
 // Gesicht wie die Timeline-Sonne, leicht nach links versetzt (Seitenblick):
 // linkes Auge bei -15, rechtes bei +8, Mundknick bei -4.
@@ -90,8 +76,6 @@ static void prv_face(GContext *ctx, Face face) {
     const int32_t x = eyes[i];
     if (face == FaceGulp) {
       prv_line(ctx, prv_gp(x - 4, fy - 5), prv_gp(x + 4, fy - 5));           // zusammengekniffen
-    } else if (face == FaceGrin) {
-      prv_happy_eye(ctx, prv_gp(x, fy - 3), (int16_t)(5 * s_g.scale / 1000));
     } else {
       prv_line(ctx, prv_gp(x, fy - 9), prv_gp(x, fy - 2));                   // Strich
     }
@@ -104,9 +88,6 @@ static void prv_face(GContext *ctx, Face face) {
     graphics_context_set_stroke_color(ctx, GColorBlack);
     graphics_context_set_stroke_width(ctx, STROKE);
     graphics_draw_circle(ctx, m, r);
-  } else if (face == FaceGrin) {
-    prv_line(ctx, prv_gp(-17, fy + 6), prv_gp(-4, fy + 13));
-    prv_line(ctx, prv_gp(-4, fy + 13), prv_gp(10, fy + 6));
   } else {
     prv_line(ctx, prv_gp(-15, fy + 7), prv_gp(-4, fy + 10));
     prv_line(ctx, prv_gp(-4, fy + 10), prv_gp(8, fy + 7));
@@ -185,7 +166,6 @@ static void prv_draw(Layer *layer, GContext *ctx) {
   s_g.c = s_anchor;
   s_g.gw = b.size.w * 36 / 100;
   s_g.gh = s_g.gw * 11 / 10;
-  s_g.dx = 0;
   s_g.scale = 1000;
 
   if (s_p < POP_END) {
@@ -194,20 +174,18 @@ static void prv_draw(Layer *layer, GContext *ctx) {
     s_g.scale = t < 600 ? 1150 * prv_smooth(t * 1000 / 600) / 1000
                         : 1150 - 150 * (t - 600) / 400;
     prv_draw_glass(ctx, 1000, FaceSmile);
+  } else if (s_p < HOLD_END) {
+    prv_draw_glass(ctx, 1000, FaceSmile);
   } else if (s_p < DRINK_END) {
-    const int32_t t = (s_p - POP_END) * 1000 / (DRINK_END - POP_END);
-    const int32_t g = t * GULPS / 1000;
-    const int32_t f = t * GULPS - g * 1000;
-    const int32_t level = 1000 - (g * 1000 + prv_smooth(f)) / GULPS;
-    const int32_t s = sin_lookup(f * (TRIG_MAX_ANGLE / 2) / 1000);      // sin(f * pi)
-    s_g.dx = ((g % 2) ? -1 : 1) * SHEAR_PX * s / TRIG_MAX_RATIO;
-    prv_draw_glass(ctx, level < 0 ? 0 : level, FaceGulp);
-  } else if (s_p < GRIN_END) {
-    prv_draw_glass(ctx, 0, FaceGrin);
+    // gleichmaessig leeren
+    const int32_t t = (s_p - HOLD_END) * 1000 / (DRINK_END - HOLD_END);
+    prv_draw_glass(ctx, 1000 - t, FaceGulp);
+  } else if (s_p < SMILE_END) {
+    prv_draw_glass(ctx, 0, FaceSmile);
   } else if (s_p < SHRINK_END) {
-    const int32_t t = (s_p - GRIN_END) * 1000 / (SHRINK_END - GRIN_END);
+    const int32_t t = (s_p - SMILE_END) * 1000 / (SHRINK_END - SMILE_END);
     s_g.scale = 1000 - t * t / 1000;                                    // beschleunigt
-    if (s_g.scale > 60) prv_draw_glass(ctx, 0, FaceGrin);
+    if (s_g.scale > 60) prv_draw_glass(ctx, 0, FaceSmile);
   } else {
     prv_draw_burst(ctx, (s_p - SHRINK_END) * 1000 / (1000 - SHRINK_END));
   }
