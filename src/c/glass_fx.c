@@ -29,7 +29,12 @@ static Layer *s_layer;
 static Animation *s_anim;
 static int32_t s_p;         // Fortschritt 0..1000
 static GPoint s_anchor;     // Glasmitte
+static int16_t s_width;     // Glasbreite oben in Pixeln
 static GlassFxDone s_done;
+
+// Glas und Gesicht sind in Einheiten eines 72 Pixel breiten Glases
+// beschrieben und werden ueber s_g.k auf die echte Breite skaliert.
+#define BASE_W 72
 
 // Glas-Trapez um den Ursprung: links oben, links unten, rechts unten, rechts oben
 static GPoint s_glass_pts[4];
@@ -46,14 +51,15 @@ static int32_t prv_smooth(int32_t f) {
 
 // Aktuelle Transformation des Glases
 static struct {
-  int32_t gw, gh;       // Breite oben, Hoehe
-  int32_t scale;        // Promille, um die Glasmitte
+  int32_t gw;           // Breite oben in Pixeln (volles Glas)
+  int32_t scale;        // Promille, um die Glasmitte (Aufploppen, Schrumpfen)
+  int32_t k;            // Promille: Basis-Einheiten -> Pixel, inkl. scale
   GPoint c;
 } s_g;
 
 static GPoint prv_gp(int32_t x, int32_t y) {
-  return GPoint(s_g.c.x + (int16_t)(x * s_g.scale / 1000),
-                s_g.c.y + (int16_t)(y * s_g.scale / 1000));
+  return GPoint(s_g.c.x + (int16_t)(x * s_g.k / 1000),
+                s_g.c.y + (int16_t)(y * s_g.k / 1000));
 }
 
 static void prv_line(GContext *ctx, GPoint a, GPoint b) {
@@ -97,7 +103,7 @@ static void prv_face(GContext *ctx, Face face) {
   }
   if (face == FaceGulp) {
     const GPoint m = prv_gp(-4, fy + 9);
-    const int16_t r = (int16_t)(4 * s_g.scale / 1000);
+    const int16_t r = (int16_t)(4 * s_g.k / 1000);
     graphics_context_set_fill_color(ctx, GColorWhite);
     graphics_fill_circle(ctx, m, r);
     graphics_context_set_stroke_color(ctx, GColorBlack);
@@ -110,7 +116,8 @@ static void prv_face(GContext *ctx, Face face) {
 }
 
 static void prv_draw_glass(GContext *ctx, int32_t level, Face face) {
-  const int32_t hw_top = s_g.gw / 2, hw_bot = s_g.gw * 3 / 8, hh = s_g.gh / 2;
+  // Basis-Einheiten: 72 breit oben, 54 am Boden, 80 hoch
+  const int32_t hw_top = 36, hw_bot = 27, hh = 40;
   s_glass_pts[0] = prv_gp(-hw_top, -hh);
   s_glass_pts[1] = prv_gp(-hw_bot, hh);
   s_glass_pts[2] = prv_gp(hw_bot, hh);
@@ -120,7 +127,7 @@ static void prv_draw_glass(GContext *ctx, int32_t level, Face face) {
   graphics_context_set_fill_color(ctx, GColorWhite);
   gpath_draw_filled(ctx, glass);
   if (level > 0) {
-    const int32_t wy = hh - s_g.gh * level / 1000;
+    const int32_t wy = hh - 2 * hh * level / 1000;
     const int32_t whw = hw_bot + (hw_top - hw_bot) * level / 1000;
     s_water_pts[0] = prv_gp(-hw_bot, hh);
     s_water_pts[1] = prv_gp(hw_bot, hh);
@@ -159,7 +166,8 @@ static void prv_draw_burst(GContext *ctx, int32_t u) {
     const GPoint p2 = GPoint(s_g.c.x + (r1 + l) * cs / TRIG_MAX_RATIO, s_g.c.y + (r1 + l) * sn / TRIG_MAX_RATIO);
     prv_line(ctx, p1, p2);
   }
-  const int32_t ro = 2 + 14 * (1000 - u) / 1000, ri = 1 + 5 * (1000 - u) / 1000;
+  const int32_t ro = 2 + (s_g.gw * 20 / 100) * (1000 - u) / 1000;
+  const int32_t ri = 1 + (s_g.gw * 7 / 100) * (1000 - u) / 1000;
   for (int i = 0; i < 8; i++) {
     const int32_t r = (i % 2) ? ri : ro;
     const int32_t a = -TRIG_MAX_ANGLE / 4 + i * TRIG_MAX_ANGLE / 8;
@@ -177,10 +185,8 @@ static void prv_draw_burst(GContext *ctx, int32_t u) {
 }
 
 static void prv_draw(Layer *layer, GContext *ctx) {
-  const GRect b = layer_get_bounds(layer);
   s_g.c = s_anchor;
-  s_g.gw = b.size.w * 36 / 100;
-  s_g.gh = s_g.gw * 11 / 10;
+  s_g.gw = s_width;
   s_g.scale = 1000;
 
   if (s_p < POP_END) {
@@ -188,8 +194,13 @@ static void prv_draw(Layer *layer, GContext *ctx) {
     const int32_t t = s_p * 1000 / POP_END;
     s_g.scale = t < 600 ? 1150 * prv_smooth(t * 1000 / 600) / 1000
                         : 1150 - 150 * (t - 600) / 400;
-    prv_draw_glass(ctx, 1000, FaceSmile);
-  } else if (s_p < HOLD_END) {
+  } else if (s_p >= SMILE_END && s_p < SHRINK_END) {
+    const int32_t t = (s_p - SMILE_END) * 1000 / (SHRINK_END - SMILE_END);
+    s_g.scale = 1000 - t * t / 1000;                                    // beschleunigt
+  }
+  s_g.k = s_g.scale * s_g.gw / BASE_W;
+
+  if (s_p < HOLD_END) {
     prv_draw_glass(ctx, 1000, FaceSmile);
   } else if (s_p < DRINK_END) {
     // gleichmaessig leeren
@@ -198,8 +209,6 @@ static void prv_draw(Layer *layer, GContext *ctx) {
   } else if (s_p < SMILE_END) {
     prv_draw_glass(ctx, 0, FaceSmile);
   } else if (s_p < SHRINK_END) {
-    const int32_t t = (s_p - SMILE_END) * 1000 / (SHRINK_END - SMILE_END);
-    s_g.scale = 1000 - t * t / 1000;                                    // beschleunigt
     if (s_g.scale > 60) prv_draw_glass(ctx, 0, FaceSmile);
   } else {
     prv_draw_burst(ctx, (s_p - SHRINK_END) * 1000 / (1000 - SHRINK_END));
@@ -244,9 +253,10 @@ bool glass_fx_is_playing(void) {
   return s_anim != NULL;
 }
 
-void glass_fx_play(GPoint anchor, GlassFxDone done) {
+void glass_fx_play(GPoint anchor, int16_t width, GlassFxDone done) {
   if (!s_layer || s_anim) return;
   s_anchor = anchor;
+  s_width = width;
   s_done = done;
   s_p = 0;
   layer_set_hidden(s_layer, false);
