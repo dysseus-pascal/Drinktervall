@@ -6,7 +6,10 @@ Pin pro Erinnerung in der Timeline. Farbschema blau/weiss.
 
 ## Bedienung
 
-**Hauptscreen** - Glas mit Füllstand, Zähler "n von 8", nächste Erinnerung.
+**Hauptscreen** - die ganze Fläche ist das Glas: hellblauer Grund, der sich
+pro getrunkenem Glas von unten mit Dunkelblau füllt (animiert); darauf
+Uhrzeit, Zähler "n von 8" und die nächste Erinnerung. Schrift und
+Tasten-Hinweise wechseln an der Wasserlinie die Farbe.
 
 | Taste  | Aktion                          |
 |--------|---------------------------------|
@@ -56,10 +59,10 @@ nach 12 Stunden. Im Emulator gibt es keinen Token; der Pin wird dann
 
 ## Farben
 
-`src/c/theme.h`: PRIMARY BlueMoon `#0055FF`, Wasser VividCerulean `#00AAFF`,
-Hintergrund Weiss. Der Hex-Wert von PRIMARY ist in `src/pkjs/index.js`
-(`PIN_COLOR`) von Hand kopiert. Auf Flint (Schwarz/Weiss) wird das Wasser als
-Grauraster gezeichnet.
+`src/c/theme.h`: Hauptscreen LEVEL_LIGHT PictonBlue `#55AAFF` (leer) und
+LEVEL_DARK DukeBlue `#0000AA` (Wasser), Schrift OxfordBlue bzw. Weiss.
+Erinnerungs-Screen und Listen-Hervorhebung PRIMARY BlueMoon `#0055FF`. Der Hex-Wert von PRIMARY ist in `src/pkjs/index.js`
+(`PIN_COLOR`) von Hand kopiert. Auf Flint (Schwarz/Weiss) ist der Grund weiss und das Wasser schwarz.
 
 ## Bauen
 

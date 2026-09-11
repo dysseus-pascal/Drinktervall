@@ -24,3 +24,12 @@
 #define DT_COLOR_BG          GColorWhite
 #define DT_COLOR_TEXT        PBL_IF_COLOR_ELSE(GColorOxfordBlue, GColorBlack)
 #define DT_COLOR_ON_PRIMARY  GColorWhite
+
+// Hauptscreen: die ganze Flaeche ist das "Glas". LEVEL_LIGHT ist der leere
+// Grund, LEVEL_DARK das Wasser, das pro getrunkenem Glas von unten steigt.
+// ON_LIGHT/ON_DARK sind die Schriftfarben darauf; die Tasten-Hinweise nutzen
+// jeweils die Gegenfarbe.
+#define DT_COLOR_LEVEL_LIGHT PBL_IF_COLOR_ELSE(GColorPictonBlue, GColorWhite)
+#define DT_COLOR_LEVEL_DARK  PBL_IF_COLOR_ELSE(GColorDukeBlue, GColorBlack)
+#define DT_COLOR_ON_LIGHT    PBL_IF_COLOR_ELSE(GColorOxfordBlue, GColorBlack)
+#define DT_COLOR_ON_DARK     GColorWhite
