@@ -33,8 +33,8 @@ static void prv_glance_reload(AppGlanceReloadSession *session, size_t limit, voi
   app_glance_add_slice(session, slice);
 }
 
-void drinktervall_reminder_closed(bool timed_out) {
-  if (timed_out && s_launched_by_wakeup) window_stack_pop_all(false);
+void drinktervall_reminder_closed(bool dismissed) {
+  if (dismissed && s_launched_by_wakeup) window_stack_pop_all(false);
 }
 
 static void prv_init(void) {

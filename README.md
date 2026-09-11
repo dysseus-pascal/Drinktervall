@@ -38,13 +38,14 @@ Taste für den laufenden Tag erhöhen.
 **Erinnerung** - weisser Screen mit dem Glas aus der Trink-Animation (schwarzer
 Rahmen, hellblaues Wasser, Lächeln); erscheint zur geplanten Zeit von selbst
 (Wakeup), vibriert
-dreimal im Abstand von 20 s und schliesst sich nach 60 s wieder.
+dreimal im Abstand von 20 s und bleibt stehen, bis eine Taste gedrückt wird.
 
 | Taste  | Aktion                                  |
 |--------|-----------------------------------------|
 | Mitte  | Getrunken: Zähler +1                    |
 | Unten  | Später: in 10 Minuten nochmals erinnern, die App schliesst sich sofort |
-| Zurück | Schliessen ohne zu zählen               |
+| Zurück | Schliessen ohne zu zählen, das Glas gilt als verpasst; nach einem
+|        | Wakeup-Start beendet sich die App, sonst zurück zum Hauptscreen |
 
 Der Zähler wird um Mitternacht automatisch auf 0 gesetzt. Die App-Glance im
 Launcher zeigt "n von 8 Gläsern, nächste HH:MM".

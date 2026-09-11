@@ -7,13 +7,18 @@
 #include "schedule.h"
 #include "main_window.h"
 
+// Bleibt stehen, bis eine Taste gedrueckt wird:
+//   Mitte   Getrunken: zaehlt +1, zurueck zum Hauptscreen (Trink-Animation)
+//   Unten   Spaeter: in DT_SNOOZE_MIN Minuten nochmals, App beendet sich
+//   Zurueck schliesst ohne zu zaehlen (Glas verpasst); nach einem
+//           Wakeup-Start beendet sich die App, sonst zurueck zum Hauptscreen
+
 #define VIBE_REPEATS 3
 #define VIBE_INTERVAL_MS 20000
 
 static Window *s_window;
 static Layer *s_canvas;
 static AppTimer *s_vibe_timer;
-static AppTimer *s_close_timer;
 static int s_vibes_left;
 
 static void prv_update(Layer *layer, GContext *ctx) {
@@ -58,27 +63,24 @@ static void prv_update(Layer *layer, GContext *ctx) {
   draw_button_hints(ctx, bounds, NULL, "Getrunken", "Später", DT_COLOR_LEVEL_DARK, DT_COLOR_ON_DARK);
 }
 
-static void prv_cancel_timers(void) {
-  if (s_vibe_timer) { app_timer_cancel(s_vibe_timer); s_vibe_timer = NULL; }
-  if (s_close_timer) { app_timer_cancel(s_close_timer); s_close_timer = NULL; }
+static void prv_cancel_vibes(void) {
+  if (s_vibe_timer) {
+    app_timer_cancel(s_vibe_timer);
+    s_vibe_timer = NULL;
+  }
 }
 
-static void prv_close(bool timed_out) {
-  prv_cancel_timers();
-  window_stack_remove(s_window, !timed_out);
+static void prv_close(bool dismissed) {
+  prv_cancel_vibes();
+  window_stack_remove(s_window, true);
   main_window_refresh();
-  drinktervall_reminder_closed(timed_out);
+  drinktervall_reminder_closed(dismissed);
 }
 
 static void prv_vibe(void *data) {
   s_vibe_timer = NULL;
   vibes_double_pulse();
   if (--s_vibes_left > 0) s_vibe_timer = app_timer_register(VIBE_INTERVAL_MS, prv_vibe, NULL);
-}
-
-static void prv_timeout(void *data) {
-  s_close_timer = NULL;
-  prv_close(true);
 }
 
 static void prv_select(ClickRecognizerRef recognizer, void *context) {
@@ -91,12 +93,12 @@ static void prv_select(ClickRecognizerRef recognizer, void *context) {
 // beenden, damit die Uhr zum Zifferblatt zurueckkehrt
 static void prv_down(ClickRecognizerRef recognizer, void *context) {
   schedule_plan_wakeups(time(NULL) + DT_SNOOZE_MIN * 60);
-  prv_cancel_timers();
+  prv_cancel_vibes();
   window_stack_pop_all(false);
 }
 
 static void prv_back(ClickRecognizerRef recognizer, void *context) {
-  prv_close(false);
+  prv_close(true);
 }
 
 static void prv_click_config(void *context) {
@@ -112,12 +114,11 @@ static void prv_load(Window *window) {
   layer_add_child(root, s_canvas);
   s_vibes_left = VIBE_REPEATS;
   prv_vibe(NULL);
-  s_close_timer = app_timer_register(DT_REMINDER_TIMEOUT_S * 1000, prv_timeout, NULL);
   light_enable_interaction();
 }
 
 static void prv_unload(Window *window) {
-  prv_cancel_timers();
+  prv_cancel_vibes();
   layer_destroy(s_canvas);
   window_destroy(s_window);
   s_window = NULL;

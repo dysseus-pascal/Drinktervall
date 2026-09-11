@@ -19,9 +19,6 @@
 // "Spaeter" im Erinnerungs-Screen verschiebt um so viele Minuten.
 #define DT_SNOOZE_MIN    10
 
-// Erinnerungs-Screen schliesst sich nach so vielen Sekunden von selbst.
-#define DT_REMINDER_TIMEOUT_S  60
-
 // Persist-Schluessel
 #define DT_PERSIST_DAY    1   // Tag (JJJJMMTT), zu dem DT_PERSIST_COUNT gehoert
 #define DT_PERSIST_COUNT  2   // heute getrunkene Glaeser
