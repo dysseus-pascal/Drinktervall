@@ -1,7 +1,7 @@
 {
   "name": "drinktervall",
   "author": "dysseus-pascal",
-  "version": "1.5.0",
+  "version": "1.5.1",
   "keywords": ["pebble-app"],
   "private": true,
   "dependencies": {},
@@ -43,6 +43,32 @@
           "type": "bitmap",
           "name": "ICON_SNOOZE",
           "file": "images/action_bar_icon_snooze.png"
+        },
+        {
+          "type": "bitmap",
+          "name": "IMAGE_GLASS_TINY",
+          "file": "images/glass_tiny.png"
+        },
+        {
+          "type": "bitmap",
+          "name": "IMAGE_GLASS_SMALL",
+          "file": "images/glass_small.png"
+        },
+        {
+          "type": "bitmap",
+          "name": "IMAGE_GLASS_LARGE",
+          "file": "images/glass_large.png"
+        }
+      ],
+      "publishedMedia": [
+        {
+          "name": "GLASS_DRUNK",
+          "id": 1,
+          "timeline": {
+            "tiny": "IMAGE_GLASS_TINY",
+            "small": "IMAGE_GLASS_SMALL",
+            "large": "IMAGE_GLASS_LARGE"
+          }
         }
       ]
     }

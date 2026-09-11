@@ -25,11 +25,13 @@ var LAUNCH_CODE_OPEN = 2;
 var SLOT_DRUNK = 2, SLOT_MISSED = 3;
 
 // Aussehen je Zustand; %n = Glasnummer, %g = Tagesziel. Fehlt `body` bzw.
-// `action`, bekommt der Pin keinen Text bzw. keine Trink-Aktion.
+// `action`, bekommt der Pin keinen Text bzw. keine Trink-Aktion. Getrunkene
+// Glaeser tragen unser eigenes Symbol (leeres Glas mit Gesicht), das
+// package.json unter publishedMedia als GLASS_DRUNK veroeffentlicht.
 var PIN_LOOK = {
-  next:   { title: 'Glas Wasser %n von %g', body: 'Zeit für ein Glas Wasser.', icon: 'NOTIFICATION_REMINDER', action: 'Getrunken' },
-  drunk:  { title: 'Glas %n getrunken', icon: 'GENERIC_CONFIRMATION' },
-  missed: { title: 'Glas %n verpasst', body: 'Nachholen? Die App zählt das Glas.', icon: 'GENERIC_WARNING', action: 'Nachholen' }
+  next:   { title: 'Glas Wasser %n von %g', body: 'Zeit für ein Glas Wasser.', icon: 'system://images/NOTIFICATION_REMINDER', action: 'Getrunken' },
+  drunk:  { title: 'Glas %n getrunken', icon: 'app://images/GLASS_DRUNK' },
+  missed: { title: 'Glas %n verpasst', body: 'Nachholen? Die App zählt das Glas.', icon: 'system://images/GENERIC_WARNING', action: 'Nachholen' }
 };
 
 function pad(n) { return (n < 10 ? '0' : '') + n; }
@@ -49,7 +51,7 @@ function buildPin(id, epoch, state, index, goal) {
     type: 'genericPin',
     title: look.title.replace('%n', index + 1).replace('%g', goal),
     subtitle: 'Drinktervall',
-    tinyIcon: 'system://images/' + look.icon,
+    tinyIcon: look.icon,
     backgroundColor: PIN_COLOR,
     foregroundColor: '#FFFFFF'
   };

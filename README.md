@@ -24,6 +24,11 @@ Pin pro Erinnerung in der Timeline. Farbschema blau/weiss.
 |---|---|---|---|---|
 | ![Start](screenshots/gabbro/01-start.png) | ![Hauptscreen](screenshots/gabbro/02-hauptscreen.png) | ![Trinkplan](screenshots/gabbro/03-trinkplan.png) | ![Trinken](screenshots/gabbro/04-trinken.png) | ![Erinnerung](screenshots/gabbro/05-erinnerung.png) |
 
+Das Glas-Symbol der Timeline ist keine Systemgrafik, sondern eine eigene
+Ressource: `tools/make_glass_icon.py <ordner>` zeichnet es in 25, 50 und 80
+Pixeln, `package.json` veröffentlicht es unter `publishedMedia` als
+`GLASS_DRUNK`, und der Pin verweist mit `app://images/GLASS_DRUNK` darauf.
+
 Erzeugt mit `tools/screenshots.sh <plattform> <projektordner>` (Emulator; Trinken und
 Erinnerung stammen aus einem Testbuild mit Zeitlupe und Wakeup nach 60 s).
 
@@ -84,8 +89,8 @@ nächsten Erinnerungen über die Tagesgrenze hinweg abdecken.
 In der Zukunft steht genau ein Pin für die nächste Erinnerung mit den Aktionen
 "Getrunken" (öffnet die App und zählt +1) und "App öffnen". In der
 Vergangenheit steht für jeden heutigen Slot, der vorbei ist, ein Pin: "Glas n
-getrunken" (Häkchen) oder "Glas n verpasst" mit der Aktion "Nachholen", die
-das Glas nachträglich zählt. Jeder Slot hat die feste ID
+getrunken" mit unserem eigenen Symbol (leeres Glas mit Gesicht) oder "Glas n
+verpasst" mit der Aktion "Nachholen", die das Glas nachträglich zählt. Jeder Slot hat die feste ID
 `drinktervall-JJJJMMTT-n`; der Pin der nächsten Erinnerung wird nach dem
 Slot zum Getrunken- oder Verpasst-Pin. Die Watch schickt der Telefonseite
 (`src/pkjs/index.js`) beim Start, bei jedem Wakeup und nach jeder Änderung
