@@ -1,10 +1,8 @@
 #pragma once
 #include <pebble.h>
 
-// Wakeup-Cookie fuer die "Spaeter"-Erinnerung; regulaere Slots tragen 0..DT_GLASSES-1.
-#define SCHEDULE_COOKIE_SNOOZE 100
-
-// Zaehler laden; bei Tageswechsel auf 0 setzen.
+// Zaehler UND Tagesziel laden; bei Tageswechsel den Zaehler auf 0 und das
+// Ziel zurueck auf DT_GLASSES setzen.
 void schedule_init(void);
 
 // Heute getrunkene Glaeser (0..Tagesziel).

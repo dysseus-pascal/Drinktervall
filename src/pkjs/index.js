@@ -11,16 +11,26 @@
 // Schnittstelle Pebble.insertTimelinePin.
 
 var API_URL = 'https://timeline-api.rebble.io/v1/user/pins/';
-// Muss zu DT_COLOR_PRIMARY in src/c/theme.h passen (handgepflegte Kopie)
-var PIN_COLOR = '#0055FF';
-var STORE_KEY = 'drinktervall_pins_v2';   // id -> { sig, sentAt }
+var PIN_COLOR = '#0055FF';                // Hintergrund der Pins (Pebble BlueMoon)
+var STORE_KEY = 'drinktervall_pins_v2';   // id -> { sig, sentAt }, dazu legacyDeleted
 var RESEND_AFTER_MS = 12 * 3600 * 1000;   // unveraenderten Pin nach 12 h erneut senden
 var FORGET_AFTER_MS = 3 * 86400 * 1000;   // alte Eintraege vergessen
-var LEGACY_IDS = ['aquatakt-next', 'drinktervall-next'];   // Pins frueherer Versionen
+// Einzel-Pin der Versionen 1.1.0 (aquatakt-next) und 1.1.1 (drinktervall-next).
+// Die Tages-Pins aquatakt-JJJJMMTT-n aus 1.0.x stehen bewusst nicht hier: sie
+// liegen in der Vergangenheit und werden nicht mehr aufgeraeumt.
+var LEGACY_IDS = ['aquatakt-next', 'drinktervall-next'];
 
 var LAUNCH_CODE_DRUNK = 1;
 var LAUNCH_CODE_OPEN = 2;
 var SLOT_DRUNK = 2, SLOT_MISSED = 3;
+
+// Aussehen je Zustand; %n = Glasnummer, %g = Tagesziel. Fehlt `body` bzw.
+// `action`, bekommt der Pin keinen Text bzw. keine Trink-Aktion.
+var PIN_LOOK = {
+  next:   { title: 'Glas Wasser %n von %g', body: 'Zeit für ein Glas Wasser.', icon: 'NOTIFICATION_REMINDER', action: 'Getrunken' },
+  drunk:  { title: 'Glas %n getrunken', icon: 'GENERIC_CONFIRMATION' },
+  missed: { title: 'Glas %n verpasst', body: 'Nachholen? Die App zählt das Glas.', icon: 'GENERIC_WARNING', action: 'Nachholen' }
+};
 
 function pad(n) { return (n < 10 ? '0' : '') + n; }
 function dayKey(d) { return '' + d.getFullYear() + pad(d.getMonth() + 1) + pad(d.getDate()); }
@@ -34,23 +44,18 @@ function saveStore(store) {
 }
 
 function buildPin(id, epoch, state, index, goal) {
-  var n = index + 1;
-  var layout = { type: 'genericPin', subtitle: 'Drinktervall', backgroundColor: PIN_COLOR, foregroundColor: '#FFFFFF' };
+  var look = PIN_LOOK[state];
+  var layout = {
+    type: 'genericPin',
+    title: look.title.replace('%n', index + 1).replace('%g', goal),
+    subtitle: 'Drinktervall',
+    tinyIcon: 'system://images/' + look.icon,
+    backgroundColor: PIN_COLOR,
+    foregroundColor: '#FFFFFF'
+  };
+  if (look.body) layout.body = look.body;
   var actions = [];
-  if (state === 'next') {
-    layout.title = 'Glas Wasser ' + n + ' von ' + goal;
-    layout.body = 'Zeit für ein Glas Wasser.';
-    layout.tinyIcon = 'system://images/NOTIFICATION_REMINDER';
-    actions.push({ title: 'Getrunken', type: 'openWatchApp', launchCode: LAUNCH_CODE_DRUNK });
-  } else if (state === 'drunk') {
-    layout.title = 'Glas ' + n + ' getrunken';
-    layout.tinyIcon = 'system://images/GENERIC_CONFIRMATION';
-  } else {
-    layout.title = 'Glas ' + n + ' verpasst';
-    layout.body = 'Nachholen? Die App zählt das Glas.';
-    layout.tinyIcon = 'system://images/GENERIC_WARNING';
-    actions.push({ title: 'Nachholen', type: 'openWatchApp', launchCode: LAUNCH_CODE_DRUNK });
-  }
+  if (look.action) actions.push({ title: look.action, type: 'openWatchApp', launchCode: LAUNCH_CODE_DRUNK });
   actions.push({ title: 'App öffnen', type: 'openWatchApp', launchCode: LAUNCH_CODE_OPEN });
   return { id: id, time: new Date(epoch * 1000).toISOString(), layout: layout, actions: actions };
 }
@@ -64,10 +69,6 @@ function decodeSlots(bytes) {
     slots.push({ time: t, state: bytes[i + 4] });
   }
   return slots;
-}
-
-function hasLocalApi() {
-  return typeof Pebble.insertTimelinePin === 'function';
 }
 
 function insertViaRest(pin, token, callback) {
@@ -122,6 +123,9 @@ function sendAll(queue, insert) {
     if (!item) { console.log('timeline: fertig'); return; }
     insert(item.pin, function (ok, info) {
       console.log('timeline: ' + item.pin.id + ' [' + item.sig + '] -> ' + (ok ? 'ok' : 'fehlgeschlagen') + ' (' + info + ')');
+      // Pro Pin neu laden und sofort sichern: deleteLegacy schreibt nebenlaeufig
+      // in denselben Store, und pkjs wird mit der App beendet - ein
+      // Sammelspeichern am Ende ginge dabei verloren.
       if (ok) { var s = loadStore(); s[item.pin.id] = { sig: item.sig, sentAt: Date.now() }; saveStore(s); }
       next();
     });
@@ -130,31 +134,31 @@ function sendAll(queue, insert) {
 
 function pushState(msg) {
   var goal = msg.GLASSES, now = Date.now();
-  var wanted = [];
-  wanted.push({ id: pinId(msg.NEXT_TIME, msg.NEXT_INDEX), epoch: msg.NEXT_TIME, state: 'next', index: msg.NEXT_INDEX });
-  decodeSlots(msg.SLOTS).forEach(function (s, i) {
-    if (s.state === SLOT_DRUNK) wanted.push({ id: pinId(s.time, i), epoch: s.time, state: 'drunk', index: i });
-    else if (s.state === SLOT_MISSED) wanted.push({ id: pinId(s.time, i), epoch: s.time, state: 'missed', index: i });
-  });
-
   var store = loadStore();
   Object.keys(store).forEach(function (id) {
     if (store[id] && store[id].sentAt && now - store[id].sentAt > FORGET_AFTER_MS) delete store[id];
   });
   saveStore(store);
 
-  var queue = [];
-  wanted.forEach(function (w) {
-    var sig = w.state + ':' + w.epoch + ':' + goal;
-    var had = store[w.id];
+  // Ein Pin je Slot; nur senden, was sich geaendert hat oder zu lange liegt.
+  var queue = [], wanted = 0;
+  function want(epoch, state, index) {
+    wanted += 1;
+    var id = pinId(epoch, index), sig = state + ':' + epoch + ':' + goal;
+    var had = store[id];
     if (had && had.sig === sig && now - had.sentAt < RESEND_AFTER_MS) return;
-    queue.push({ pin: buildPin(w.id, w.epoch, w.state, w.index, goal), sig: sig });
+    queue.push({ pin: buildPin(id, epoch, state, index, goal), sig: sig });
+  }
+  want(msg.NEXT_TIME, 'next', msg.NEXT_INDEX);
+  decodeSlots(msg.SLOTS).forEach(function (s, i) {
+    if (s.state === SLOT_DRUNK) want(s.time, 'drunk', i);
+    else if (s.state === SLOT_MISSED) want(s.time, 'missed', i);
   });
-  console.log('timeline: ' + queue.length + ' von ' + wanted.length + ' Pins zu senden');
+  console.log('timeline: ' + queue.length + ' von ' + wanted + ' Pins zu senden');
 
   var useLocal = function (reason) {
     if (queue.length === 0) return;
-    if (hasLocalApi()) {
+    if (typeof Pebble.insertTimelinePin === 'function') {
       console.log('timeline: ' + reason + ', nutze lokale API');
       sendAll(queue, insertViaLocal);
     } else {

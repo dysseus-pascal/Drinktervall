@@ -26,28 +26,27 @@ static int16_t prv_cell_height(MenuLayer *menu, MenuIndex *index, void *ctx) {
 
 static void prv_draw_row(GContext *ctx, const Layer *cell, MenuIndex *index, void *data) {
   const GRect b = layer_get_bounds(cell);
-  const bool wide = b.size.w >= 130;
+  const bool wide = PBL_DISPLAY_WIDTH - DT_SIDEBAR_W >= 130;   // flint schmal
   const int16_t margin = PBL_IF_ROUND_ELSE(34, 9);
-  time_t now = time(NULL);
-  time_t slot = schedule_slot(schedule_midnight(now), index->row);
+  const time_t now = time(NULL);
+  const time_t midnight = schedule_midnight(now);
+  const time_t slot = schedule_slot(midnight, index->row);
   char hhmm[8];
   schedule_format_time(slot, hhmm, sizeof(hhmm));
   char title[12];
   snprintf(title, sizeof(title), "Glas %d", index->row + 1);
 
-  const int count = schedule_count();
-  time_t next;
-  const int next_idx = schedule_next(now, &next);
-  const bool next_today = next < schedule_midnight(now) + 86400;
   const char *state;
-  if (index->row < count) {
+  if (index->row < schedule_count()) {
     state = "getrunken";
-  } else if (next_today && index->row == next_idx) {
-    state = "nächste Erinnerung";
-  } else if (slot <= now) {
-    state = "verpasst";
   } else {
-    state = "offen";
+    time_t next;
+    const int next_idx = schedule_next(now, &next);
+    if (next < midnight + 86400 && index->row == next_idx) {
+      state = "nächste Erinnerung";
+    } else {
+      state = slot <= now ? "verpasst" : "offen";
+    }
   }
 
   graphics_context_set_text_color(ctx, DT_COLOR_TEXT);
@@ -62,8 +61,6 @@ static void prv_draw_row(GContext *ctx, const Layer *cell, MenuIndex *index, voi
   graphics_draw_text(ctx, state, fonts_get_system_font(FONT_KEY_GOTHIC_14),
                      GRect(margin, wide ? 22 : 20, b.size.w - margin, 18),
                      GTextOverflowModeTrailingEllipsis, GTextAlignmentLeft, NULL);
-  // Die Kerbe in der Seitenleiste folgt dem Scrollen
-  if (s_sidebar) layer_mark_dirty(s_sidebar);
 }
 
 static void prv_sidebar_update(Layer *layer, GContext *ctx) {
@@ -88,7 +85,8 @@ static void prv_sidebar_update(Layer *layer, GContext *ctx) {
     gpath_draw_filled(ctx, notch);
     gpath_destroy(notch);
   }
-  glass_fx_draw_still(ctx, GPoint(b.size.w / 2 - PBL_IF_ROUND_ELSE(9, 0), PBL_IF_ROUND_ELSE(58, 20)), 22, 700);
+  glass_fx_draw_still(ctx, GPoint(b.size.w / 2 - DT_SIDEBAR_GLASS_DX, DT_SIDEBAR_GLASS_Y),
+                      DT_SIDEBAR_GLASS_W, DT_SIDEBAR_GLASS_FILL);
 }
 
 static void prv_load(Window *window) {
@@ -109,16 +107,13 @@ static void prv_load(Window *window) {
   layer_set_update_proc(s_sidebar, prv_sidebar_update);
   layer_add_child(root, s_sidebar);
 
-  // Vergangene Slots zaehlen und auf die naechste Erinnerung springen
-  time_t now = time(NULL);
-  const time_t midnight = schedule_midnight(now);
-  s_past_rows = 0;
-  for (int i = 0; i < DT_GLASSES; i++) {
-    if (schedule_slot(midnight, i) <= now) s_past_rows++;
-  }
+  // Die naechste Erinnerung ist zugleich die erste noch nicht vergangene Zeile
+  const time_t now = time(NULL);
   time_t next;
   int idx = schedule_next(now, &next);
-  if (next >= midnight + 86400) idx = DT_GLASSES - 1;
+  const bool today = next < schedule_midnight(now) + 86400;
+  s_past_rows = today ? idx : DT_GLASSES;
+  if (!today) idx = DT_GLASSES - 1;
   menu_layer_set_selected_index(s_menu, MenuIndex(0, idx), MenuRowAlignCenter, false);
 }
 

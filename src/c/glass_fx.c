@@ -7,7 +7,7 @@
 // Sonne). Ablauf in Promille der Gesamtdauer:
 //   0..POP_END     Glas ploppt mit Ueberschwingen auf, laechelt
 //   ..HOLD_END     kurz still, voll
-//   ..DRINK_END    Pegel faellt gleichmaessig, Schluck-Gesicht
+//   ..DRINK_END    Pegel faellt gleichmaessig, Schluck-Gesicht, Glas wackelt
 //   ..SMILE_END    leer, wieder Laecheln
 //   ..SHRINK_END   Glas schrumpft ins Zentrum
 //   ..1000         Strahlenkranz dort, wo das Glas war
@@ -25,11 +25,9 @@
 #define SHAKE_PX     2      // Schuetteln beim Leeren: Versatz links/rechts
 #define SHAKE_MS    50      // ... und Wechsel alle 50 ms
 
-// Strichstaerke wie die Timeline-Sonne: 5 % der Glasbreite (ungerade), das
-// Gesicht in derselben Staerke; weisser Saum darunter, lesbar auf Wasser.
-static int16_t s_stroke = 3, s_halo = 5;
-#define STROKE  s_stroke
-#define HALO    s_halo
+// Glas und Gesicht sind in Einheiten eines 72 Pixel breiten Glases
+// beschrieben und werden ueber s_g.k auf die echte Breite skaliert.
+#define BASE_W 72
 
 static Layer *s_layer;
 static Animation *s_anim;
@@ -38,56 +36,50 @@ static GPoint s_anchor;     // Glasmitte
 static int16_t s_width;     // Glasbreite oben in Pixeln
 static GlassFxDone s_done;
 
-// Glas und Gesicht sind in Einheiten eines 72 Pixel breiten Glases
-// beschrieben und werden ueber s_g.k auf die echte Breite skaliert.
-#define BASE_W 72
-
-// Glas-Trapez um den Ursprung: links oben, links unten, rechts unten, rechts oben
-static GPoint s_glass_pts[4];
-static const GPathInfo s_glass_info = { .num_points = 4, .points = s_glass_pts };
-static GPoint s_water_pts[4];
-static const GPathInfo s_water_info = { .num_points = 4, .points = s_water_pts };
-static GPoint s_star_pts[8];
-static const GPathInfo s_star_info = { .num_points = 8, .points = s_star_pts };
-
-// smoothstep, Ein- und Ausgabe in Promille
-static int32_t prv_smooth(int32_t f) {
-  return f * f * (3000 - 2 * f) / 1000000;
-}
-
-// Aktuelle Transformation des Glases
+// Aktuelle Transformation und Strichstaerke; prv_set_metrics setzt beides.
+// Die Striche sind 5 % der Glasbreite breit (ungerade) wie bei der
+// Timeline-Sonne, der weisse Saum darunter 2 Pixel mehr.
 static struct {
-  int32_t gw;           // Breite oben in Pixeln (volles Glas)
-  int32_t scale;        // Promille, um die Glasmitte (Aufploppen, Schrumpfen)
-  int32_t k;            // Promille: Basis-Einheiten -> Pixel, inkl. scale
+  int32_t gw;               // Breite oben in Pixeln (volles Glas)
+  int32_t k;                // Promille: Basis-Einheiten -> Pixel, inkl. Skalierung
+  int16_t stroke;
   GPoint c;
 } s_g;
+
+static void prv_set_metrics(GPoint c, int32_t gw, int32_t scale) {
+  s_g.c = c;
+  s_g.gw = gw;
+  s_g.k = scale * gw / BASE_W;
+  s_g.stroke = (int16_t)((gw / 20) | 1);
+}
 
 static GPoint prv_gp(int32_t x, int32_t y) {
   return GPoint(s_g.c.x + (int16_t)(x * s_g.k / 1000),
                 s_g.c.y + (int16_t)(y * s_g.k / 1000));
 }
 
+// Jeder Strich wird zweimal gezogen: erst der breite weisse Saum, dann
+// schwarz darueber. So bleibt er auch auf dem Wasser lesbar.
+static void prv_pen(GContext *ctx, bool halo) {
+  graphics_context_set_stroke_color(ctx, halo ? GColorWhite : GColorBlack);
+  graphics_context_set_stroke_width(ctx, halo ? s_g.stroke + 2 : s_g.stroke);
+}
+
 static void prv_line(GContext *ctx, GPoint a, GPoint b) {
-  graphics_context_set_stroke_color(ctx, GColorWhite);
-  graphics_context_set_stroke_width(ctx, HALO);
+  prv_pen(ctx, true);
   graphics_draw_line(ctx, a, b);
-  graphics_context_set_stroke_color(ctx, GColorBlack);
-  graphics_context_set_stroke_width(ctx, STROKE);
+  prv_pen(ctx, false);
   graphics_draw_line(ctx, a, b);
 }
 
-// Offene Polylinie in einem Zug (erst Saum, dann Strich), damit am Knick
-// keine Naht entsteht
+// Offene Polylinie in einem Zug, damit am Knick keine Naht entsteht
 static void prv_polyline(GContext *ctx, GPoint *points, uint32_t n) {
   const GPathInfo info = { .num_points = n, .points = points };
   GPath *path = gpath_create(&info);
   if (!path) return;
-  graphics_context_set_stroke_color(ctx, GColorWhite);
-  graphics_context_set_stroke_width(ctx, HALO);
+  prv_pen(ctx, true);
   gpath_draw_outline_open(ctx, path);
-  graphics_context_set_stroke_color(ctx, GColorBlack);
-  graphics_context_set_stroke_width(ctx, STROKE);
+  prv_pen(ctx, false);
   gpath_draw_outline_open(ctx, path);
   gpath_destroy(path);
 }
@@ -110,12 +102,13 @@ static void prv_face(GContext *ctx, Face face) {
     }
   }
   if (face == FaceGulp) {
+    // offener Mund: gefuellter Kreis mit Rand, kein Saum noetig
     const GPoint m = prv_gp(-4, fy + 9);
     const int16_t r = (int16_t)(4 * s_g.k / 1000);
     graphics_context_set_fill_color(ctx, GColorWhite);
     graphics_fill_circle(ctx, m, r);
     graphics_context_set_stroke_color(ctx, GColorBlack);
-    graphics_context_set_stroke_width(ctx, STROKE);
+    graphics_context_set_stroke_width(ctx, s_g.stroke);
     graphics_draw_circle(ctx, m, r);
   } else {
     GPoint mouth[3] = { prv_gp(-15, fy + 7), prv_gp(-4, fy + 10), prv_gp(8, fy + 7) };
@@ -126,34 +119,30 @@ static void prv_face(GContext *ctx, Face face) {
 static void prv_draw_glass(GContext *ctx, int32_t level, Face face) {
   // Basis-Einheiten: 72 breit oben, 54 am Boden, 80 hoch
   const int32_t hw_top = 36, hw_bot = 27, hh = 40;
-  s_glass_pts[0] = prv_gp(-hw_top, -hh);
-  s_glass_pts[1] = prv_gp(-hw_bot, hh);
-  s_glass_pts[2] = prv_gp(hw_bot, hh);
-  s_glass_pts[3] = prv_gp(hw_top, -hh);
-  GPath *glass = gpath_create(&s_glass_info);
+  // Trapez um den Ursprung: links oben, links unten, rechts unten, rechts oben
+  GPoint gp[4] = { prv_gp(-hw_top, -hh), prv_gp(-hw_bot, hh),
+                   prv_gp(hw_bot, hh), prv_gp(hw_top, -hh) };
+  const GPathInfo ginfo = { .num_points = 4, .points = gp };
+  GPath *glass = gpath_create(&ginfo);
   if (!glass) return;
   graphics_context_set_fill_color(ctx, GColorWhite);
   gpath_draw_filled(ctx, glass);
   if (level > 0) {
     const int32_t wy = hh - 2 * hh * level / 1000;
     const int32_t whw = hw_bot + (hw_top - hw_bot) * level / 1000;
-    s_water_pts[0] = prv_gp(-hw_bot, hh);
-    s_water_pts[1] = prv_gp(hw_bot, hh);
-    s_water_pts[2] = prv_gp(whw, wy);
-    s_water_pts[3] = prv_gp(-whw, wy);
-    GPath *water = gpath_create(&s_water_info);
+    GPoint wp[4] = { prv_gp(-hw_bot, hh), prv_gp(hw_bot, hh),
+                     prv_gp(whw, wy), prv_gp(-whw, wy) };
+    const GPathInfo winfo = { .num_points = 4, .points = wp };
+    GPath *water = gpath_create(&winfo);
     if (water) {
       graphics_context_set_fill_color(ctx, DT_COLOR_FX_WATER);
       gpath_draw_filled(ctx, water);
       gpath_destroy(water);
     }
   }
-  // Rahmen rundum: weisser Saum, dann schwarz
-  graphics_context_set_stroke_color(ctx, GColorWhite);
-  graphics_context_set_stroke_width(ctx, HALO);
+  prv_pen(ctx, true);                                  // Rahmen rundum
   gpath_draw_outline(ctx, glass);
-  graphics_context_set_stroke_color(ctx, GColorBlack);
-  graphics_context_set_stroke_width(ctx, STROKE);
+  prv_pen(ctx, false);
   gpath_draw_outline(ctx, glass);
   gpath_destroy(glass);
   prv_face(ctx, face);
@@ -176,44 +165,47 @@ static void prv_draw_burst(GContext *ctx, int32_t u) {
   }
   const int32_t ro = 2 + (s_g.gw * 20 / 100) * (1000 - u) / 1000;
   const int32_t ri = 1 + (s_g.gw * 7 / 100) * (1000 - u) / 1000;
+  GPoint sp[8];
   for (int i = 0; i < 8; i++) {
     const int32_t r = (i % 2) ? ri : ro;
     const int32_t a = -TRIG_MAX_ANGLE / 4 + i * TRIG_MAX_ANGLE / 8;
-    s_star_pts[i] = GPoint(s_g.c.x + r * cos_lookup(a) / TRIG_MAX_RATIO,
-                           s_g.c.y + r * sin_lookup(a) / TRIG_MAX_RATIO);
+    sp[i] = GPoint(s_g.c.x + r * cos_lookup(a) / TRIG_MAX_RATIO,
+                   s_g.c.y + r * sin_lookup(a) / TRIG_MAX_RATIO);
   }
-  GPath *star = gpath_create(&s_star_info);
+  const GPathInfo sinfo = { .num_points = 8, .points = sp };
+  GPath *star = gpath_create(&sinfo);
   if (!star) return;
   graphics_context_set_fill_color(ctx, GColorWhite);
   gpath_draw_filled(ctx, star);
   graphics_context_set_stroke_color(ctx, GColorBlack);
-  graphics_context_set_stroke_width(ctx, STROKE > 3 ? 2 : 1);
+  graphics_context_set_stroke_width(ctx, s_g.stroke > 3 ? 2 : 1);
   gpath_draw_outline(ctx, star);
   gpath_destroy(star);
 }
 
+// smoothstep, Ein- und Ausgabe in Promille
+static int32_t prv_smooth(int32_t f) {
+  return f * f * (3000 - 2 * f) / 1000000;
+}
+
 static void prv_draw(Layer *layer, GContext *ctx) {
-  s_g.c = s_anchor;
-  s_g.gw = s_width;
-  s_g.scale = 1000;
-  s_stroke = (int16_t)((s_g.gw / 20) | 1);
-  s_halo = s_stroke + 2;
+  GPoint c = s_anchor;
+  int32_t scale = 1000;
   if (s_p >= HOLD_END && s_p < DRINK_END) {
     // Schuetteln nur waehrend der Pegel faellt
     const int32_t ms = (s_p - HOLD_END) * FX_MS / 1000;
-    s_g.c.x += ((ms / SHAKE_MS) % 2) ? SHAKE_PX : -SHAKE_PX;
+    c.x += ((ms / SHAKE_MS) % 2) ? SHAKE_PX : -SHAKE_PX;
   }
-
   if (s_p < POP_END) {
     // Aufploppen mit Ueberschwingen: 0 -> 1150 -> 1000
     const int32_t t = s_p * 1000 / POP_END;
-    s_g.scale = t < 600 ? 1150 * prv_smooth(t * 1000 / 600) / 1000
-                        : 1150 - 150 * (t - 600) / 400;
+    scale = t < 600 ? 1150 * prv_smooth(t * 1000 / 600) / 1000
+                    : 1150 - 150 * (t - 600) / 400;
   } else if (s_p >= SMILE_END && s_p < SHRINK_END) {
     const int32_t t = (s_p - SMILE_END) * 1000 / (SHRINK_END - SMILE_END);
-    s_g.scale = 1000 - t * t / 1000;                                    // beschleunigt
+    scale = 1000 - t * t / 1000;                                    // beschleunigt
   }
-  s_g.k = s_g.scale * s_g.gw / BASE_W;
+  prv_set_metrics(c, s_width, scale);
 
   if (s_p < HOLD_END) {
     prv_draw_glass(ctx, 1000, FaceSmile);
@@ -221,22 +213,16 @@ static void prv_draw(Layer *layer, GContext *ctx) {
     // gleichmaessig leeren
     const int32_t t = (s_p - HOLD_END) * 1000 / (DRINK_END - HOLD_END);
     prv_draw_glass(ctx, 1000 - t, FaceGulp);
-  } else if (s_p < SMILE_END) {
-    prv_draw_glass(ctx, 0, FaceSmile);
   } else if (s_p < SHRINK_END) {
-    if (s_g.scale > 60) prv_draw_glass(ctx, 0, FaceSmile);
+    // leer, ab SMILE_END schrumpfend; das letzte Zwergenglas sparen wir uns
+    if (scale > 60) prv_draw_glass(ctx, 0, FaceSmile);
   } else {
     prv_draw_burst(ctx, (s_p - SHRINK_END) * 1000 / (1000 - SHRINK_END));
   }
 }
 
 void glass_fx_draw_still(GContext *ctx, GPoint center, int16_t width, int32_t level_permille) {
-  s_g.c = center;
-  s_g.gw = width;
-  s_g.scale = 1000;
-  s_g.k = s_g.scale * s_g.gw / BASE_W;
-  s_stroke = (int16_t)((s_g.gw / 20) | 1);
-  s_halo = s_stroke + 2;
+  prv_set_metrics(center, width, 1000);
   prv_draw_glass(ctx, level_permille, FaceSmile);
 }
 
@@ -272,10 +258,6 @@ void glass_fx_deinit(void) {
   }
   layer_destroy(s_layer);
   s_layer = NULL;
-}
-
-bool glass_fx_is_playing(void) {
-  return s_anim != NULL;
 }
 
 void glass_fx_play(GPoint anchor, int16_t width, GlassFxDone done) {

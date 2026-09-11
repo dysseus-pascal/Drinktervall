@@ -3,15 +3,16 @@
 #include "config.h"
 #include "theme.h"
 #include "glass_fx.h"
+#include "drink_window.h"
 #include "schedule.h"
-#include "main_window.h"
 #include "phone.h"
 
 // Erinnerung im Stil eines Timeline-Pin-Details: Kopfband mit Glas und Zeit,
 // schwarze Linie, weisse Karte mit dem Aufruf, rechts die schwarze
-// Aktionsleiste mit Haekchen (Getrunken) und Uhr (Spaeter).
-// Bleibt stehen, bis eine Taste gedrueckt wird:
-//   Mitte   Getrunken: zaehlt +1, zurueck zum Hauptscreen (Trink-Animation)
+// Aktionsleiste mit Haekchen (Getrunken) und Zz (Spaeter).
+// Bleibt stehen, bis eine Taste gedrueckt wird; alle drei Wege halten die
+// Unterbrechung kurz:
+//   Mitte   Getrunken: zaehlt +1, zeigt die Trink-Animation, App beendet sich
 //   Unten   Spaeter: in DT_SNOOZE_MIN Minuten nochmals, App beendet sich
 //   Zurueck schliesst ohne zu zaehlen (Glas verpasst); nach einem
 //           Wakeup-Start beendet sich die App, sonst zurueck zum Hauptscreen
@@ -83,24 +84,22 @@ static void prv_cancel_vibes(void) {
   }
 }
 
-static void prv_close(bool dismissed) {
-  prv_cancel_vibes();
-  window_stack_remove(s_window, true);
-  main_window_refresh();
-  drinktervall_reminder_closed(dismissed);
-}
-
 static void prv_vibe(void *data) {
   s_vibe_timer = NULL;
   vibes_double_pulse();
   if (--s_vibes_left > 0) s_vibe_timer = app_timer_register(VIBE_INTERVAL_MS, prv_vibe, NULL);
 }
 
+// Getrunken: zaehlen, die Trink-Animation als kurze Rueckmeldung zeigen und
+// danach die App verlassen. Das Trink-Fenster kommt ueber die Erinnerung,
+// die darunter weggenommen wird - so bleibt nach der Animation nichts stehen.
 static void prv_select(ClickRecognizerRef recognizer, void *context) {
   if (schedule_count() < schedule_goal()) schedule_set_count(schedule_count() + 1);
   vibes_short_pulse();
   phone_send_next();
-  prv_close(false);
+  prv_cancel_vibes();
+  drink_window_push(true);
+  window_stack_remove(s_window, false);
 }
 
 // Spaeter: in DT_SNOOZE_MIN Minuten nochmals erinnern und die App sofort
@@ -111,8 +110,11 @@ static void prv_down(ClickRecognizerRef recognizer, void *context) {
   window_stack_pop_all(false);
 }
 
+// Zurueck: schliessen, ohne zu zaehlen - das Glas gilt als verpasst
 static void prv_back(ClickRecognizerRef recognizer, void *context) {
-  prv_close(true);
+  prv_cancel_vibes();
+  window_stack_remove(s_window, true);
+  drinktervall_reminder_closed();
 }
 
 static void prv_click_config(void *context) {

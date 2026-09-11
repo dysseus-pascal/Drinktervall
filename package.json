@@ -1,7 +1,7 @@
 {
   "name": "drinktervall",
   "author": "dysseus-pascal",
-  "version": "1.4.0",
+  "version": "1.5.0",
   "keywords": ["pebble-app"],
   "private": true,
   "dependencies": {},

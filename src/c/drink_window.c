@@ -7,10 +7,16 @@
 
 static Window *s_window;
 static AppTimer *s_close_timer;
+static bool s_quit_after;
 
 static void prv_close(void *data) {
   s_close_timer = NULL;
-  if (s_window) window_stack_remove(s_window, true);
+  if (!s_window) return;
+  if (s_quit_after) {
+    window_stack_pop_all(false);      // App verlassen, Watch zeigt das Zifferblatt
+  } else {
+    window_stack_remove(s_window, true);
+  }
 }
 
 static void prv_done(void) {
@@ -18,8 +24,7 @@ static void prv_done(void) {
 }
 
 static void prv_load(Window *window) {
-  Layer *root = window_get_root_layer(window);
-  glass_fx_init(root);
+  glass_fx_init(window_get_root_layer(window));
 }
 
 static void prv_appear(Window *window) {
@@ -37,8 +42,9 @@ static void prv_unload(Window *window) {
   s_window = NULL;
 }
 
-void drink_window_push(void) {
+void drink_window_push(bool quit_after) {
   if (s_window) return;
+  s_quit_after = quit_after;
   s_window = window_create();
   window_set_background_color(s_window, DT_COLOR_FX_BG);
   window_set_window_handlers(s_window, (WindowHandlers) {

@@ -3,6 +3,8 @@
 
 #define MAX_WAKEUPS 8
 #define LEAD_S      30   // Wakeups muessen etwas in der Zukunft liegen
+// Cookie der "Spaeter"-Erinnerung; regulaere Slots tragen 0..DT_GLASSES-1
+#define COOKIE_SNOOZE 100
 
 static int s_count;
 static int s_goal = DT_GLASSES;
@@ -13,18 +15,16 @@ static int32_t prv_day_key(time_t t) {
 }
 
 void schedule_init(void) {
-  time_t now = time(NULL);
-  int32_t today = prv_day_key(now);
-  int32_t stored_day = persist_exists(DT_PERSIST_DAY) ? persist_read_int(DT_PERSIST_DAY) : 0;
-  s_count = (stored_day == today && persist_exists(DT_PERSIST_COUNT))
-      ? persist_read_int(DT_PERSIST_COUNT) : 0;
-  s_goal = (stored_day == today && persist_exists(DT_PERSIST_GOAL))
-      ? persist_read_int(DT_PERSIST_GOAL) : DT_GLASSES;
+  const int32_t today = prv_day_key(time(NULL));
+  // Ein fehlender Schluessel liest als 0 und ist damit nie ein JJJJMMTT-Datum.
+  const bool same_day = persist_read_int(DT_PERSIST_DAY) == today;
+  s_goal = same_day ? persist_read_int(DT_PERSIST_GOAL) : DT_GLASSES;
+  s_count = same_day ? persist_read_int(DT_PERSIST_COUNT) : 0;
   if (s_goal < DT_GLASSES) s_goal = DT_GLASSES;
   if (s_goal > DT_GOAL_MAX) s_goal = DT_GOAL_MAX;
   if (s_count < 0) s_count = 0;
   if (s_count > s_goal) s_count = s_goal;
-  if (stored_day != today) {
+  if (!same_day) {
     persist_write_int(DT_PERSIST_DAY, today);
     persist_write_int(DT_PERSIST_COUNT, 0);
     persist_write_int(DT_PERSIST_GOAL, DT_GLASSES);
@@ -71,13 +71,10 @@ static int prv_jitter_min(time_t midnight, int idx) {
 }
 
 time_t schedule_slot(time_t midnight, int idx) {
-  const int minutes = DT_START_HOUR * 60 + idx * DT_INTERVAL_MIN + prv_jitter_min(midnight, idx);
-  time_t t = midnight + (time_t)minutes * 60;
-  const time_t lo = midnight + (time_t)DT_START_HOUR * 3600;
-  const time_t hi = midnight + (time_t)DT_END_HOUR * 3600;
-  if (t < lo) t = lo;
-  if (t > hi) t = hi;
-  return t;
+  int minutes = DT_START_HOUR * 60 + idx * DT_INTERVAL_MIN + prv_jitter_min(midnight, idx);
+  if (minutes < DT_START_HOUR * 60) minutes = DT_START_HOUR * 60;
+  if (minutes > DT_END_HOUR * 60) minutes = DT_END_HOUR * 60;
+  return midnight + (time_t)minutes * 60;
 }
 
 int schedule_next(time_t now, time_t *when) {
@@ -95,7 +92,10 @@ int schedule_next(time_t now, time_t *when) {
   return 0;
 }
 
-// Bei E_RANGE (fremdes Wakeup in der Minute) um je 2 Minuten verschieben.
+// Wakeups brauchen eine Minute Abstand zu jedem anderen geplanten Wakeup, auch
+// zu unserem eigenen Snooze. Bei E_RANGE deshalb bis zu zweimal um je zwei
+// Minuten nach hinten schieben; die Erinnerung kann so bis zu vier Minuten
+// spaeter kommen.
 static bool prv_schedule(time_t t, int32_t cookie) {
   for (int attempt = 0; attempt < 3; attempt++) {
     WakeupId id = wakeup_schedule(t + attempt * 120, cookie, true);
@@ -109,7 +109,7 @@ void schedule_plan_wakeups(time_t snooze_until) {
   time_t now = time(NULL);
   wakeup_cancel_all();
   int n = 0;
-  if (snooze_until > now + LEAD_S && prv_schedule(snooze_until, SCHEDULE_COOKIE_SNOOZE)) n++;
+  if (snooze_until > now + LEAD_S && prv_schedule(snooze_until, COOKIE_SNOOZE)) n++;
 #ifdef DT_TEST_WAKEUP
   // Nur fuer Emulator-Tests: Erinnerung eine Minute nach dem Start.
   if (prv_schedule(now + 60, 0)) n++;
@@ -125,8 +125,9 @@ void schedule_plan_wakeups(time_t snooze_until) {
 }
 
 void schedule_format_time(time_t t, char *buf, size_t len) {
+  const bool h24 = clock_is_24h_style();
   struct tm *lt = localtime(&t);
-  strftime(buf, len, clock_is_24h_style() ? "%H:%M" : "%I:%M", lt);
+  strftime(buf, len, h24 ? "%H:%M" : "%I:%M", lt);
   // 12-Stunden-Format ohne fuehrende Null
-  if (!clock_is_24h_style() && buf[0] == '0') memmove(buf, buf + 1, strlen(buf));
+  if (!h24 && buf[0] == '0') memmove(buf, buf + 1, strlen(buf));
 }

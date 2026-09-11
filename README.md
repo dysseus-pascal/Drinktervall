@@ -46,20 +46,20 @@ Taste für den laufenden Tag erhöhen.
 |        | weisse Pfeilkerbe am gewählten Eintrag |
 | Mitte  | Glas getrunken: ein Vollbild-Fenster zeigt ein Glas mit Gesicht,
 |        | das aufploppt, sich leert, ins Zentrum schrumpft und in einem
-|        | Strahlenkranz zerplatzt; danach steigen Zähler und Pegel |
+|        | Strahlenkranz zerplatzt; danach steigen Zähler und Pegel. Vom
+|        | Hauptscreen aus bleibt die App danach offen |
 | Unten  | Tagesziel um ein Glas erhöhen (nur heute, morgen wieder 8), damit
 |        | sich über das Ziel hinaus weiter loggen lässt |
 
 **Erinnerung** - wie ein Pin-Detail der Timeline: hellblaues Kopfband mit dem
 Glas aus der Trink-Animation und der Uhrzeit in LECO, schwarze Linie, weisse
 Karte mit dem Aufruf, rechts die schwarze Aktionsleiste mit Häkchen
-(Getrunken) und Zz (Später). Erscheint zur geplanten Zeit von selbst (Wakeup),
-vibriert
-dreimal im Abstand von 20 s und bleibt stehen, bis eine Taste gedrückt wird.
+(Getrunken) und Zz (Später). Erscheint zur geplanten Zeit von selbst (Wakeup), vibriert dreimal im Abstand von 20 s und bleibt stehen, bis eine Taste gedrückt wird.
 
 | Taste  | Aktion                                  |
 |--------|-----------------------------------------|
-| Mitte  | Getrunken: Zähler +1                    |
+| Mitte  | Getrunken: Zähler +1, kurze Trink-Animation, dann schliesst sich
+|        | die App - die Unterbrechung bleibt so kurz wie möglich |
 | Unten  | Später: in 10 Minuten nochmals erinnern, die App schliesst sich sofort |
 | Zurück | Schliessen ohne zu zählen, das Glas gilt als verpasst; nach einem
 |        | Wakeup-Start beendet sich die App, sonst zurück zum Hauptscreen |

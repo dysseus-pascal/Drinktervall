@@ -10,18 +10,19 @@ void phone_send_next(void) {
   DictionaryIterator *out;
   if (app_message_outbox_begin(&out) != APP_MSG_OK) return;
   const time_t now = time(NULL);
+  const int count = schedule_count();
   time_t next;
   const int idx = schedule_next(now, &next);
   dict_write_int32(out, MESSAGE_KEY_GLASSES, schedule_goal());
-  dict_write_int32(out, MESSAGE_KEY_COUNT, schedule_count());
+  dict_write_int32(out, MESSAGE_KEY_COUNT, count);
   dict_write_int32(out, MESSAGE_KEY_NEXT_TIME, (int32_t)next);
   dict_write_int32(out, MESSAGE_KEY_NEXT_INDEX, idx);
 
-  // Heutige Slots: je 4 Byte Zeit (little endian) + 1 Byte Status. Die
-  // ersten `count` Slots gelten als getrunken, vergangene darueber als verpasst.
+  // Heutige Slots: je 4 Byte Zeit (little endian) + 1 Byte Status. Zukuenftige
+  // Slots sind SlotFuture; von den vergangenen gelten die ersten `count` als
+  // getrunken, der Rest als verpasst.
   uint8_t slots[DT_GLASSES * 5];
   const time_t midnight = schedule_midnight(now);
-  const int count = schedule_count();
   for (int i = 0; i < DT_GLASSES; i++) {
     const uint32_t t = (uint32_t)schedule_slot(midnight, i);
     slots[i * 5 + 0] = (uint8_t)(t & 0xFF);

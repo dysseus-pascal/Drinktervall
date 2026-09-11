@@ -1,5 +1,4 @@
 #include "main_window.h"
-#include "config.h"
 #include "theme.h"
 #include "drink_window.h"
 #include "glass_fx.h"
@@ -12,10 +11,10 @@
 // (getrunkene Glaeser / Tagesziel) steigt als hellblaues Band ueber den
 // Inhalt; s_water ist dieses Band, s_canvas zeichnet Text und Leiste darueber.
 //
-// Ein neues Glas (mittlere Taste, "Getrunken" im Erinnerungs-Screen) oeffnet
-// zuerst das Vollbild-Fenster mit der Trink-Animation (drink_window); wenn es
-// sich schliesst, steigen Zaehler und Pegel. s_shown_count ist der angezeigte
-// Stand, schedule_count() der echte.
+// Ein neues Glas (mittlere Taste) oeffnet zuerst das Vollbild-Fenster mit der
+// Trink-Animation (drink_window); wenn es sich schliesst, ziehen Anzeige und
+// Pegel nach. s_shown_count ist der angezeigte Stand, schedule_count() der
+// echte - der steigt schon beim Tastendruck, also bevor die Animation laeuft.
 
 #define FILL_ANIM_MS 350
 
@@ -24,6 +23,7 @@ static Layer *s_canvas;
 static Layer *s_water;
 static PropertyAnimation *s_anim;
 static int s_shown_count;
+static int s_fx_count = -1;   // Zaehlerstand, fuer den das Trink-Fenster schon lief
 
 static GRect prv_water_frame(GRect full) {
   const int16_t h = (int16_t)((int32_t)full.size.h * s_shown_count / schedule_goal());
@@ -32,7 +32,7 @@ static GRect prv_water_frame(GRect full) {
 
 static void prv_canvas_update(Layer *layer, GContext *ctx) {
   const GRect b = layer_get_bounds(layer);
-  const bool wide = b.size.w >= 180;
+  const bool wide = PBL_DISPLAY_WIDTH >= 180;    // emery/gabbro breit, flint schmal
   const int16_t margin = PBL_IF_ROUND_ELSE(38, 9);
   const int16_t col_w = b.size.w - DT_SIDEBAR_W - margin - 4;
 
@@ -87,8 +87,9 @@ static void prv_canvas_update(Layer *layer, GContext *ctx) {
   const int16_t sx = b.size.w - DT_SIDEBAR_W;
   graphics_context_set_fill_color(ctx, DT_COLOR_SIDEBAR);
   graphics_fill_rect(ctx, GRect(sx, 0, DT_SIDEBAR_W, b.size.h), 0, GCornerNone);
-  const int16_t cx = sx + DT_SIDEBAR_W / 2 - PBL_IF_ROUND_ELSE(9, 0);   // rund: sichtbarer Teil der Leiste
-  glass_fx_draw_still(ctx, GPoint(cx, PBL_IF_ROUND_ELSE(58, 20)), 22, 700);
+  const int16_t cx = sx + DT_SIDEBAR_W / 2 - DT_SIDEBAR_GLASS_DX;
+  glass_fx_draw_still(ctx, GPoint(cx, DT_SIDEBAR_GLASS_Y),
+                      DT_SIDEBAR_GLASS_W, DT_SIDEBAR_GLASS_FILL);
   graphics_context_set_text_color(ctx, DT_COLOR_ON_SIDEBAR);
   const char *hints[3] = { "Plan", "+1", "Ziel+" };
   for (int i = 0; i < 3; i++) {
@@ -121,14 +122,10 @@ static void prv_set_level(bool animate) {
     animation_unschedule((Animation *)s_anim);
     s_anim = NULL;
   }
-  if (!animate) {
-    layer_set_frame(s_water, to);
-    layer_mark_dirty(s_canvas);
-    return;
-  }
   GRect from = layer_get_frame(s_water);
-  s_anim = property_animation_create_layer_frame(s_water, &from, &to);
+  if (animate) s_anim = property_animation_create_layer_frame(s_water, &from, &to);
   if (!s_anim) {
+    // kein Animationswunsch oder kein Speicher dafuer: direkt auf den Stand
     layer_set_frame(s_water, to);
     return;
   }
@@ -139,29 +136,21 @@ static void prv_set_level(bool animate) {
   animation_schedule(anim);
 }
 
-// Zaehlerstand, fuer den das Trink-Fenster schon lief
-static int s_fx_count = -1;
-
 // Anzeige mit dem echten Stand abgleichen. Ein neues Glas oeffnet zuerst das
-// Trink-Fenster; wenn es sich schliesst (appear), steigt der Pegel animiert.
-// Alles andere springt direkt.
-static void prv_sync(bool with_fx) {
+// Trink-Fenster; wenn es sich schliesst, steigt der Pegel animiert. Alles
+// andere springt direkt.
+static void prv_sync(void) {
   if (drink_window_is_open()) return;
   const int count = schedule_count();
-  if (with_fx && count > s_shown_count) {
-    if (s_fx_count != count) {
-      s_fx_count = count;
-      drink_window_push();
-      return;
-    }
-    s_shown_count = count;
-    layer_mark_dirty(s_canvas);
-    prv_set_level(true);
+  const bool grew = count > s_shown_count;
+  if (grew && s_fx_count != count) {
+    s_fx_count = count;
+    drink_window_push(false);
     return;
   }
   s_shown_count = count;
   layer_mark_dirty(s_canvas);
-  prv_set_level(false);
+  prv_set_level(grew);
 }
 
 static void prv_tick(struct tm *tick_time, TimeUnits units_changed) {
@@ -177,7 +166,7 @@ static void prv_select(ClickRecognizerRef recognizer, void *context) {
   schedule_set_count(schedule_count() + 1);
   vibes_short_pulse();
   phone_send_next();
-  prv_sync(true);
+  prv_sync();
 }
 
 // Tagesziel um ein Glas erhoehen, damit ueber das Maximum hinaus geloggt werden kann
@@ -208,7 +197,7 @@ static void prv_load(Window *window) {
 }
 
 static void prv_appear(Window *window) {
-  prv_sync(true);
+  prv_sync();
 }
 
 static void prv_unload(Window *window) {
@@ -234,8 +223,4 @@ void main_window_push(void) {
     .load = prv_load, .appear = prv_appear, .unload = prv_unload,
   });
   window_stack_push(s_window, true);
-}
-
-void main_window_refresh(void) {
-  if (s_canvas) prv_sync(true);
 }

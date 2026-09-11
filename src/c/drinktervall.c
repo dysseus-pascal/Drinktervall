@@ -1,12 +1,14 @@
 #include <pebble.h>
 #include "drinktervall.h"
-#include "config.h"
 #include "schedule.h"
 #include "main_window.h"
 #include "reminder_window.h"
+#include "drink_window.h"
 #include "phone.h"
 
-// Launch-Codes der Timeline-Pin-Aktionen (siehe src/pkjs/index.js)
+// Launch-Code der Timeline-Pin-Aktion "Getrunken"/"Nachholen" (siehe
+// src/pkjs/index.js). Code 2 ("App oeffnen") braucht hier keinen Fall: die
+// App startet ohnehin.
 #define LAUNCH_CODE_DRUNK 1
 
 static bool s_launched_by_wakeup;
@@ -14,7 +16,7 @@ static bool s_launched_by_wakeup;
 static void prv_wakeup_handler(WakeupId id, int32_t cookie) {
   reminder_window_push();
   schedule_plan_wakeups(0);
-  phone_send_next();   // Timeline-Pin auf die naechste Erinnerung schieben
+  phone_send_next();   // Timeline-Pins auf den neuen Stand bringen
 }
 
 static void prv_glance_reload(AppGlanceReloadSession *session, size_t limit, void *context) {
@@ -33,33 +35,26 @@ static void prv_glance_reload(AppGlanceReloadSession *session, size_t limit, voi
   app_glance_add_slice(session, slice);
 }
 
-void drinktervall_reminder_closed(bool dismissed) {
-  if (dismissed && s_launched_by_wakeup) window_stack_pop_all(false);
+void drinktervall_reminder_closed(void) {
+  if (s_launched_by_wakeup) window_stack_pop_all(false);
 }
 
 static void prv_init(void) {
   schedule_init();
   main_window_push();
 
-  switch (launch_reason()) {
-    case APP_LAUNCH_WAKEUP: {
-      WakeupId id;
-      int32_t cookie;
-      if (wakeup_get_launch_event(&id, &cookie)) {
-        s_launched_by_wakeup = true;
-        reminder_window_push();
-      }
-      break;
-    }
-    case APP_LAUNCH_TIMELINE_ACTION:
-      if (launch_get_args() == LAUNCH_CODE_DRUNK && schedule_count() < schedule_goal()) {
-        schedule_set_count(schedule_count() + 1);
-        vibes_short_pulse();
-        main_window_refresh();
-      }
-      break;
-    default:
-      break;
+  const AppLaunchReason reason = launch_reason();
+  WakeupId id;
+  int32_t cookie;
+  if (reason == APP_LAUNCH_WAKEUP && wakeup_get_launch_event(&id, &cookie)) {
+    s_launched_by_wakeup = true;
+    reminder_window_push();
+  } else if (reason == APP_LAUNCH_TIMELINE_ACTION && launch_get_args() == LAUNCH_CODE_DRUNK
+             && schedule_count() < schedule_goal()) {
+    // Aus einem Timeline-Pin: zaehlen, kurz zeigen, App wieder verlassen
+    schedule_set_count(schedule_count() + 1);
+    vibes_short_pulse();
+    drink_window_push(true);
   }
 
   wakeup_service_subscribe(prv_wakeup_handler);

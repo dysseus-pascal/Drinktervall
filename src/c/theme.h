@@ -1,49 +1,36 @@
 #pragma once
 #include <pebble.h>
 
-// Farbschema blau/weiss. Alle Farben nur hier aendern.
+// Farbschema blau/weiss im Stil der Pebble-Timeline. Alle Farben nur hier
+// aendern.
 //
-//  PRIMARY     Kopfzeile, Glas-Umriss, Tasten-Hinweise, Hintergrund des
-//              Erinnerungs-Screens. S/W: Schwarz.
-//  WATER       Wasserfuellung im Glas (auf weissem Grund). S/W: helles
-//              Grau, das auf 1-Bit-Displays als Raster erscheint.
-//  WATER_DARK  Wasserfuellung auf PRIMARY (Erinnerungs-Screen).
-//  BG          Hintergrund der normalen Screens.
-//  TEXT        Schrift auf BG.
-//  ON_PRIMARY  Schrift auf PRIMARY.
-//
-// Der Hex-Wert von PRIMARY ist in src/pkjs/index.js (backgroundColor der
-// Timeline-Pins) von Hand kopiert - dort nachziehen.
+//  BG           Hintergrund aller Screens, TEXT die Schrift darauf.
+//  SIDEBAR      Seitenleiste rechts auf Hauptscreen und Trinkplan,
+//               ON_SIDEBAR die Schrift darin.
+//  BAND         Pegelband des Hauptscreens und der "kommt noch"-Teil der
+//               Plan-Leiste. S/W: Grauraster, damit es auf Weiss sichtbar ist.
+//  LEVEL_LIGHT  Kopfband des Erinnerungs-Screens (heller Streifen wie im
+//               Detail eines Timeline-Pins).
+//  FX_BG/WATER  Vollbild der Trink-Animation: weisser Grund, hellblaues
+//               Wasser im Glas.
 //
 // Pebble-Palette (Auswahl Blau): BlueMoon #0055FF, DukeBlue #0000AA,
-// CobaltBlue #0055AA, VividCerulean #00AAFF, PictonBlue #55AAFF,
-// Celeste #AAFFFF, OxfordBlue #000055.
-#define DT_COLOR_PRIMARY     PBL_IF_COLOR_ELSE(GColorBlueMoon, GColorBlack)
-#define DT_COLOR_WATER       PBL_IF_COLOR_ELSE(GColorVividCerulean, GColorLightGray)
-#define DT_COLOR_WATER_DARK  PBL_IF_COLOR_ELSE(GColorCeleste, GColorLightGray)
-#define DT_COLOR_BG          GColorWhite
-#define DT_COLOR_TEXT        GColorBlack   // Timeline-Look: schwarze Schrift
-#define DT_COLOR_ON_PRIMARY  GColorWhite
+// VividCerulean #00AAFF, PictonBlue #55AAFF, OxfordBlue #000055.
+#define DT_COLOR_BG           GColorWhite
+#define DT_COLOR_TEXT         GColorBlack
 
-// Hauptscreen: die ganze Flaeche ist das "Glas". LEVEL_LIGHT ist der leere
-// Grund, LEVEL_DARK das Wasser, das pro getrunkenem Glas von unten steigt.
-// ON_LIGHT/ON_DARK sind die Schriftfarben darauf; die Tasten-Hinweise nutzen
-// jeweils die Gegenfarbe.
-#define DT_COLOR_LEVEL_LIGHT PBL_IF_COLOR_ELSE(GColorPictonBlue, GColorWhite)
-#define DT_COLOR_LEVEL_DARK  PBL_IF_COLOR_ELSE(GColorDukeBlue, GColorBlack)
-#define DT_COLOR_ON_LIGHT    PBL_IF_COLOR_ELSE(GColorOxfordBlue, GColorBlack)
-#define DT_COLOR_ON_DARK     GColorWhite
-
-// Trink-Animation (Vollbild): weisser Grund, hellblaues Wasser im Glas.
-// S/W: graues (gerastertes) Wasser im weissen Glas.
-#define DT_COLOR_FX_BG       GColorWhite
-#define DT_COLOR_FX_WATER    PBL_IF_COLOR_ELSE(GColorPictonBlue, GColorLightGray)
-
-// Timeline-Look: dunkle Seitenleiste rechts (Breite wie in der Timeline),
-// schwarze Schrift auf Weiss und auf dem hellblauen Pegelband.
 #define DT_SIDEBAR_W          PBL_IF_ROUND_ELSE(51, (PBL_DISPLAY_WIDTH >= 180 ? 34 : 30))
 #define DT_COLOR_SIDEBAR      PBL_IF_COLOR_ELSE(GColorDukeBlue, GColorBlack)
 #define DT_COLOR_ON_SIDEBAR   GColorWhite
-// Pegelband des Hauptscreens und "kommt noch"-Teil der Plan-Leiste: auf
-// S/W ein Grauraster, damit es auf Weiss sichtbar bleibt.
+
+// Glas-Symbol oben in der Seitenleiste: Hauptscreen und Trinkplan zeichnen es
+// an derselben Stelle in derselben Groesse.
+#define DT_SIDEBAR_GLASS_DX   PBL_IF_ROUND_ELSE(9, 0)   // rund: sichtbarer Teil der Leiste
+#define DT_SIDEBAR_GLASS_Y    PBL_IF_ROUND_ELSE(58, 20)
+#define DT_SIDEBAR_GLASS_W    22
+#define DT_SIDEBAR_GLASS_FILL 700
+
 #define DT_COLOR_BAND         PBL_IF_COLOR_ELSE(GColorPictonBlue, GColorLightGray)
+#define DT_COLOR_LEVEL_LIGHT  PBL_IF_COLOR_ELSE(GColorPictonBlue, GColorWhite)
+#define DT_COLOR_FX_BG        GColorWhite
+#define DT_COLOR_FX_WATER     PBL_IF_COLOR_ELSE(GColorPictonBlue, GColorLightGray)

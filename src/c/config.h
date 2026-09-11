@@ -1,8 +1,10 @@
 #pragma once
 
-// Trinkplan: DT_GLASSES Erinnerungen, gleichmaessig ab DT_START_HOUR bis
-// DT_END_HOUR. Mit 8 Glaesern von 8 bis 20 Uhr ergibt das alle 90 Minuten:
-// 08:00, 09:30, 11:00, 12:30, 14:00, 15:30, 17:00, 18:30.
+// Trinkplan: DT_GLASSES Erinnerungen im Abstand DT_INTERVAL_MIN ab
+// DT_START_HOUR. Mit 8 Glaesern von 8 bis 20 Uhr ergibt das alle 90 Minuten
+// das Grundraster 08:00, 09:30, 11:00, 12:30, 14:00, 15:30, 17:00, 18:30 -
+// jeder Slot wird davon aber noch um bis zu DT_JITTER_MIN Minuten verschoben,
+// diese Zeiten erscheinen also so gut wie nie genau so.
 //
 // DT_GLASSES darf 8 nicht ueberschreiten: Pebble erlaubt pro App hoechstens
 // 8 geplante Wakeup-Events (siehe schedule.c).
@@ -20,7 +22,7 @@
 #define DT_SNOOZE_MIN    10
 
 // Persist-Schluessel
-#define DT_PERSIST_DAY    1   // Tag (JJJJMMTT), zu dem DT_PERSIST_COUNT gehoert
+#define DT_PERSIST_DAY    1   // Tag (JJJJMMTT), zu dem COUNT und GOAL gehoeren
 #define DT_PERSIST_COUNT  2   // heute getrunkene Glaeser
 #define DT_PERSIST_GOAL   3   // heutiges Tagesziel (Glaeser), morgen wieder DT_GLASSES
 
