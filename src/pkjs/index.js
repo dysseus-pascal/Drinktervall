@@ -15,6 +15,10 @@ var PIN_COLOR = '#0055FF';                // Hintergrund der Pins (Pebble BlueMo
 var STORE_KEY = 'drinktervall_pins_v2';   // id -> { sig, sentAt }, dazu legacyDeleted
 var RESEND_AFTER_MS = 12 * 3600 * 1000;   // unveraenderten Pin nach 12 h erneut senden
 var FORGET_AFTER_MS = 3 * 86400 * 1000;   // alte Eintraege vergessen
+// Steckt in der Signatur jedes Pins: bei JEDER Aenderung am Aussehen (Symbol,
+// Titel, Text, Aktionen) erhoehen. Sonst bleiben schon gesendete Pins auf ihrem
+// alten Stand stehen - ihr Zustand hat sich ja nicht geaendert.
+var LOOK_VERSION = 2;
 // Einzel-Pin der Versionen 1.1.0 (aquatakt-next) und 1.1.1 (drinktervall-next).
 // Die Tages-Pins aquatakt-JJJJMMTT-n aus 1.0.x stehen bewusst nicht hier: sie
 // liegen in der Vergangenheit und werden nicht mehr aufgeraeumt.
@@ -25,14 +29,24 @@ var LAUNCH_CODE_OPEN = 2;
 var SLOT_DRUNK = 2, SLOT_MISSED = 3;
 
 // Aussehen je Zustand; %n = Glasnummer, %g = Tagesziel. Fehlt `body` bzw.
-// `action`, bekommt der Pin keinen Text bzw. keine Trink-Aktion. Getrunkene
-// und kommende Glaeser tragen unser eigenes Symbol - leer bzw. voll -, das
-// package.json unter publishedMedia als GLASS_DRUNK und GLASS_FULL
-// veroeffentlicht. Verpasste behalten das Warndreieck, damit sie sich
-// unterscheiden.
+// `action`, bekommt der Pin keinen Text bzw. keine Trink-Aktion.
+//
+// ZUM SYMBOL: nur die Namen aus dem System-Satz funktionieren. Die Telefon-App
+// von Core Devices faengt den Timeline-Aufruf selbst ab und setzt das Symbol
+// ueber eine feste Tabelle, die ausschliesslich "system://images/..." kennt
+// (RemoteTimelineEmulator.kt / TimelineIcon.kt). Ein unbekannter Name wird
+// stillschweigend weggelassen, und die Uhr zeichnet dann ihr Standardsymbol
+// fuer genericPin - die Flagge. Unsere eigenen Glaeser liegen als
+// publishedMedia GLASS_DRUNK und GLASS_FULL bereit und werden von der Uhr auch
+// aufgeloest (im Emulator belegt), aber die Telefon-App reicht sie nicht durch:
+// github.com/coredevices/mobileapp Issue 275. Sobald das behoben ist, genuegt
+// hier "app://images/GLASS_FULL" bzw. "...GLASS_DRUNK" und ein erhoehtes
+// LOOK_VERSION.
+// NOTIFICATION_REMINDER ist eine Hand mit Trinkglas und damit das einzige
+// System-Symbol, das zur App passt; verpasste Glaeser tragen das Warndreieck.
 var PIN_LOOK = {
-  next:   { title: 'Glas Wasser %n von %g', body: 'Zeit für ein Glas Wasser.', icon: 'app://images/GLASS_FULL', action: 'Getrunken' },
-  drunk:  { title: 'Glas %n getrunken', icon: 'app://images/GLASS_DRUNK' },
+  next:   { title: 'Glas Wasser %n von %g', body: 'Zeit für ein Glas Wasser.', icon: 'system://images/NOTIFICATION_REMINDER', action: 'Getrunken' },
+  drunk:  { title: 'Glas %n getrunken', icon: 'system://images/NOTIFICATION_REMINDER' },
   missed: { title: 'Glas %n verpasst', body: 'Nachholen? Die App zählt das Glas.', icon: 'system://images/GENERIC_WARNING', action: 'Nachholen' }
 };
 
@@ -148,7 +162,7 @@ function pushState(msg) {
   var queue = [], wanted = 0;
   function want(epoch, state, index) {
     wanted += 1;
-    var id = pinId(epoch, index), sig = state + ':' + epoch + ':' + goal;
+    var id = pinId(epoch, index), sig = state + ':' + epoch + ':' + goal + ':v' + LOOK_VERSION;
     var had = store[id];
     if (had && had.sig === sig && now - had.sentAt < RESEND_AFTER_MS) return;
     queue.push({ pin: buildPin(id, epoch, state, index, goal), sig: sig });

@@ -24,11 +24,17 @@ Pin pro Erinnerung in der Timeline. Farbschema blau/weiss.
 |---|---|---|---|---|
 | ![Start](screenshots/gabbro/01-start.png) | ![Hauptscreen](screenshots/gabbro/02-hauptscreen.png) | ![Trinkplan](screenshots/gabbro/03-trinkplan.png) | ![Trinken](screenshots/gabbro/04-trinken.png) | ![Erinnerung](screenshots/gabbro/05-erinnerung.png) |
 
-Die Glas-Symbole der Timeline sind keine Systemgrafiken, sondern eigene
-Ressourcen: `tools/make_glass_icon.py <ordner>` zeichnet sie leer und voll in
-25, 50 und 80 Pixeln, `package.json` veröffentlicht sie unter `publishedMedia`
-als `GLASS_DRUNK` und `GLASS_FULL`, und die Pins verweisen mit
-`app://images/...` darauf.
+**Eigenes Pin-Symbol geht zurzeit nicht.** Die App bringt ihr Glas als
+Timeline-Ressource mit (`tools/make_glass_icon.py` zeichnet es leer und voll in
+25, 50 und 80 Pixeln, `package.json` veröffentlicht es unter `publishedMedia`
+als `GLASS_DRUNK` und `GLASS_FULL`). Die Uhr löst das auch auf, im Emulator
+nachgewiesen. Die Telefon-App von Core Devices fängt den Timeline-Aufruf aber
+selbst ab und kennt nur Namen aus dem System-Satz; einen unbekannten Namen lässt
+sie stillschweigend weg, worauf die Uhr ihr Standardsymbol für `genericPin`
+zeichnet, eine Flagge. Nachzulesen in `RemoteTimelineEmulator.kt` und
+`TimelineIcon.kt`, offener Fehlerbericht: coredevices/mobileapp Issue 275.
+Deshalb stehen in `src/pkjs/index.js` vorerst System-Symbole; die Ressourcen
+bleiben liegen, ein Namenswechsel plus erhöhtes `LOOK_VERSION` genügt später.
 
 Erzeugt mit `tools/screenshots.sh <plattform> <projektordner>` (Emulator; Trinken und
 Erinnerung stammen aus einem Testbuild mit Zeitlupe und Wakeup nach 60 s).
@@ -91,9 +97,8 @@ In der Zukunft steht genau ein Pin für die nächste Erinnerung mit den Aktionen
 "Getrunken" (öffnet die App und zählt +1) und "App öffnen". In der
 Vergangenheit steht für jeden heutigen Slot, der vorbei ist, ein Pin: "Glas n
 getrunken" oder "Glas n verpasst" mit der Aktion "Nachholen", die das Glas
-nachträglich zählt. Kommende und getrunkene Pins tragen unser eigenes Glas mit
-Gesicht, voll für die Zukunft und leer für die Vergangenheit; verpasste behalten
-das Warndreieck, damit sie sich davon abheben. Jeder Slot hat die feste ID
+nachträglich zählt. Kommende und getrunkene Pins tragen `NOTIFICATION_REMINDER`,
+eine Hand mit Trinkglas; verpasste das Warndreieck, damit sie sich abheben. Jeder Slot hat die feste ID
 `drinktervall-JJJJMMTT-n`; der Pin der nächsten Erinnerung wird nach dem
 Slot zum Getrunken- oder Verpasst-Pin. Die Watch schickt der Telefonseite
 (`src/pkjs/index.js`) beim Start, bei jedem Wakeup und nach jeder Änderung
