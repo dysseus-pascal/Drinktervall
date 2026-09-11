@@ -6,12 +6,23 @@ Pin pro Erinnerung in der Timeline. Farbschema blau/weiss.
 
 ## Screenshots
 
-Emery (200 × 228); die Sätze für Flint (schwarz/weiss) und Gabbro (rund)
-liegen unter `screenshots/flint` und `screenshots/gabbro`.
+**Emery** (200 × 228, Farbe)
 
 | Start | Drei Gläser | Trinkplan | Trinken | Erinnerung |
 |---|---|---|---|---|
 | ![Start](screenshots/emery/01-start.png) | ![Hauptscreen](screenshots/emery/02-hauptscreen.png) | ![Trinkplan](screenshots/emery/03-trinkplan.png) | ![Trinken](screenshots/emery/04-trinken.png) | ![Erinnerung](screenshots/emery/05-erinnerung.png) |
+
+**Flint** (144 × 168, schwarz/weiss)
+
+| Start | Drei Gläser | Trinkplan | Trinken | Erinnerung |
+|---|---|---|---|---|
+| ![Start](screenshots/flint/01-start.png) | ![Hauptscreen](screenshots/flint/02-hauptscreen.png) | ![Trinkplan](screenshots/flint/03-trinkplan.png) | ![Trinken](screenshots/flint/04-trinken.png) | ![Erinnerung](screenshots/flint/05-erinnerung.png) |
+
+**Gabbro** (260 × 260, rund)
+
+| Start | Drei Gläser | Trinkplan | Trinken | Erinnerung |
+|---|---|---|---|---|
+| ![Start](screenshots/gabbro/01-start.png) | ![Hauptscreen](screenshots/gabbro/02-hauptscreen.png) | ![Trinkplan](screenshots/gabbro/03-trinkplan.png) | ![Trinken](screenshots/gabbro/04-trinken.png) | ![Erinnerung](screenshots/gabbro/05-erinnerung.png) |
 
 Erzeugt mit `tools/screenshots.sh <plattform> <projektordner>` (Emulator; Trinken und
 Erinnerung stammen aus einem Testbuild mit Zeitlupe und Wakeup nach 60 s).
