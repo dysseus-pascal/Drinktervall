@@ -89,7 +89,7 @@ static void prv_canvas_update(Layer *layer, GContext *ctx) {
   graphics_fill_rect(ctx, GRect(sx, 0, DT_SIDEBAR_W, b.size.h), 0, GCornerNone);
   const int16_t cx = sx + DT_SIDEBAR_W / 2 - DT_SIDEBAR_GLASS_DX;
   glass_fx_draw_still(ctx, GPoint(cx, DT_SIDEBAR_GLASS_Y),
-                      DT_SIDEBAR_GLASS_W, DT_SIDEBAR_GLASS_FILL);
+                      DT_SIDEBAR_GLASS_W, DT_SIDEBAR_GLASS_FILL, DT_COLOR_FX_WATER);
   graphics_context_set_text_color(ctx, DT_COLOR_ON_SIDEBAR);
   const char *hints[3] = { "Plan", "+1", "Ziel+" };
   for (int i = 0; i < 3; i++) {

@@ -1,8 +1,10 @@
 {
   "name": "drinktervall",
   "author": "dysseus-pascal",
-  "version": "1.5.1",
-  "keywords": ["pebble-app"],
+  "version": "1.5.2",
+  "keywords": [
+    "pebble-app"
+  ],
   "private": true,
   "dependencies": {},
   "pebble": {
@@ -58,6 +60,21 @@
           "type": "bitmap",
           "name": "IMAGE_GLASS_LARGE",
           "file": "images/glass_large.png"
+        },
+        {
+          "type": "bitmap",
+          "name": "IMAGE_GLASS_FULL_TINY",
+          "file": "images/glass_full_tiny.png"
+        },
+        {
+          "type": "bitmap",
+          "name": "IMAGE_GLASS_FULL_SMALL",
+          "file": "images/glass_full_small.png"
+        },
+        {
+          "type": "bitmap",
+          "name": "IMAGE_GLASS_FULL_LARGE",
+          "file": "images/glass_full_large.png"
         }
       ],
       "publishedMedia": [
@@ -68,6 +85,15 @@
             "tiny": "IMAGE_GLASS_TINY",
             "small": "IMAGE_GLASS_SMALL",
             "large": "IMAGE_GLASS_LARGE"
+          }
+        },
+        {
+          "name": "GLASS_FULL",
+          "id": 2,
+          "timeline": {
+            "tiny": "IMAGE_GLASS_FULL_TINY",
+            "small": "IMAGE_GLASS_FULL_SMALL",
+            "large": "IMAGE_GLASS_FULL_LARGE"
           }
         }
       ]

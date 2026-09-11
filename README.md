@@ -24,10 +24,11 @@ Pin pro Erinnerung in der Timeline. Farbschema blau/weiss.
 |---|---|---|---|---|
 | ![Start](screenshots/gabbro/01-start.png) | ![Hauptscreen](screenshots/gabbro/02-hauptscreen.png) | ![Trinkplan](screenshots/gabbro/03-trinkplan.png) | ![Trinken](screenshots/gabbro/04-trinken.png) | ![Erinnerung](screenshots/gabbro/05-erinnerung.png) |
 
-Das Glas-Symbol der Timeline ist keine Systemgrafik, sondern eine eigene
-Ressource: `tools/make_glass_icon.py <ordner>` zeichnet es in 25, 50 und 80
-Pixeln, `package.json` veröffentlicht es unter `publishedMedia` als
-`GLASS_DRUNK`, und der Pin verweist mit `app://images/GLASS_DRUNK` darauf.
+Die Glas-Symbole der Timeline sind keine Systemgrafiken, sondern eigene
+Ressourcen: `tools/make_glass_icon.py <ordner>` zeichnet sie leer und voll in
+25, 50 und 80 Pixeln, `package.json` veröffentlicht sie unter `publishedMedia`
+als `GLASS_DRUNK` und `GLASS_FULL`, und die Pins verweisen mit
+`app://images/...` darauf.
 
 Erzeugt mit `tools/screenshots.sh <plattform> <projektordner>` (Emulator; Trinken und
 Erinnerung stammen aus einem Testbuild mit Zeitlupe und Wakeup nach 60 s).
@@ -56,10 +57,10 @@ Taste für den laufenden Tag erhöhen.
 | Unten  | Tagesziel um ein Glas erhöhen (nur heute, morgen wieder 8), damit
 |        | sich über das Ziel hinaus weiter loggen lässt |
 
-**Erinnerung** - wie ein Pin-Detail der Timeline: hellblaues Kopfband mit dem
-Glas aus der Trink-Animation und der Uhrzeit in LECO, schwarze Linie, weisse
-Karte mit dem Aufruf, rechts die schwarze Aktionsleiste mit Häkchen
-(Getrunken) und Zz (Später). Erscheint zur geplanten Zeit von selbst (Wakeup), vibriert dreimal im Abstand von 20 s und bleibt stehen, bis eine Taste gedrückt wird.
+**Erinnerung** - wie ein Pin-Detail der Timeline, aber ganz in Weiss: oben das
+Glas aus der Trink-Animation und die Uhrzeit in LECO, darunter die schwarze
+Trennlinie und die Karte mit dem Aufruf, rechts die schwarze Aktionsleiste mit
+Häkchen (Getrunken) und Zz (Später). Erscheint zur geplanten Zeit von selbst (Wakeup), vibriert dreimal im Abstand von 20 s und bleibt stehen, bis eine Taste gedrückt wird.
 
 | Taste  | Aktion                                  |
 |--------|-----------------------------------------|
@@ -89,8 +90,10 @@ nächsten Erinnerungen über die Tagesgrenze hinweg abdecken.
 In der Zukunft steht genau ein Pin für die nächste Erinnerung mit den Aktionen
 "Getrunken" (öffnet die App und zählt +1) und "App öffnen". In der
 Vergangenheit steht für jeden heutigen Slot, der vorbei ist, ein Pin: "Glas n
-getrunken" mit unserem eigenen Symbol (leeres Glas mit Gesicht) oder "Glas n
-verpasst" mit der Aktion "Nachholen", die das Glas nachträglich zählt. Jeder Slot hat die feste ID
+getrunken" oder "Glas n verpasst" mit der Aktion "Nachholen", die das Glas
+nachträglich zählt. Kommende und getrunkene Pins tragen unser eigenes Glas mit
+Gesicht, voll für die Zukunft und leer für die Vergangenheit; verpasste behalten
+das Warndreieck, damit sie sich davon abheben. Jeder Slot hat die feste ID
 `drinktervall-JJJJMMTT-n`; der Pin der nächsten Erinnerung wird nach dem
 Slot zum Getrunken- oder Verpasst-Pin. Die Watch schickt der Telefonseite
 (`src/pkjs/index.js`) beim Start, bei jedem Wakeup und nach jeder Änderung

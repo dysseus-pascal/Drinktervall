@@ -116,7 +116,7 @@ static void prv_face(GContext *ctx, Face face) {
   }
 }
 
-static void prv_draw_glass(GContext *ctx, int32_t level, Face face) {
+static void prv_draw_glass(GContext *ctx, int32_t level, Face face, GColor water_color) {
   // Basis-Einheiten: 72 breit oben, 54 am Boden, 80 hoch
   const int32_t hw_top = 36, hw_bot = 27, hh = 40;
   // Trapez um den Ursprung: links oben, links unten, rechts unten, rechts oben
@@ -135,7 +135,7 @@ static void prv_draw_glass(GContext *ctx, int32_t level, Face face) {
     const GPathInfo winfo = { .num_points = 4, .points = wp };
     GPath *water = gpath_create(&winfo);
     if (water) {
-      graphics_context_set_fill_color(ctx, DT_COLOR_FX_WATER);
+      graphics_context_set_fill_color(ctx, water_color);
       gpath_draw_filled(ctx, water);
       gpath_destroy(water);
     }
@@ -208,22 +208,23 @@ static void prv_draw(Layer *layer, GContext *ctx) {
   prv_set_metrics(c, s_width, scale);
 
   if (s_p < HOLD_END) {
-    prv_draw_glass(ctx, 1000, FaceSmile);
+    prv_draw_glass(ctx, 1000, FaceSmile, DT_COLOR_FX_WATER);
   } else if (s_p < DRINK_END) {
     // gleichmaessig leeren
     const int32_t t = (s_p - HOLD_END) * 1000 / (DRINK_END - HOLD_END);
-    prv_draw_glass(ctx, 1000 - t, FaceGulp);
+    prv_draw_glass(ctx, 1000 - t, FaceGulp, DT_COLOR_FX_WATER);
   } else if (s_p < SHRINK_END) {
     // leer, ab SMILE_END schrumpfend; das letzte Zwergenglas sparen wir uns
-    if (scale > 60) prv_draw_glass(ctx, 0, FaceSmile);
+    if (scale > 60) prv_draw_glass(ctx, 0, FaceSmile, DT_COLOR_FX_WATER);
   } else {
     prv_draw_burst(ctx, (s_p - SHRINK_END) * 1000 / (1000 - SHRINK_END));
   }
 }
 
-void glass_fx_draw_still(GContext *ctx, GPoint center, int16_t width, int32_t level_permille) {
+void glass_fx_draw_still(GContext *ctx, GPoint center, int16_t width, int32_t level_permille,
+                         GColor water) {
   prv_set_metrics(center, width, 1000);
-  prv_draw_glass(ctx, level_permille, FaceSmile);
+  prv_draw_glass(ctx, level_permille, FaceSmile, water);
 }
 
 static void prv_update(Animation *animation, const AnimationProgress progress) {

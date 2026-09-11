@@ -34,9 +34,9 @@ static void prv_update(Layer *layer, GContext *ctx) {
   const int16_t head_h = wide ? 74 : 60;
   const int count = schedule_count();
 
-  // Kopfband: Uhrzeit klein, Glas links, Uhrzeit der Erinnerung in LECO
-  graphics_context_set_fill_color(ctx, DT_COLOR_LEVEL_LIGHT);
-  graphics_fill_rect(ctx, GRect(0, 0, b.size.w, head_h), 0, GCornerNone);
+  // Kopf wie im Detail eines Timeline-Pins, aber auf weissem Grund: Uhrzeit
+  // klein, Glas links, Uhrzeit der Erinnerung gross in LECO, darunter die
+  // schwarze Trennlinie zur Karte
   graphics_context_set_text_color(ctx, DT_COLOR_TEXT);
   char clock[10];
   clock_copy_time_string(clock, sizeof(clock));
@@ -44,7 +44,8 @@ static void prv_update(Layer *layer, GContext *ctx) {
                      GRect(0, PBL_IF_ROUND_ELSE(6, 0), b.size.w, 16),
                      GTextOverflowModeTrailingEllipsis, GTextAlignmentCenter, NULL);
   const int16_t glass_w = wide ? 40 : 32;
-  glass_fx_draw_still(ctx, GPoint(margin + glass_w / 2, head_h / 2 + 8), glass_w, 850);
+  glass_fx_draw_still(ctx, GPoint(margin + glass_w / 2, head_h / 2 + 8), glass_w, 850,
+                      DT_COLOR_FX_WATER);
   graphics_draw_text(ctx, clock,
                      fonts_get_system_font(wide ? FONT_KEY_LECO_26_BOLD_NUMBERS_AM_PM
                                                 : FONT_KEY_LECO_20_BOLD_NUMBERS),

@@ -26,10 +26,12 @@ var SLOT_DRUNK = 2, SLOT_MISSED = 3;
 
 // Aussehen je Zustand; %n = Glasnummer, %g = Tagesziel. Fehlt `body` bzw.
 // `action`, bekommt der Pin keinen Text bzw. keine Trink-Aktion. Getrunkene
-// Glaeser tragen unser eigenes Symbol (leeres Glas mit Gesicht), das
-// package.json unter publishedMedia als GLASS_DRUNK veroeffentlicht.
+// und kommende Glaeser tragen unser eigenes Symbol - leer bzw. voll -, das
+// package.json unter publishedMedia als GLASS_DRUNK und GLASS_FULL
+// veroeffentlicht. Verpasste behalten das Warndreieck, damit sie sich
+// unterscheiden.
 var PIN_LOOK = {
-  next:   { title: 'Glas Wasser %n von %g', body: 'Zeit für ein Glas Wasser.', icon: 'system://images/NOTIFICATION_REMINDER', action: 'Getrunken' },
+  next:   { title: 'Glas Wasser %n von %g', body: 'Zeit für ein Glas Wasser.', icon: 'app://images/GLASS_FULL', action: 'Getrunken' },
   drunk:  { title: 'Glas %n getrunken', icon: 'app://images/GLASS_DRUNK' },
   missed: { title: 'Glas %n verpasst', body: 'Nachholen? Die App zählt das Glas.', icon: 'system://images/GENERIC_WARNING', action: 'Nachholen' }
 };

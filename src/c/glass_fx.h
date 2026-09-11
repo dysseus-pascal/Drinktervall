@@ -18,7 +18,9 @@ void glass_fx_deinit(void);
 // Animation, passiert nichts.
 void glass_fx_play(GPoint anchor, int16_t width, GlassFxDone done);
 
-// Stehendes Glas im selben Stil (Rahmen, Wasser bis `level_permille`,
-// laechelndes Gesicht) an beliebiger Stelle zeichnen, z.B. in der
-// Seitenleiste. Unabhaengig vom Overlay-Layer.
-void glass_fx_draw_still(GContext *ctx, GPoint center, int16_t width, int32_t level_permille);
+// Stehendes Glas im selben Stil (Rahmen, Wasser bis `level_permille` in der
+// Farbe `water`, laechelndes Gesicht) an beliebiger Stelle zeichnen, z.B. in
+// der Seitenleiste. Die Wasserfarbe muss sich vom Untergrund abheben, sonst
+// wirkt das Glas leer. Unabhaengig vom Overlay-Layer.
+void glass_fx_draw_still(GContext *ctx, GPoint center, int16_t width, int32_t level_permille,
+                         GColor water);

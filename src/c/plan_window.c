@@ -86,7 +86,7 @@ static void prv_sidebar_update(Layer *layer, GContext *ctx) {
     gpath_destroy(notch);
   }
   glass_fx_draw_still(ctx, GPoint(b.size.w / 2 - DT_SIDEBAR_GLASS_DX, DT_SIDEBAR_GLASS_Y),
-                      DT_SIDEBAR_GLASS_W, DT_SIDEBAR_GLASS_FILL);
+                      DT_SIDEBAR_GLASS_W, DT_SIDEBAR_GLASS_FILL, DT_COLOR_FX_WATER);
 }
 
 static void prv_load(Window *window) {
