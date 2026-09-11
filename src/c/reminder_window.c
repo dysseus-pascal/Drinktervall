@@ -29,7 +29,7 @@ static int s_vibes_left;
 static void prv_update(Layer *layer, GContext *ctx) {
   const GRect b = layer_get_bounds(layer);      // ohne Aktionsleiste
   const bool wide = b.size.w >= 150;
-  const int16_t margin = PBL_IF_ROUND_ELSE(24, 8);
+  const int16_t margin = PBL_IF_ROUND_ELSE(40, 8);
   const int16_t head_h = wide ? 74 : 60;
   const int count = schedule_count();
 
