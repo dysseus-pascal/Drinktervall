@@ -42,7 +42,7 @@ static void prv_unload(Window *window) {
 void drink_window_push(void) {
   if (s_window) return;
   s_window = window_create();
-  window_set_background_color(s_window, DT_COLOR_LEVEL_LIGHT);
+  window_set_background_color(s_window, DT_COLOR_FX_BG);
   window_set_window_handlers(s_window, (WindowHandlers) {
     .load = prv_load, .appear = prv_appear, .unload = prv_unload,
   });

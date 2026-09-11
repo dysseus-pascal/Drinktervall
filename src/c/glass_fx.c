@@ -135,7 +135,7 @@ static void prv_draw_glass(GContext *ctx, int32_t level, Face face) {
     s_water_pts[3] = prv_gp(-whw, wy);
     GPath *water = gpath_create(&s_water_info);
     if (water) {
-      graphics_context_set_fill_color(ctx, DT_COLOR_LEVEL_DARK);
+      graphics_context_set_fill_color(ctx, DT_COLOR_FX_WATER);
       gpath_draw_filled(ctx, water);
       gpath_destroy(water);
     }
