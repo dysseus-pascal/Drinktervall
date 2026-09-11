@@ -22,7 +22,9 @@
       "REQUEST",
       "GLASSES",
       "NEXT_TIME",
-      "NEXT_INDEX"
+      "NEXT_INDEX",
+      "COUNT",
+      "SLOTS"
     ],
     "resources": {
       "media": [

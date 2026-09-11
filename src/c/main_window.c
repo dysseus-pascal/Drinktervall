@@ -5,6 +5,7 @@
 #include "drink_window.h"
 #include "schedule.h"
 #include "plan_window.h"
+#include "phone.h"
 
 // Der Hauptscreen ist ein Glas ohne Glas: s_canvas zeichnet die ganze Flaeche
 // hell mit dunkler Schrift, s_water liegt als Kind-Layer ueber dem unteren
@@ -171,12 +172,14 @@ static void prv_select(ClickRecognizerRef recognizer, void *context) {
   if (schedule_count() >= schedule_goal()) return;
   schedule_set_count(schedule_count() + 1);
   vibes_short_pulse();
+  phone_send_next();
   prv_sync(true);
 }
 
 // Tagesziel um ein Glas erhoehen, damit ueber das Maximum hinaus geloggt werden kann
 static void prv_down(ClickRecognizerRef recognizer, void *context) {
   schedule_raise_goal();
+  phone_send_next();
   layer_mark_dirty(s_canvas);
   prv_set_level(true);
 }

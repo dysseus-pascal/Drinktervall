@@ -6,6 +6,7 @@
 #include "glass_fx.h"
 #include "schedule.h"
 #include "main_window.h"
+#include "phone.h"
 
 // Bleibt stehen, bis eine Taste gedrueckt wird:
 //   Mitte   Getrunken: zaehlt +1, zurueck zum Hauptscreen (Trink-Animation)
@@ -86,6 +87,7 @@ static void prv_vibe(void *data) {
 static void prv_select(ClickRecognizerRef recognizer, void *context) {
   if (schedule_count() < schedule_goal()) schedule_set_count(schedule_count() + 1);
   vibes_short_pulse();
+  phone_send_next();
   prv_close(false);
 }
 

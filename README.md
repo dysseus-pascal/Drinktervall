@@ -64,19 +64,22 @@ nächsten Erinnerungen über die Tagesgrenze hinweg abdecken.
 
 ## Timeline
 
-In der Timeline steht genau ein Pin für die nächste Erinnerung. Die Watch
-schickt der Telefonseite (`src/pkjs/index.js`) beim Start und bei jedem
-Wakeup Zeitpunkt und Slot der nächsten Erinnerung; der Pin (feste ID
-`drinktervall-next`) wandert entsprechend weiter. Er hat die Aktionen "Getrunken"
-(öffnet die App und zählt +1) und "App öffnen".
+In der Zukunft steht genau ein Pin für die nächste Erinnerung mit den Aktionen
+"Getrunken" (öffnet die App und zählt +1) und "App öffnen". In der
+Vergangenheit steht für jeden heutigen Slot, der vorbei ist, ein Pin: "Glas n
+getrunken" (Häkchen) oder "Glas n verpasst" mit der Aktion "Nachholen", die
+das Glas nachträglich zählt. Jeder Slot hat die feste ID
+`drinktervall-JJJJMMTT-n`; der Pin der nächsten Erinnerung wird nach dem
+Slot zum Getrunken- oder Verpasst-Pin. Die Watch schickt der Telefonseite
+(`src/pkjs/index.js`) beim Start, bei jedem Wakeup und nach jeder Änderung
+des Zählers den Stand; das JS sendet nur Pins, deren Inhalt sich geändert hat.
 
 Übertragung: Das JS holt per `Pebble.getTimelineToken` einen Token und sendet
 die Pins an `https://timeline-api.rebble.io`. Das funktioniert mit der neuen
 Pebble-App (Core Devices), sofern sie bei Rebble angemeldet ist. Nur wenn kein
 Token zu bekommen ist, wird die lokale Schnittstelle `Pebble.insertTimelinePin`
-versucht. Der Pin wird erneut gesendet, wenn sich der Zeitpunkt ändert oder
-nach 12 Stunden. Im Emulator gibt es keinen Token; der Pin wird dann
-übersprungen (Log: "timeline: kein Token").
+versucht. Unveränderte Pins werden nach 12 Stunden erneut gesendet. Im Emulator gibt
+es keinen Token; die Pins werden dann übersprungen (Log: "timeline: kein Token").
 
 ## Farben
 

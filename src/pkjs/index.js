@@ -1,23 +1,30 @@
-// Drinktervall - Telefonseite: haelt genau einen Timeline-Pin fuer die naechste
-// Erinnerung. Die Watch schickt Zeitpunkt und Slot per AppMessage
-// (src/c/phone.c), damit die Zeitberechnung samt Versatz nur in C lebt.
+// Drinktervall - Telefonseite: pflegt die Timeline-Pins.
+//   * ein Pin fuer die naechste Erinnerung (Zukunft)
+//   * je ein Pin fuer jeden heutigen Slot, der schon vorbei ist:
+//     "Glas n getrunken" oder "Glas n verpasst" mit der Aktion "Nachholen"
+// Die Watch schickt den Stand per AppMessage (src/c/phone.c): naechste
+// Erinnerung, Tagesziel, Zaehler und die heutigen Slots mit Status. Pins
+// haben die feste ID drinktervall-JJJJMMTT-n und wechseln ihren Inhalt.
 //
-// Uebertragung: zuerst der bewaehrte Weg ueber Pebble.getTimelineToken und
-// die Rebble-REST-API (funktioniert mit der neuen Pebble-App, verifiziert
-// 2026-09-10). Nur wenn kein Token zu bekommen ist, wird die lokale
-// Schnittstelle Pebble.insertTimelinePin versucht.
+// Uebertragung: zuerst Pebble.getTimelineToken + Rebble-REST-API
+// (funktioniert mit der neuen Pebble-App); ohne Token die lokale
+// Schnittstelle Pebble.insertTimelinePin.
 
 var API_URL = 'https://timeline-api.rebble.io/v1/user/pins/';
 // Muss zu DT_COLOR_PRIMARY in src/c/theme.h passen (handgepflegte Kopie)
 var PIN_COLOR = '#0055FF';
-// Ein einziger Pin, der bei jeder Erinnerung auf die naechste Zeit wandert
-var PIN_ID = 'drinktervall-next';
-var OLD_PIN_ID = 'aquatakt-next';   // Pin-ID vor der Umbenennung; wird einmal geloescht
-var STORE_KEY = 'drinktervall_next_v1';       // zuletzt gesendete Zeit + Zeitpunkt
+var STORE_KEY = 'drinktervall_pins_v2';   // id -> { sig, sentAt }
 var RESEND_AFTER_MS = 12 * 3600 * 1000;   // unveraenderten Pin nach 12 h erneut senden
+var FORGET_AFTER_MS = 3 * 86400 * 1000;   // alte Eintraege vergessen
+var LEGACY_IDS = ['aquatakt-next', 'drinktervall-next'];   // Pins frueherer Versionen
 
 var LAUNCH_CODE_DRUNK = 1;
 var LAUNCH_CODE_OPEN = 2;
+var SLOT_DRUNK = 2, SLOT_MISSED = 3;
+
+function pad(n) { return (n < 10 ? '0' : '') + n; }
+function dayKey(d) { return '' + d.getFullYear() + pad(d.getMonth() + 1) + pad(d.getDate()); }
+function pinId(epoch, index) { return 'drinktervall-' + dayKey(new Date(epoch * 1000)) + '-' + (index + 1); }
 
 function loadStore() {
   try { return JSON.parse(localStorage.getItem(STORE_KEY)) || {}; } catch (e) { return {}; }
@@ -26,24 +33,37 @@ function saveStore(store) {
   try { localStorage.setItem(STORE_KEY, JSON.stringify(store)); } catch (e) {}
 }
 
-function buildPin(when, index, glasses) {
-  return {
-    id: PIN_ID,
-    time: when.toISOString(),
-    layout: {
-      type: 'genericPin',
-      title: 'Glas Wasser ' + (index + 1) + ' von ' + glasses,
-      subtitle: 'Drinktervall',
-      body: 'Zeit für ein Glas Wasser. Tagesziel: ' + glasses + ' Gläser.',
-      tinyIcon: 'system://images/NOTIFICATION_REMINDER',
-      backgroundColor: PIN_COLOR,
-      foregroundColor: '#FFFFFF'
-    },
-    actions: [
-      { title: 'Getrunken', type: 'openWatchApp', launchCode: LAUNCH_CODE_DRUNK },
-      { title: 'App öffnen', type: 'openWatchApp', launchCode: LAUNCH_CODE_OPEN }
-    ]
-  };
+function buildPin(id, epoch, state, index, goal) {
+  var n = index + 1;
+  var layout = { type: 'genericPin', subtitle: 'Drinktervall', backgroundColor: PIN_COLOR, foregroundColor: '#FFFFFF' };
+  var actions = [];
+  if (state === 'next') {
+    layout.title = 'Glas Wasser ' + n + ' von ' + goal;
+    layout.body = 'Zeit für ein Glas Wasser.';
+    layout.tinyIcon = 'system://images/NOTIFICATION_REMINDER';
+    actions.push({ title: 'Getrunken', type: 'openWatchApp', launchCode: LAUNCH_CODE_DRUNK });
+  } else if (state === 'drunk') {
+    layout.title = 'Glas ' + n + ' getrunken';
+    layout.tinyIcon = 'system://images/GENERIC_CONFIRMATION';
+  } else {
+    layout.title = 'Glas ' + n + ' verpasst';
+    layout.body = 'Nachholen? Die App zählt das Glas.';
+    layout.tinyIcon = 'system://images/GENERIC_WARNING';
+    actions.push({ title: 'Nachholen', type: 'openWatchApp', launchCode: LAUNCH_CODE_DRUNK });
+  }
+  actions.push({ title: 'App öffnen', type: 'openWatchApp', launchCode: LAUNCH_CODE_OPEN });
+  return { id: id, time: new Date(epoch * 1000).toISOString(), layout: layout, actions: actions };
+}
+
+// 5 Byte pro Slot: Zeit (little endian) + Status
+function decodeSlots(bytes) {
+  var slots = [];
+  if (!bytes) return slots;
+  for (var i = 0; i + 4 < bytes.length; i += 5) {
+    var t = (bytes[i] | (bytes[i + 1] << 8) | (bytes[i + 2] << 16) | (bytes[i + 3] << 24)) >>> 0;
+    slots.push({ time: t, state: bytes[i + 4] });
+  }
+  return slots;
 }
 
 function hasLocalApi() {
@@ -78,42 +98,73 @@ function insertViaLocal(pin, callback) {
   }
 }
 
-// Den Pin aus der Zeit vor der Umbenennung einmalig entfernen
-function deleteOldPin(token) {
-  if (loadStore().oldDeleted) return;
-  var xhr = new XMLHttpRequest();
-  xhr.onload = function () {
-    console.log('timeline: alter Pin ' + OLD_PIN_ID + ' geloescht (' + this.status + ')');
-    var s = loadStore(); s.oldDeleted = true; saveStore(s);
-  };
-  xhr.open('DELETE', API_URL + OLD_PIN_ID);
-  xhr.setRequestHeader('X-User-Token', '' + token);
-  xhr.send();
+// Pins frueherer Versionen einmalig entfernen
+function deleteLegacy(token) {
+  var store = loadStore();
+  if (store.legacyDeleted) return;
+  var left = LEGACY_IDS.length;
+  LEGACY_IDS.forEach(function (id) {
+    var xhr = new XMLHttpRequest();
+    xhr.onload = function () {
+      console.log('timeline: alter Pin ' + id + ' geloescht (' + this.status + ')');
+      left -= 1;
+      if (left === 0) { var s = loadStore(); s.legacyDeleted = true; saveStore(s); }
+    };
+    xhr.open('DELETE', API_URL + id);
+    xhr.setRequestHeader('X-User-Token', '' + token);
+    xhr.send();
+  });
 }
 
-function pushNext(msg) {
-  var pin = buildPin(new Date(msg.NEXT_TIME * 1000), msg.NEXT_INDEX, msg.GLASSES);
+function sendAll(queue, insert) {
+  (function next() {
+    var item = queue.shift();
+    if (!item) { console.log('timeline: fertig'); return; }
+    insert(item.pin, function (ok, info) {
+      console.log('timeline: ' + item.pin.id + ' [' + item.sig + '] -> ' + (ok ? 'ok' : 'fehlgeschlagen') + ' (' + info + ')');
+      if (ok) { var s = loadStore(); s[item.pin.id] = { sig: item.sig, sentAt: Date.now() }; saveStore(s); }
+      next();
+    });
+  })();
+}
+
+function pushState(msg) {
+  var goal = msg.GLASSES, now = Date.now();
+  var wanted = [];
+  wanted.push({ id: pinId(msg.NEXT_TIME, msg.NEXT_INDEX), epoch: msg.NEXT_TIME, state: 'next', index: msg.NEXT_INDEX });
+  decodeSlots(msg.SLOTS).forEach(function (s, i) {
+    if (s.state === SLOT_DRUNK) wanted.push({ id: pinId(s.time, i), epoch: s.time, state: 'drunk', index: i });
+    else if (s.state === SLOT_MISSED) wanted.push({ id: pinId(s.time, i), epoch: s.time, state: 'missed', index: i });
+  });
+
   var store = loadStore();
-  if (store.time === pin.time && Date.now() - store.sentAt < RESEND_AFTER_MS) {
-    console.log('timeline: Pin aktuell (' + pin.time + ')');
-    return;
-  }
-  var done = function (ok, info) {
-    console.log('timeline: ' + pin.id + ' ' + pin.time + ' -> ' + (ok ? 'ok' : 'fehlgeschlagen') + ' (' + info + ')');
-    if (ok) { var s = loadStore(); s.time = pin.time; s.sentAt = Date.now(); saveStore(s); }
-  };
+  Object.keys(store).forEach(function (id) {
+    if (store[id] && store[id].sentAt && now - store[id].sentAt > FORGET_AFTER_MS) delete store[id];
+  });
+  saveStore(store);
+
+  var queue = [];
+  wanted.forEach(function (w) {
+    var sig = w.state + ':' + w.epoch + ':' + goal;
+    var had = store[w.id];
+    if (had && had.sig === sig && now - had.sentAt < RESEND_AFTER_MS) return;
+    queue.push({ pin: buildPin(w.id, w.epoch, w.state, w.index, goal), sig: sig });
+  });
+  console.log('timeline: ' + queue.length + ' von ' + wanted.length + ' Pins zu senden');
+
   var useLocal = function (reason) {
+    if (queue.length === 0) return;
     if (hasLocalApi()) {
       console.log('timeline: ' + reason + ', nutze lokale API');
-      insertViaLocal(pin, done);
+      sendAll(queue, insertViaLocal);
     } else {
-      console.log('timeline: ' + reason + ', keine lokale API - Pin uebersprungen');
+      console.log('timeline: ' + reason + ', keine lokale API - Pins uebersprungen');
     }
   };
   if (typeof Pebble.getTimelineToken !== 'function') { useLocal('kein getTimelineToken'); return; }
   Pebble.getTimelineToken(function (token) {
-    deleteOldPin(token);
-    insertViaRest(pin, token, done);
+    deleteLegacy(token);
+    if (queue.length) sendAll(queue, function (pin, cb) { insertViaRest(pin, token, cb); });
   }, function (error) {
     useLocal('kein Token (' + error + ')');
   });
@@ -122,7 +173,7 @@ function pushNext(msg) {
 Pebble.addEventListener('appmessage', function (e) {
   var p = e.payload;
   if (!p.hasOwnProperty('NEXT_TIME')) return;
-  pushNext(p);
+  pushState(p);
 });
 
 Pebble.addEventListener('ready', function () {
