@@ -1,6 +1,6 @@
-// Prueft src/c/strings.def.
+// Prueft src/c/strings_table.h.
 //
-//   node tools/strings_check.js [src/c/strings.def] [src/c]
+//   node tools/strings_check.js [src/c/strings_table.h] [src/c]
 //
 // Was der Compiler schon prueft, steht hier nicht: eine Zeile mit zu wenigen
 // Spalten ist ein Praeprozessorfehler ("macro STR requires 4 arguments"), und
@@ -25,7 +25,7 @@
 'use strict';
 const fs = require('fs'), path = require('path');
 
-const defPath = process.argv[2] || path.join('src', 'c', 'strings.def');
+const defPath = process.argv[2] || path.join('src', 'c', 'strings_table.h');
 const srcDir = process.argv[3] || path.join('src', 'c');
 
 // STR(id, maxbytes, "en", "de") - Zeichenketten duerfen Klammern und Kommas
@@ -128,8 +128,12 @@ for (const r of rows) {
 
 // 5
 let code = '';
+const tableName = path.basename(defPath);
 for (const f of fs.readdirSync(srcDir)) {
-  if (f.endsWith('.c') || f.endsWith('.h')) code += fs.readFileSync(path.join(srcDir, f), 'utf8');
+  // Die Tabelle selbst ausnehmen - dort steht JEDER Schluessel, sonst waere
+  // nie einer ungenutzt.
+  if (f === tableName) continue;
+  if (f.endsWith(".c") || f.endsWith(".h")) code += fs.readFileSync(path.join(srcDir, f), "utf8");
 }
 for (const r of rows) {
   const uses = (code.match(new RegExp('\\b' + r.id + '\\b', 'g')) || []).length;

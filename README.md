@@ -128,7 +128,7 @@ eigenen Sprachschalter gibt es bewusst nicht.
 |:--:|:--:|
 | ![Hauptscreen auf Deutsch](screenshots/emery/06-sprache-de.png) | ![Hauptscreen auf Englisch](screenshots/emery/07-sprache-en.png) |
 
-Alle Texte der Watch stehen in `src/c/strings.def`, eine Zeile je Text:
+Alle Texte der Watch stehen in `src/c/strings_table.h`, eine Zeile je Text:
 
 ```
 STR(STR_GLASS_N_OF_M, 20, "Glass %d of %d", "Glas %d von %d")

@@ -3,7 +3,7 @@
 //   * je ein Pin fuer jeden heutigen Slot, der schon vorbei ist:
 //     "Glas n getrunken" oder "Glas n verpasst" mit der Aktion "Nachholen"
 // Die Pin-Texte gibt es auf Englisch und Deutsch; welche Sprache gilt, sagt die
-// Uhr per MESSAGE_KEY_LANG (siehe src/c/strings.def).
+// Uhr per MESSAGE_KEY_LANG (siehe src/c/strings_table.h).
 // Die Watch schickt den Stand per AppMessage (src/c/phone.c): naechste
 // Erinnerung, Tagesziel, Zaehler und die heutigen Slots mit Status. Pins
 // haben die feste ID drinktervall-JJJJMMTT-n und wechseln ihren Inhalt.
@@ -60,7 +60,7 @@ var PIN_ICON = {
 
 // Die Texte je Sprache. Welche gilt, sagt die Uhr per MESSAGE_KEY_LANG - das
 // Telefon kann die Uhrsprache nicht von sich aus erfahren. Index 0 ist
-// Englisch und zugleich der Rueckfall, genau wie in src/c/strings.def.
+// Englisch und zugleich der Rueckfall, genau wie in src/c/strings_table.h.
 // %n = Glasnummer, %g = Tagesziel. Fehlt `body` bzw. `action`, bekommt der Pin
 // keinen Text bzw. keine Trink-Aktion.
 var PIN_TEXT = [

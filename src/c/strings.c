@@ -1,11 +1,11 @@
 #include <pebble.h>
 #include "strings.h"
 
-// Tabelle aus strings.def. Sie liegt im App-Abbild und zaehlt damit zum
+// Tabelle aus strings_table.h. Sie liegt im App-Abbild und zaehlt damit zum
 // Speicherabdruck, belegt aber keinen Heap.
 static const char *const s_table[STR_COUNT][STRINGS_LANG_COUNT] = {
 #define STR(id, maxbytes, en, de) { en, de },
-#include "strings.def"
+#include "strings_table.h"
 #undef STR
 };
 

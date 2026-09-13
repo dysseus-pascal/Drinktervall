@@ -1,6 +1,13 @@
-// Alle Texte der Oberflaeche, eine Zeile je Text. Diese Datei wird mehrfach
-// eingebunden (X-Makro), einmal fuer die Aufzaehlung der Schluessel und einmal
-// fuer die Tabelle - siehe strings.h und strings.c.
+// Alle Texte der Oberflaeche, eine Zeile je Text.
+//
+// ACHTUNG, ZWEI DINGE SIND ABSICHT:
+//  1. KEIN #pragma once und keine Include-Waechter. Diese Datei wird MEHRFACH
+//     eingebunden (X-Makro): einmal fuer die Aufzaehlung der Schluessel in
+//     strings.h und einmal fuer die Tabelle in strings.c. Ein Waechter wuerde
+//     die zweite Einbindung verschlucken und eine leere Tabelle erzeugen.
+//  2. Endung .h, obwohl es kein gewoehnlicher Header ist. Sie hiess frueher
+//     .def; Build-Umgebungen, die nur .c und .h in ihren Baum kopieren, haben
+//     sie dann nicht gefunden ("strings.def: No such file or directory").
 //
 //   STR(schluessel, maxbytes, en, de)
 //
