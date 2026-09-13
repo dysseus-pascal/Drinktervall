@@ -5,6 +5,7 @@
 #include "schedule.h"
 #include "plan_window.h"
 #include "phone.h"
+#include "strings.h"
 
 // Hauptscreen im Stil der Timeline: weisser Grund, schwarze Schrift, rechts
 // die dunkle Seitenleiste mit Glas-Symbol und Tasten-Hinweisen. Der Pegel
@@ -52,7 +53,7 @@ static void prv_canvas_update(Layer *layer, GContext *ctx) {
   schedule_format_time(next, hhmm, sizeof(hhmm));
   const bool tomorrow = next >= schedule_midnight(now) + 86400;
   int16_t y = PBL_IF_ROUND_ELSE(46, 18);
-  graphics_draw_text(ctx, tomorrow ? "Morgen" : "Nächste Erinnerung",
+  graphics_draw_text(ctx, tomorrow ? S(STR_TOMORROW) : S(STR_NEXT_REMINDER),
                      fonts_get_system_font(FONT_KEY_GOTHIC_14),
                      GRect(margin, y, col_w, 16),
                      GTextOverflowModeTrailingEllipsis, GTextAlignmentLeft, NULL);
@@ -67,9 +68,9 @@ static void prv_canvas_update(Layer *layer, GContext *ctx) {
   char title[20];
   const int count = s_shown_count, goal = schedule_goal();
   if (count >= goal) {
-    snprintf(title, sizeof(title), "Ziel erreicht");
+    snprintf(title, sizeof(title), "%s", S(STR_GOAL_REACHED));
   } else {
-    snprintf(title, sizeof(title), "Glas %d von %d", count + 1, goal);
+    snprintf(title, sizeof(title), S(STR_GLASS_N_OF_M), count + 1, goal);
   }
   graphics_draw_text(ctx, title,
                      fonts_get_system_font(wide ? FONT_KEY_GOTHIC_24_BOLD : FONT_KEY_GOTHIC_18_BOLD),
@@ -77,7 +78,7 @@ static void prv_canvas_update(Layer *layer, GContext *ctx) {
                      GTextOverflowModeTrailingEllipsis, GTextAlignmentLeft, NULL);
   y += wide ? 30 : 24;
   char sub[20];
-  snprintf(sub, sizeof(sub), "%d getrunken", count);
+  snprintf(sub, sizeof(sub), S(STR_N_DONE), count);
   graphics_draw_text(ctx, sub,
                      fonts_get_system_font(wide ? FONT_KEY_GOTHIC_18 : FONT_KEY_GOTHIC_14),
                      GRect(margin, y, col_w, 22),
@@ -91,7 +92,7 @@ static void prv_canvas_update(Layer *layer, GContext *ctx) {
   glass_fx_draw_still(ctx, GPoint(cx, DT_SIDEBAR_GLASS_Y),
                       DT_SIDEBAR_GLASS_W, DT_SIDEBAR_GLASS_FILL, DT_COLOR_FX_WATER);
   graphics_context_set_text_color(ctx, DT_COLOR_ON_SIDEBAR);
-  const char *hints[3] = { "Plan", "+1", "Ziel+" };
+  const char *hints[3] = { S(STR_HINT_PLAN), S(STR_HINT_PLUS_ONE), S(STR_HINT_GOAL_UP) };
   for (int i = 0; i < 3; i++) {
     const int16_t hy = b.size.h * (i + 1) / 4;
     graphics_draw_text(ctx, hints[i], fonts_get_system_font(FONT_KEY_GOTHIC_14_BOLD),

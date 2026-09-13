@@ -1,0 +1,49 @@
+// Alle Texte der Oberflaeche, eine Zeile je Text. Diese Datei wird mehrfach
+// eingebunden (X-Makro), einmal fuer die Aufzaehlung der Schluessel und einmal
+// fuer die Tabelle - siehe strings.h und strings.c.
+//
+//   STR(schluessel, maxbytes, en, de)
+//
+//   maxbytes  Groesse des Zielpuffers in BYTES, 0 wenn der Text in keinen
+//             festen Puffer kopiert wird. Umlaute zaehlen als zwei Bytes.
+//             tools/strings_check.js prueft diese Grenze.
+//   en        Englisch. Spalte 0 und zugleich der Rueckfall fuer jede Sprache,
+//             die hier keine eigene Spalte hat.
+//   de        Deutsch.
+//
+// EINE SPRACHE ERGAENZEN: in strings.h die Aufzaehlung StringLang und
+// STRINGS_LANG_COUNT erweitern, in strings.c prv_pick_language() den
+// Zwei-Buchstaben-Vergleich ergaenzen, hier eine Spalte anfuegen und in
+// strings.c die Tabellenzeile um sie erweitern. Fehlt die Spalte in auch nur
+// einer Zeile, ist das ein Praeprozessorfehler - kein stiller Rueckfall.
+//
+// Die Texte der Timeline-Pins stehen NICHT hier, sondern in src/pkjs/index.js:
+// sie werden auf dem Telefon gebaut. Die Uhr schickt die Sprache als
+// MESSAGE_KEY_LANG mit.
+
+// ---- Hauptscreen ----------------------------------------------------------
+STR(STR_NEXT_REMINDER,   0,  "Next reminder",   "Nächste Erinnerung")
+STR(STR_TOMORROW,        0,  "Tomorrow",        "Morgen")
+STR(STR_GOAL_REACHED,    20, "Goal reached",    "Ziel erreicht")
+STR(STR_GLASS_N_OF_M,    20, "Glass %d of %d",  "Glas %d von %d")
+STR(STR_N_DONE,          20, "%d done",         "%d getrunken")
+
+// Seitenleiste, auf Hoehe der drei Tasten. Auf flint nur 30 px breit -
+// hoechstens fuenf schmale Zeichen.
+STR(STR_HINT_PLAN,       0,  "Plan",            "Plan")
+STR(STR_HINT_PLUS_ONE,   0,  "+1",              "+1")
+STR(STR_HINT_GOAL_UP,    0,  "Goal+",           "Ziel+")
+
+// ---- Trinkplan ------------------------------------------------------------
+STR(STR_GLASS_N,         12, "Glass %d",        "Glas %d")
+STR(STR_STATE_DONE,      0,  "done",            "getrunken")
+STR(STR_STATE_NEXT,      0,  "next reminder",   "nächste Erinnerung")
+STR(STR_STATE_MISSED,    0,  "missed",          "verpasst")
+STR(STR_STATE_OPEN,      0,  "pending",         "offen")
+
+// ---- Erinnerung -----------------------------------------------------------
+STR(STR_TIME_FOR_WATER,  0,  "Time for a glass of water!", "Zeit für ein Glas Wasser!")
+STR(STR_DAILY_GOAL_MET,  24, "Daily goal reached", "Tagesziel erreicht")
+
+// ---- App-Glance (Eintrag in der Anwendungsliste der Uhr) ------------------
+STR(STR_GLANCE_FMT,      48, "%d of %d glasses, next %s", "%d von %d Gläsern, nächste %s")

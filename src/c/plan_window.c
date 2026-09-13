@@ -3,6 +3,7 @@
 #include "theme.h"
 #include "glass_fx.h"
 #include "schedule.h"
+#include "strings.h"
 
 // Trinkplan als kleine Timeline: Zeit in LECO, Glas-Nummer und Status;
 // rechts die Seitenleiste, dunkel fuer vergangene und hell fuer kommende
@@ -34,18 +35,18 @@ static void prv_draw_row(GContext *ctx, const Layer *cell, MenuIndex *index, voi
   char hhmm[8];
   schedule_format_time(slot, hhmm, sizeof(hhmm));
   char title[12];
-  snprintf(title, sizeof(title), "Glas %d", index->row + 1);
+  snprintf(title, sizeof(title), S(STR_GLASS_N), index->row + 1);
 
   const char *state;
   if (index->row < schedule_count()) {
-    state = "getrunken";
+    state = S(STR_STATE_DONE);
   } else {
     time_t next;
     const int next_idx = schedule_next(now, &next);
     if (next < midnight + 86400 && index->row == next_idx) {
-      state = "nächste Erinnerung";
+      state = S(STR_STATE_NEXT);
     } else {
-      state = slot <= now ? "verpasst" : "offen";
+      state = slot <= now ? S(STR_STATE_MISSED) : S(STR_STATE_OPEN);
     }
   }
 

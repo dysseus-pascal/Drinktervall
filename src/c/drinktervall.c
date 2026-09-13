@@ -5,6 +5,7 @@
 #include "reminder_window.h"
 #include "drink_window.h"
 #include "phone.h"
+#include "strings.h"
 
 // Launch-Code der Timeline-Pin-Aktion "Getrunken"/"Nachholen" (siehe
 // src/pkjs/index.js). Code 2 ("App oeffnen") braucht hier keinen Fall: die
@@ -26,7 +27,7 @@ static void prv_glance_reload(AppGlanceReloadSession *session, size_t limit, voi
   char hhmm[8];
   schedule_format_time(next, hhmm, sizeof(hhmm));
   char text[48];
-  snprintf(text, sizeof(text), "%d von %d Gläsern, nächste %s",
+  snprintf(text, sizeof(text), S(STR_GLANCE_FMT),
            schedule_count(), schedule_goal(), hhmm);
   const AppGlanceSlice slice = {
     .layout = { .icon = APP_GLANCE_SLICE_DEFAULT_ICON, .subtitle_template_string = text },
@@ -40,6 +41,8 @@ void drinktervall_reminder_closed(void) {
 }
 
 static void prv_init(void) {
+  // Sprache der Uhr uebernehmen, bevor das erste Fenster Texte holt
+  strings_refresh();
   schedule_init();
   main_window_push();
 

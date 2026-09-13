@@ -2,6 +2,7 @@
 #include "phone.h"
 #include "config.h"
 #include "schedule.h"
+#include "strings.h"
 
 // Status eines heutigen Slots (siehe src/pkjs/index.js)
 enum { SlotFuture = 0, SlotDrunk = 2, SlotMissed = 3 };
@@ -17,6 +18,9 @@ void phone_send_next(void) {
   dict_write_int32(out, MESSAGE_KEY_COUNT, count);
   dict_write_int32(out, MESSAGE_KEY_NEXT_TIME, (int32_t)next);
   dict_write_int32(out, MESSAGE_KEY_NEXT_INDEX, idx);
+  // Sprache der Uhr: die Telefonseite baut die Pin-Texte und kann sie nicht
+  // von sich aus erfahren (0 = Englisch, 1 = Deutsch).
+  dict_write_int32(out, MESSAGE_KEY_LANG, (int32_t)strings_language());
 
   // Heutige Slots: je 4 Byte Zeit (little endian) + 1 Byte Status. Zukuenftige
   // Slots sind SlotFuture; von den vergangenen gelten die ersten `count` als

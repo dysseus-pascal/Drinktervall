@@ -6,6 +6,7 @@
 #include "drink_window.h"
 #include "schedule.h"
 #include "phone.h"
+#include "strings.h"
 
 // Erinnerung im Stil eines Timeline-Pin-Details: Kopfband mit Glas und Zeit,
 // schwarze Linie, weisse Karte mit dem Aufruf, rechts die schwarze
@@ -59,7 +60,7 @@ static void prv_update(Layer *layer, GContext *ctx) {
   const int16_t text_w = b.size.w - 2 * margin;
   int16_t y = head_h + 6;
   GFont title_font = fonts_get_system_font(wide ? FONT_KEY_GOTHIC_24_BOLD : FONT_KEY_GOTHIC_18_BOLD);
-  const char *title = "Zeit für ein Glas Wasser!";
+  const char *title = S(STR_TIME_FOR_WATER);
   GRect title_box = GRect(margin, y, text_w, 90);
   GSize title_size = graphics_text_layout_get_content_size(title, title_font, title_box,
                                                            GTextOverflowModeWordWrap,
@@ -69,9 +70,9 @@ static void prv_update(Layer *layer, GContext *ctx) {
   y += title_size.h + 4;
   char sub[24];
   if (count >= schedule_goal()) {
-    snprintf(sub, sizeof(sub), "Tagesziel erreicht");
+    snprintf(sub, sizeof(sub), "%s", S(STR_DAILY_GOAL_MET));
   } else {
-    snprintf(sub, sizeof(sub), "Glas %d von %d", count + 1, schedule_goal());
+    snprintf(sub, sizeof(sub), S(STR_GLASS_N_OF_M), count + 1, schedule_goal());
   }
   graphics_draw_text(ctx, sub, fonts_get_system_font(wide ? FONT_KEY_GOTHIC_18 : FONT_KEY_GOTHIC_14),
                      GRect(margin, y, text_w, 22), GTextOverflowModeTrailingEllipsis,

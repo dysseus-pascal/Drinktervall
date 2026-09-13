@@ -1,7 +1,7 @@
 {
   "name": "drinktervall",
   "author": "dysseus-pascal",
-  "version": "1.5.8",
+  "version": "1.6.0",
   "keywords": [
     "pebble-app"
   ],
@@ -26,7 +26,8 @@
       "NEXT_TIME",
       "NEXT_INDEX",
       "COUNT",
-      "SLOTS"
+      "SLOTS",
+      "LANG"
     ],
     "resources": {
       "media": [

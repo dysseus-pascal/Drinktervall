@@ -4,6 +4,9 @@ Trink-Erinnerung für Pebble (Emery, Flint, Gabbro): acht Gläser Wasser zwische
 8 und 20 Uhr, alle 90 Minuten eine Erinnerung direkt auf der Watch, dazu ein
 Pin pro Erinnerung in der Timeline. Farbschema blau/weiss.
 
+Die Oberfläche folgt der **Sprache der Uhr** (Deutsch und Englisch, Englisch als
+Rückfall) - siehe Abschnitt [Sprachen](#sprachen).
+
 ## Screenshots
 
 **Emery** (200 × 228, Farbe)
@@ -104,6 +107,8 @@ verpasste `RESULT_DELETED` (einen Totenkopf). Jeder Slot hat die feste ID
 Slot zum Getrunken- oder Verpasst-Pin. Die Watch schickt der Telefonseite
 (`src/pkjs/index.js`) beim Start, bei jedem Wakeup und nach jeder Änderung
 des Zählers den Stand; das JS sendet nur Pins, deren Inhalt sich geändert hat.
+Die Pin-Texte gibt es auf Englisch und Deutsch; welche gilt, sagt die Watch mit
+`MESSAGE_KEY_LANG` (siehe Abschnitt Sprachen).
 
 Übertragung: Das JS holt per `Pebble.getTimelineToken` einen Token und sendet
 die Pins an `https://timeline-api.rebble.io`. Das funktioniert mit der neuen
@@ -111,6 +116,54 @@ Pebble-App (Core Devices), sofern sie bei Rebble angemeldet ist. Nur wenn kein
 Token zu bekommen ist, wird die lokale Schnittstelle `Pebble.insertTimelinePin`
 versucht. Unveränderte Pins werden nach 12 Stunden erneut gesendet. Im Emulator gibt
 es keinen Token; die Pins werden dann übersprungen (Log: "timeline: kein Token").
+
+## Sprachen
+
+Die App liest beim Start `i18n_get_system_locale()` und folgt damit der
+Einstellung der Uhr unter *Settings -> Display -> Language*. Ausgeliefert werden
+**Englisch** und **Deutsch**; jede andere Uhrsprache bekommt Englisch. Einen
+eigenen Sprachschalter gibt es bewusst nicht.
+
+| Deutsch | Englisch |
+|:--:|:--:|
+| ![Hauptscreen auf Deutsch](screenshots/emery/06-sprache-de.png) | ![Hauptscreen auf Englisch](screenshots/emery/07-sprache-en.png) |
+
+Alle Texte der Watch stehen in `src/c/strings.def`, eine Zeile je Text:
+
+```
+STR(STR_GLASS_N_OF_M, 20, "Glass %d of %d", "Glas %d von %d")
+```
+
+Die Datei wird zweimal eingebunden (X-Makro) - einmal für die Aufzählung der
+Schlüssel, einmal für die Tabelle. Eine Zeile mit einer Spalte zu wenig ist
+deshalb ein **Präprozessorfehler**, kein stiller Rückfall auf die falsche
+Sprache. `S(STR_...)` liefert den Text; ein unbekannter Schlüssel oder eine
+leere Spalte fällt auf Englisch zurück, statt abzustürzen. Verglichen wird nie
+auf `"de_DE"`, sondern auf die ersten zwei Zeichen - ein Sprachpaket darf auch
+nur `"de"` liefern.
+
+Die **Texte der Timeline-Pins** stehen nicht dort, sondern in
+`src/pkjs/index.js`: sie werden auf dem Telefon gebaut, und das kann die
+Uhrsprache nicht von sich aus erfahren. Die Watch schickt sie deshalb als
+`MESSAGE_KEY_LANG` mit. Wichtig dabei: die Sprache steht auch in der Signatur,
+mit der das JS entdoppelt. Sonst behielte ein Pin, der schon draussen ist, nach
+einem Sprachwechsel seinen alten Text - sein Zustand hat sich ja nicht
+geändert.
+
+`node tools/strings_check.js` prüft, was der Compiler nicht sieht: leere
+englische Spalte, doppelte Schlüssel, Überschreitung eines Zielpuffers in Bytes
+(Umlaute zählen doppelt), zwischen den Sprachen abweichende Formatplatzhalter
+und Schlüssel, die niemand mehr benutzt. Nicht geprüft werden kann, ob ein
+Platzhalter zur C-Aufrufstelle passt - ein Format aus einer Tabelle ist auch
+für den Compiler unsichtbar.
+
+**Zum Testen:** Der Emulator meldet `en_US`, ein normaler Lauf zeigt also die
+englische Oberfläche. Für die deutsche Seite übersteuert man `strings_refresh()`
+vorübergehend in der WSL-Kopie mit `prv_pick_language("de_DE")` und lässt die
+Windows-Quelle unangetastet.
+
+Kosten: **+459 Byte** auf flint (9 821 -> 10 280 Byte Abdruck), keine neue
+Ressource.
 
 ## Farben
 

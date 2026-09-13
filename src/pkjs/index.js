@@ -2,6 +2,8 @@
 //   * ein Pin fuer die naechste Erinnerung (Zukunft)
 //   * je ein Pin fuer jeden heutigen Slot, der schon vorbei ist:
 //     "Glas n getrunken" oder "Glas n verpasst" mit der Aktion "Nachholen"
+// Die Pin-Texte gibt es auf Englisch und Deutsch; welche Sprache gilt, sagt die
+// Uhr per MESSAGE_KEY_LANG (siehe src/c/strings.def).
 // Die Watch schickt den Stand per AppMessage (src/c/phone.c): naechste
 // Erinnerung, Tagesziel, Zaehler und die heutigen Slots mit Status. Pins
 // haben die feste ID drinktervall-JJJJMMTT-n und wechseln ihren Inhalt.
@@ -17,8 +19,9 @@ var RESEND_AFTER_MS = 12 * 3600 * 1000;   // unveraenderten Pin nach 12 h erneut
 var FORGET_AFTER_MS = 3 * 86400 * 1000;   // alte Eintraege vergessen
 // Steckt in der Signatur jedes Pins: bei JEDER Aenderung am Aussehen (Symbol,
 // Titel, Text, Aktionen) erhoehen. Sonst bleiben schon gesendete Pins auf ihrem
-// alten Stand stehen - ihr Zustand hat sich ja nicht geaendert.
-var LOOK_VERSION = 6;
+// alten Stand stehen - ihr Zustand hat sich ja nicht geaendert. Die Sprache
+// steht zusaetzlich in der Signatur, die braucht also keine Erhoehung.
+var LOOK_VERSION = 7;
 // Einzel-Pin der Versionen 1.1.0 (aquatakt-next) und 1.1.1 (drinktervall-next).
 // Die Tages-Pins aquatakt-JJJJMMTT-n aus 1.0.x stehen bewusst nicht hier: sie
 // liegen in der Vergangenheit und werden nicht mehr aufgeraeumt.
@@ -28,8 +31,7 @@ var LAUNCH_CODE_DRUNK = 1;
 var LAUNCH_CODE_OPEN = 2;
 var SLOT_DRUNK = 2, SLOT_MISSED = 3;
 
-// Aussehen je Zustand; %n = Glasnummer, %g = Tagesziel. Fehlt `body` bzw.
-// `action`, bekommt der Pin keinen Text bzw. keine Trink-Aktion.
+// Symbole je Zustand. Sprachunabhaengig - die Texte stehen darunter.
 //
 // ZUM SYMBOL: nur die Namen aus dem System-Satz funktionieren. Die Telefon-App
 // von Core Devices faengt den Timeline-Aufruf selbst ab und setzt das Symbol
@@ -50,11 +52,31 @@ var SLOT_DRUNK = 2, SLOT_MISSED = 3;
 // Groesse gezeichnet, und kein Eintrag mit dieser Groesse ist ein Haken.
 // GENERIC_CONFIRMATION ist ein Stern mit Gesicht, THUMBS_UP und REWARD_GOOD
 // haben gar keine kleine Groesse und fallen dort auf die Flagge zurueck.
-var PIN_LOOK = {
-  next:   { title: 'Glas Wasser %n von %g', body: 'Zeit für ein Glas Wasser.', icon: 'system://images/NOTIFICATION_REMINDER', action: 'Getrunken' },
-  drunk:  { title: 'Glas %n getrunken', icon: 'system://images/GENERIC_CONFIRMATION' },
-  missed: { title: 'Glas %n verpasst', body: 'Nachholen? Die App zählt das Glas.', icon: 'system://images/RESULT_DELETED', action: 'Nachholen' }
+var PIN_ICON = {
+  next:   'system://images/NOTIFICATION_REMINDER',
+  drunk:  'system://images/GENERIC_CONFIRMATION',
+  missed: 'system://images/RESULT_DELETED'
 };
+
+// Die Texte je Sprache. Welche gilt, sagt die Uhr per MESSAGE_KEY_LANG - das
+// Telefon kann die Uhrsprache nicht von sich aus erfahren. Index 0 ist
+// Englisch und zugleich der Rueckfall, genau wie in src/c/strings.def.
+// %n = Glasnummer, %g = Tagesziel. Fehlt `body` bzw. `action`, bekommt der Pin
+// keinen Text bzw. keine Trink-Aktion.
+var PIN_TEXT = [
+  {
+    next:   { title: 'Water glass %n of %g', body: 'Time for a glass of water.', action: 'Done' },
+    drunk:  { title: 'Glass %n done' },
+    missed: { title: 'Glass %n missed', body: 'Catch up? The app counts the glass.', action: 'Catch up' },
+    open:   'Open app'
+  },
+  {
+    next:   { title: 'Glas Wasser %n von %g', body: 'Zeit für ein Glas Wasser.', action: 'Getrunken' },
+    drunk:  { title: 'Glas %n getrunken' },
+    missed: { title: 'Glas %n verpasst', body: 'Nachholen? Die App zählt das Glas.', action: 'Nachholen' },
+    open:   'App öffnen'
+  }
+];
 
 function pad(n) { return (n < 10 ? '0' : '') + n; }
 function dayKey(d) { return '' + d.getFullYear() + pad(d.getMonth() + 1) + pad(d.getDate()); }
@@ -67,20 +89,21 @@ function saveStore(store) {
   try { localStorage.setItem(STORE_KEY, JSON.stringify(store)); } catch (e) {}
 }
 
-function buildPin(id, epoch, state, index, goal) {
-  var look = PIN_LOOK[state];
+function buildPin(id, epoch, state, index, goal, lang) {
+  var texts = PIN_TEXT[lang] || PIN_TEXT[0];
+  var look = texts[state];
   var layout = {
     type: 'genericPin',
     title: look.title.replace('%n', index + 1).replace('%g', goal),
     subtitle: 'Drinktervall',
-    tinyIcon: look.icon,
+    tinyIcon: PIN_ICON[state],
     backgroundColor: PIN_COLOR,
     foregroundColor: '#FFFFFF'
   };
   if (look.body) layout.body = look.body;
   var actions = [];
   if (look.action) actions.push({ title: look.action, type: 'openWatchApp', launchCode: LAUNCH_CODE_DRUNK });
-  actions.push({ title: 'App öffnen', type: 'openWatchApp', launchCode: LAUNCH_CODE_OPEN });
+  actions.push({ title: texts.open, type: 'openWatchApp', launchCode: LAUNCH_CODE_OPEN });
   return { id: id, time: new Date(epoch * 1000).toISOString(), layout: layout, actions: actions };
 }
 
@@ -158,6 +181,8 @@ function sendAll(queue, insert) {
 
 function pushState(msg) {
   var goal = msg.GLASSES, now = Date.now();
+  // Fehlt LANG, laeuft eine aeltere Uhrseite: dann Englisch.
+  var lang = msg.LANG || 0;
   var store = loadStore();
   Object.keys(store).forEach(function (id) {
     if (store[id] && store[id].sentAt && now - store[id].sentAt > FORGET_AFTER_MS) delete store[id];
@@ -168,10 +193,14 @@ function pushState(msg) {
   var queue = [], wanted = 0;
   function want(epoch, state, index) {
     wanted += 1;
-    var id = pinId(epoch, index), sig = state + ':' + epoch + ':' + goal + ':v' + LOOK_VERSION;
+    // Die Sprache gehoert in die Signatur: ein Pin, der schon draussen ist,
+    // hat nach einem Sprachwechsel unveraenderten Zustand und wuerde sonst in
+    // der alten Sprache stehen bleiben.
+    var id = pinId(epoch, index);
+    var sig = state + ':' + epoch + ':' + goal + ':v' + LOOK_VERSION + ':l' + lang;
     var had = store[id];
     if (had && had.sig === sig && now - had.sentAt < RESEND_AFTER_MS) return;
-    queue.push({ pin: buildPin(id, epoch, state, index, goal), sig: sig });
+    queue.push({ pin: buildPin(id, epoch, state, index, goal, lang), sig: sig });
   }
   want(msg.NEXT_TIME, 'next', msg.NEXT_INDEX);
   decodeSlots(msg.SLOTS).forEach(function (s, i) {
