@@ -192,3 +192,17 @@ Wakeup-Test (Testbuild mit Erinnerung 60 s nach dem Start; setzt
 
 Das fertige Paket liegt nach dem Build unter `build/drinktervall.pbw`, eine Kopie
 neben dieser README.
+
+## Lizenz
+
+Gemeinfrei, [CC0 1.0](LICENSE). Kopieren, ändern, verkaufen, einbauen — ohne
+Bedingung, ohne Namensnennung, ohne Rückfrage.
+
+CC0 statt der Unlicense, weil das Schweizer Urheberrecht einen Verzicht gar
+nicht kennt; CC0 trägt für genau diesen Fall eine Ersatzlizenz in sich, die
+dasselbe erlaubt.
+
+Alles im Repository ist eigene Arbeit. Das Snooze-Symbol der Aktionsleiste war
+es bis 1.6.2 nicht: es stammte aus einer Pebble-App ohne Lizenz. Ersetzt durch
+ein eigenes, das `tools/make_snooze_icon.js` erzeugt — damit die Widmung
+lückenlos gilt.
