@@ -1,13 +1,15 @@
 {
   "name": "drinktervall",
   "author": "dysseus-pascal",
-  "version": "1.6.2",
+  "version": "1.7.0",
   "license": "CC0-1.0",
   "keywords": [
     "pebble-app"
   ],
   "private": true,
-  "dependencies": {},
+  "dependencies": {
+    "@rebble/clay": "^1.1.0"
+  },
   "pebble": {
     "displayName": "Drinktervall",
     "uuid": "5b0f7a3e-2c8d-4b61-9e4f-7d2a1c9b8e50",
@@ -21,6 +23,9 @@
     "watchapp": {
       "watchface": false
     },
+    "capabilities": [
+      "configurable"
+    ],
     "messageKeys": [
       "REQUEST",
       "GLASSES",
@@ -28,7 +33,8 @@
       "NEXT_INDEX",
       "COUNT",
       "SLOTS",
-      "LANG"
+      "LANG",
+      "TARGET"
     ],
     "resources": {
       "media": [

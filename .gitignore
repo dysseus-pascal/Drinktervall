@@ -9,3 +9,7 @@ __pycache__/
 # Betriebssystem
 Thumbs.db
 .DS_Store
+
+# Clay fuer die Konfigseite, kommt per npm install
+node_modules/
+package-lock.json

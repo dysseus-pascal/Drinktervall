@@ -1,8 +1,12 @@
 # Drinktervall
 
-Trink-Erinnerung für Pebble (Emery, Flint, Gabbro): acht Gläser Wasser zwischen
-8 und 20 Uhr, alle 90 Minuten eine Erinnerung direkt auf der Watch, dazu ein
-Pin pro Erinnerung in der Timeline. Farbschema blau/weiss.
+Trink-Erinnerung für Pebble (Emery, Flint, Gabbro): Gläser Wasser zwischen 8 und
+20 Uhr, eine Erinnerung je Glas direkt auf der Watch, dazu ein Pin pro
+Erinnerung in der Timeline. Farbschema blau/weiss.
+
+Voreingestellt sind **acht Gläser**, also alle 90 Minuten eines. Wie viele es
+sein sollen, wählt man in den App-Einstellungen der Telefon-App - siehe
+Abschnitt [Einstellungen](#einstellungen).
 
 Die Oberfläche folgt der **Sprache der Uhr** (Deutsch und Englisch, Englisch als
 Rückfall) - siehe Abschnitt [Sprachen](#sprachen).
@@ -51,8 +55,8 @@ nächste Erinnerung in der LECO-Ziffernschrift, darunter "Glas n von Ziel" und
 "n getrunken". Der Pegel (getrunkene Gläser / Tagesziel) steigt als hellblaues
 Band mit dunkler Wasserlinie von unten über den Inhalt (animiert). Einen Zähler nach
 unten gibt es bewusst nicht: ein getrunkenes Glas lässt sich nicht
-zurücknehmen. Das Tagesziel beginnt bei 8 und lässt sich mit der unteren
-Taste für den laufenden Tag erhöhen.
+zurücknehmen. Das Tagesziel beginnt beim eingestellten Soll und lässt sich mit
+der unteren Taste für den laufenden Tag erhöhen.
 
 | Taste  | Aktion                          |
 |--------|---------------------------------|
@@ -63,7 +67,7 @@ Taste für den laufenden Tag erhöhen.
 |        | das aufploppt, sich leert, ins Zentrum schrumpft und in einem
 |        | Strahlenkranz zerplatzt; danach steigen Zähler und Pegel. Vom
 |        | Hauptscreen aus bleibt die App danach offen |
-| Unten  | Tagesziel um ein Glas erhöhen (nur heute, morgen wieder 8), damit
+| Unten  | Tagesziel um ein Glas erhöhen (nur heute, morgen wieder das Soll), damit
 |        | sich über das Ziel hinaus weiter loggen lässt |
 
 **Erinnerung** - wie ein Pin-Detail der Timeline, aber ganz in Weiss: oben das
@@ -80,19 +84,45 @@ Häkchen (Getrunken) und Zz (Später). Erscheint zur geplanten Zeit von selbst (
 |        | Wakeup-Start beendet sich die App, sonst zurück zum Hauptscreen |
 
 Der Zähler wird um Mitternacht automatisch auf 0 gesetzt. Die App-Glance im
-Launcher zeigt "n von 8 Gläsern, nächste HH:MM".
+Launcher zeigt "n von m Gläsern, nächste HH:MM".
+
+## Einstellungen
+
+Die App-Einstellungen der Telefon-App (Clay) haben genau einen Knopf: **wie
+viele Gläser der Tagesplan vorsieht**, 4 bis 16, voreingestellt 8. Jede Auswahl
+schreibt den Abstand gleich dazu ("8 Gläser · alle 90 Minuten"), weil die blosse
+Zahl nichts darüber sagt, wie oft es klopft. Die Seite gibt es auf Deutsch und
+Englisch; welche gilt, sagt die **Uhr** per `MESSAGE_KEY_LANG` - das Telefon
+kann die Uhrsprache nicht von sich aus erfahren.
+
+Der gewählte Wert geht sofort an die Uhr, wenn die App dort gerade läuft. Meist
+läuft sie nicht: die Konfigseite öffnet man aus der Telefon-App heraus, und dann
+erreicht die Uhr kein AppMessage. Deshalb liegt das Soll **zusätzlich** im
+Speicher des Telefons und fährt beim nächsten Start der App mit der ohnehin
+fälligen Anfrage mit. Ohne diesen zweiten Weg verpufft jede Auswahl still.
+
+Ein neues Soll setzt das heutige Tagesziel zurück, fällt dabei aber nie unter
+den Zähler: schon getrunkene Gläser gehen nicht verloren.
+
+Grenzen und Voreinstellung stehen in `src/c/config.h` (`DT_GLASSES_MIN`,
+`DT_GLASSES_MAX`, `DT_GLASSES_DEFAULT`). `tools/pkjs_config_test.js` prüft den
+ganzen Weg auf der Telefonseite.
 
 ## Zeitplan
 
-Grundraster: 08:00, 09:30, 11:00, 12:30, 14:00, 15:30, 17:00, 18:30. Jede
-Erinnerung wird um bis zu 10 Minuten vor- oder nachverlegt (`DT_JITTER_MIN`),
-deterministisch aus Datum und Slot, so dass Wakeups, Plan-Liste und Glance
-dieselben Zeiten zeigen; das Fenster 8 bis 20 Uhr wird nicht verlassen. Alle
-Werte stehen in `src/c/config.h` (`DT_START_HOUR`, `DT_END_HOUR`, `DT_GLASSES`,
-`DT_JITTER_MIN`, `DT_SNOOZE_MIN`). `DT_GLASSES` darf 8 nicht überschreiten,
-weil Pebble pro App höchstens 8 Wakeup-Events erlaubt. Die App plant bei jedem
-Start (auch beim Wakeup-Start) alle Wakeups neu, so dass die 8 Slots immer die
-nächsten Erinnerungen über die Tagesgrenze hinweg abdecken.
+Die Gläser verteilen sich gleichmässig über das Fenster 8 bis 20 Uhr. Bei acht
+Gläsern ergibt das das Grundraster 08:00, 09:30, 11:00, 12:30, 14:00, 15:30,
+17:00, 18:30, bei zwölf ein stündliches. Jede Erinnerung wird um bis zu 10
+Minuten vor- oder nachverlegt (`DT_JITTER_MIN`), deterministisch aus Datum und
+Slot, so dass Wakeups, Plan-Liste und Glance dieselben Zeiten zeigen; das
+Fenster wird nicht verlassen. Alle Werte stehen in `src/c/config.h`
+(`DT_START_HOUR`, `DT_END_HOUR`, `DT_JITTER_MIN`, `DT_SNOOZE_MIN`).
+
+Pebble erlaubt pro App höchstens **8 geplante Wakeups**. Das ist trotzdem keine
+Obergrenze für die Gläser: die App plant bei jedem Start (auch beim
+Wakeup-Start) immer nur die *nächsten* acht Slots und beim übernächsten Start
+die darauf folgenden. Bis 1.6.x stand hier, `DT_GLASSES` dürfe 8 nicht
+überschreiten - das war zu streng gelesen.
 
 ## Timeline
 
@@ -184,11 +214,22 @@ pebble install --emulator emery      # oder flint / gabbro
 pebble install --phone <IP>          # Developer Connection der Pebble-App
 ```
 
+Die Konfigseite braucht [Clay](https://github.com/pebble-dev/clay).
+`sync_drinktervall.sh` holt es beim ersten Lauf selbst per `npm install`;
+`node_modules/` gehört nicht ins Repository.
+
 Die Skripte liegen unter `tools/` (nach `~` kopieren oder direkt aufrufen):
 `sync_drinktervall.sh [<Quellordner>]` spiegelt und baut, `test_screens.sh <plattform>`
 macht Screenshots der Screens nach /tmp/drinktervall, `test_wakeup.sh` ist der
 Wakeup-Test (Testbuild mit Erinnerung 60 s nach dem Start; setzt
 `DT_TEST_WAKEUP` nur in der WSL-Kopie).
+
+Ohne Uhr laufen zwei Prüfungen:
+
+```sh
+node tools/pkjs_config_test.js            # Konfigseite und Weg des Solls zur Uhr
+node tools/strings_check.js src/c/strings_table.h   # Übersetzungen und Pufferlängen
+```
 
 Das fertige Paket liegt nach dem Build unter `build/drinktervall.pbw`, eine Kopie
 neben dieser README.

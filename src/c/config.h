@@ -1,17 +1,27 @@
 #pragma once
 
-// Trinkplan: DT_GLASSES Erinnerungen im Abstand DT_INTERVAL_MIN ab
-// DT_START_HOUR. Mit 8 Glaesern von 8 bis 20 Uhr ergibt das alle 90 Minuten
-// das Grundraster 08:00, 09:30, 11:00, 12:30, 14:00, 15:30, 17:00, 18:30 -
-// jeder Slot wird davon aber noch um bis zu DT_JITTER_MIN Minuten verschoben,
-// diese Zeiten erscheinen also so gut wie nie genau so.
-//
-// DT_GLASSES darf 8 nicht ueberschreiten: Pebble erlaubt pro App hoechstens
-// 8 geplante Wakeup-Events (siehe schedule.c).
+// Trinkplan: schedule_target() Erinnerungen gleichmaessig zwischen
+// DT_START_HOUR und DT_END_HOUR. Wie viele es sind, waehlt man auf der
+// Konfigseite der Telefon-App (src/pkjs/config.js); voreingestellt sind 8.
+// Mit 8 Glaesern von 8 bis 20 Uhr ergibt das alle 90 Minuten das Grundraster
+// 08:00, 09:30, 11:00, 12:30, 14:00, 15:30, 17:00, 18:30 - jeder Slot wird
+// davon aber noch um bis zu DT_JITTER_MIN Minuten verschoben, diese Zeiten
+// erscheinen also so gut wie nie genau so.
 #define DT_START_HOUR    8
 #define DT_END_HOUR      20
-#define DT_GLASSES       8
-#define DT_INTERVAL_MIN  (((DT_END_HOUR - DT_START_HOUR) * 60) / DT_GLASSES)
+
+// Waehlbare Anzahl Glaeser. Die Grenzen ergeben sich aus dem Tagesfenster von
+// zwoelf Stunden: bei 4 Glaesern liegen drei Stunden dazwischen, bei 16 noch
+// 45 Minuten. Enger waere laestig statt hilfreich, weiter waere kein Plan mehr.
+//
+// DT_GLASSES_MAX darf nicht beliebig wachsen: phone.c schickt je Glas 5 Byte
+// an das Telefon, und der Ausgangspuffer ist endlich (siehe phone_init).
+// Pebble erlaubt ausserdem nur 8 geplante Wakeups pro App - das ist keine
+// Obergrenze fuer die Glaeser, denn schedule_plan_wakeups plant immer nur die
+// naechsten acht Slots und beim naechsten Start die darauf folgenden.
+#define DT_GLASSES_DEFAULT  8
+#define DT_GLASSES_MIN      4
+#define DT_GLASSES_MAX     16
 
 // Jede Erinnerung wird pro Tag und Slot deterministisch um bis zu so viele
 // Minuten vor- oder nachverlegt, damit sie nicht immer exakt zur gleichen
@@ -22,9 +32,11 @@
 #define DT_SNOOZE_MIN    10
 
 // Persist-Schluessel
-#define DT_PERSIST_DAY    1   // Tag (JJJJMMTT), zu dem COUNT und GOAL gehoeren
-#define DT_PERSIST_COUNT  2   // heute getrunkene Glaeser
-#define DT_PERSIST_GOAL   3   // heutiges Tagesziel (Glaeser), morgen wieder DT_GLASSES
+#define DT_PERSIST_DAY     1   // Tag (JJJJMMTT), zu dem COUNT und GOAL gehoeren
+#define DT_PERSIST_COUNT   2   // heute getrunkene Glaeser
+#define DT_PERSIST_GOAL    3   // heutiges Tagesziel (Glaeser), morgen wieder das Soll
+#define DT_PERSIST_TARGET  4   // gewaehltes Soll (Glaeser), gilt ueber Tage hinweg
 
 // Das Tagesziel laesst sich mit der unteren Taste bis hierher erhoehen.
+// Muss mindestens DT_GLASSES_MAX sein, sonst liesse sich das Soll nicht halten.
 #define DT_GOAL_MAX      24

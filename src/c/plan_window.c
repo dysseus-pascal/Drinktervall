@@ -18,7 +18,7 @@ static Layer *s_sidebar;
 static int s_past_rows;   // Slots, die schon vorbei sind
 
 static uint16_t prv_num_rows(MenuLayer *menu, uint16_t section, void *ctx) {
-  return DT_GLASSES;
+  return schedule_target();
 }
 
 static int16_t prv_cell_height(MenuLayer *menu, MenuIndex *index, void *ctx) {
@@ -34,8 +34,13 @@ static void prv_draw_row(GContext *ctx, const Layer *cell, MenuIndex *index, voi
   const time_t slot = schedule_slot(midnight, index->row);
   char hhmm[8];
   schedule_format_time(slot, hhmm, sizeof(hhmm));
+  // Auf dem schmalen Schirm passt "Glass 12" nicht mehr neben die Zeit - es
+  // brach zu "Glas..." ab, sobald die Nummer zweistellig wurde. Dort steht
+  // deshalb nur die Zahl mit dem Soll dahinter; welche Zeile ein Glas meint,
+  // sagen Symbol und Seitenleiste ohnehin.
   char title[12];
-  snprintf(title, sizeof(title), S(STR_GLASS_N), index->row + 1);
+  if (wide) snprintf(title, sizeof(title), S(STR_GLASS_N), index->row + 1);
+  else snprintf(title, sizeof(title), "%d/%d", index->row + 1, schedule_target());
 
   const char *state;
   if (index->row < schedule_count()) {
@@ -113,8 +118,8 @@ static void prv_load(Window *window) {
   time_t next;
   int idx = schedule_next(now, &next);
   const bool today = next < schedule_midnight(now) + 86400;
-  s_past_rows = today ? idx : DT_GLASSES;
-  if (!today) idx = DT_GLASSES - 1;
+  s_past_rows = today ? idx : schedule_target();
+  if (!today) idx = schedule_target() - 1;
   menu_layer_set_selected_index(s_menu, MenuIndex(0, idx), MenuRowAlignCenter, false);
 }
 

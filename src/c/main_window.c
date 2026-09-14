@@ -154,6 +154,16 @@ static void prv_sync(void) {
   prv_set_level(grew);
 }
 
+// Aenderung von aussen (neues Soll von der Konfigseite): Anzeige und Pegel
+// nachziehen. Laeuft der Screen gerade nicht, ist nichts zu tun - beim
+// naechsten Erscheinen gleicht prv_sync ohnehin ab.
+void main_window_refresh(void) {
+  if (!s_window || !s_canvas) return;
+  s_shown_count = schedule_count();
+  layer_mark_dirty(s_canvas);
+  prv_set_level(true);
+}
+
 static void prv_tick(struct tm *tick_time, TimeUnits units_changed) {
   layer_mark_dirty(s_canvas);
 }

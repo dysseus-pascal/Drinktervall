@@ -12,6 +12,9 @@
 // (funktioniert mit der neuen Pebble-App); ohne Token die lokale
 // Schnittstelle Pebble.insertTimelinePin.
 
+var Clay = require('@rebble/clay');
+var clayConfig = require('./config');
+
 var API_URL = 'https://timeline-api.rebble.io/v1/user/pins/';
 var PIN_COLOR = '#0055FF';                // Hintergrund der Pins (Pebble BlueMoon)
 var STORE_KEY = 'drinktervall_pins_v2';   // id -> { sig, sentAt }, dazu legacyDeleted
@@ -26,6 +29,13 @@ var LOOK_VERSION = 7;
 // Die Tages-Pins aquatakt-JJJJMMTT-n aus 1.0.x stehen bewusst nicht hier: sie
 // liegen in der Vergangenheit und werden nicht mehr aufgeraeumt.
 var LEGACY_IDS = ['aquatakt-next', 'drinktervall-next'];
+
+// Einstellungen des Telefons. Das Soll liegt hier, weil die Konfigseite auch
+// dann aufgeht, wenn die App auf der Uhr gerade NICHT laeuft - dann erreicht
+// sie kein AppMessage, und der Wert muss bis zum naechsten Start warten.
+var LANG_KEY = 'drinktervall_lang';
+var TARGET_KEY = 'drinktervall_target';
+var TARGET_MIN = 4, TARGET_MAX = 16;
 
 var LAUNCH_CODE_DRUNK = 1;
 var LAUNCH_CODE_OPEN = 2;
@@ -81,6 +91,29 @@ var PIN_TEXT = [
 function pad(n) { return (n < 10 ? '0' : '') + n; }
 function dayKey(d) { return '' + d.getFullYear() + pad(d.getMonth() + 1) + pad(d.getDate()); }
 function pinId(epoch, index) { return 'drinktervall-' + dayKey(new Date(epoch * 1000)) + '-' + (index + 1); }
+
+function getLang() {
+  var v = parseInt(localStorage.getItem(LANG_KEY), 10);
+  return v === 1 ? 1 : 0;
+}
+
+// Gespeichertes Soll, oder null wenn noch nie eines gewaehlt wurde. null heisst
+// "nichts zu sagen": die Uhr bleibt dann bei ihrer eigenen Voreinstellung,
+// statt von hier eine erfundene Zahl aufgedraengt zu bekommen.
+function getTarget() {
+  var v = parseInt(localStorage.getItem(TARGET_KEY), 10);
+  if (!isFinite(v) || v < TARGET_MIN || v > TARGET_MAX) return null;
+  return v;
+}
+
+// Clay erst bauen, wenn die Seite gebraucht wird: dann steht die Sprache der
+// Uhr schon fest. Eine einmal gebaute Instanz bleibt, damit showConfiguration
+// und webviewclosed dieselbe benutzen.
+var s_clay = null;
+function getClay() {
+  if (!s_clay) s_clay = new Clay(clayConfig(getLang()), null, { autoHandleEvents: false });
+  return s_clay;
+}
 
 function loadStore() {
   try { return JSON.parse(localStorage.getItem(STORE_KEY)) || {}; } catch (e) { return {}; }
@@ -183,6 +216,8 @@ function pushState(msg) {
   var goal = msg.GLASSES, now = Date.now();
   // Fehlt LANG, laeuft eine aeltere Uhrseite: dann Englisch.
   var lang = msg.LANG || 0;
+  // Fuer die Konfigseite merken - die oeffnet spaeter und ohne die Uhr zu fragen.
+  try { localStorage.setItem(LANG_KEY, String(lang)); } catch (e) {}
   var store = loadStore();
   Object.keys(store).forEach(function (id) {
     if (store[id] && store[id].sentAt && now - store[id].sentAt > FORGET_AFTER_MS) delete store[id];
@@ -233,7 +268,36 @@ Pebble.addEventListener('appmessage', function (e) {
   pushState(p);
 });
 
+Pebble.addEventListener('showConfiguration', function () {
+  Pebble.openURL(getClay().generateUrl());
+});
+
+Pebble.addEventListener('webviewclosed', function (e) {
+  if (!e || !e.response) return;
+  // false = Clay soll nichts von sich aus schicken; wir pruefen den Wert erst
+  // und schicken ihn dann selbst.
+  var dict = getClay().getSettings(e.response, false);
+  if (dict.TARGET === undefined) return;
+  var n = parseInt(dict.TARGET.value, 10);
+  if (!isFinite(n) || n < TARGET_MIN || n > TARGET_MAX) {
+    console.log('Konfig: ungueltiges Soll ' + dict.TARGET.value + ' - verworfen');
+    return;
+  }
+  try { localStorage.setItem(TARGET_KEY, String(n)); } catch (err) {}
+  console.log('Konfig: Soll ' + n + ' Glaeser');
+  // Laeuft die App auf der Uhr gerade, greift es sofort. Laeuft sie nicht,
+  // schlaegt das hier fehl - dann holt es der 'ready'-Zweig beim naechsten
+  // Start nach.
+  Pebble.sendAppMessage({ TARGET: n }, function () {},
+    function () { console.log('Konfig: Uhr nicht erreichbar, gilt ab dem naechsten Start'); });
+});
+
 Pebble.addEventListener('ready', function () {
-  Pebble.sendAppMessage({ REQUEST: 1 },
+  // Das gespeicherte Soll faehrt bei der Anfrage mit: so uebernimmt die Uhr
+  // eine Aenderung, die getaetigt wurde, waehrend die App nicht lief.
+  var msg = { REQUEST: 1 };
+  var target = getTarget();
+  if (target !== null) msg.TARGET = target;
+  Pebble.sendAppMessage(msg,
     function () {}, function () { console.log('AppMessage: Anfrage fehlgeschlagen'); });
 });
