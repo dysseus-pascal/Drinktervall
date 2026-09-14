@@ -96,7 +96,10 @@ static void prv_vibe(void *data) {
 // danach die App verlassen. Das Trink-Fenster kommt ueber die Erinnerung,
 // die darunter weggenommen wird - so bleibt nach der Animation nichts stehen.
 static void prv_select(ClickRecognizerRef recognizer, void *context) {
-  if (schedule_count() < schedule_goal()) schedule_set_count(schedule_count() + 1);
+  if (schedule_count() < schedule_goal()) {
+    schedule_set_count(schedule_count() + 1);
+    phone_note_drink();
+  }
   vibes_short_pulse();
   phone_send_next();
   prv_cancel_vibes();

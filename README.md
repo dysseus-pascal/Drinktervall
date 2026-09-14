@@ -104,6 +104,29 @@ fälligen Anfrage mit. Ohne diesen zweiten Weg verpufft jede Auswahl still.
 Ein neues Soll setzt das heutige Tagesziel zurück, fällt dabei aber nie unter
 den Zähler: schon getrunkene Gläser gehen nicht verloren.
 
+### Glasgrösse
+
+Dazu steht auf der Seite, **wie viel in ein Glas geht** — 1 dl bis 1 l,
+voreingestellt 3 dl. Am Verhalten der Uhr ändert das nichts: gezählt wird
+weiter in Gläsern, nicht in Millilitern.
+
+Gebraucht wird die Zahl nur, um getrunkenes Wasser an eine Gesundheitsakte
+weiterzureichen. Drinktervall hängt dafür Zeitpunkt und Menge an die
+AppMessage, die es nach jedem Glas ohnehin schickt — keine zusätzliche
+Übertragung, kein Knopf, kein Bildschirm. Eine Companion-App auf dem Telefon
+kann das aufgreifen und in Health Connect eintragen (siehe
+[Herzintervall](https://github.com/dysseus-pascal/Herzintervall), Ordner
+`companion/`). Wer keine solche App hat, merkt von alldem nichts.
+
+Die beiden Felder stehen **nur** in der Nachricht direkt nach einem Glas, nicht
+in den übrigen Standmeldungen. Sonst trüge die Akte bei jedem Aufwachen der Uhr
+ein weiteres Glas ein.
+
+Dass das überhaupt geht, obwohl Drinktervall eine pkjs-Telefonseite hat, liegt
+an `appMessageToMultipleCompanions` in der Pebble-App: der Schalter steht
+standardmässig auf `true`, AppMessages gehen dann an PKJS **und** an eine
+klassische Companion-App.
+
 Grenzen und Voreinstellung stehen in `src/c/config.h` (`DT_GLASSES_MIN`,
 `DT_GLASSES_MAX`, `DT_GLASSES_DEFAULT`). `tools/pkjs_config_test.js` prüft den
 ganzen Weg auf der Telefonseite.

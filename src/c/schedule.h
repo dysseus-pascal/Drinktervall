@@ -28,6 +28,11 @@ void schedule_raise_goal(void);
 // Abstand zweier Erinnerungen in Minuten, aus Tagesfenster und Soll.
 int schedule_interval_min(void);
 
+// Glasgroesse in Millilitern (DT_GLASS_ML_MIN..MAX, voreingestellt
+// DT_GLASS_ML_DEFAULT). Kommt von der Konfigseite der Telefon-App.
+int schedule_glass_ml(void);
+bool schedule_set_glass_ml(int ml);
+
 // Lokale Mitternacht des Tages, in dem `t` liegt (Epoch-Sekunden).
 time_t schedule_midnight(time_t t);
 

@@ -56,6 +56,7 @@ static void prv_init(void) {
              && schedule_count() < schedule_goal()) {
     // Aus einem Timeline-Pin: zaehlen, kurz zeigen, App wieder verlassen
     schedule_set_count(schedule_count() + 1);
+    phone_note_drink();
     vibes_short_pulse();
     drink_window_push(true);
   }

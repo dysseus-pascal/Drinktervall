@@ -36,6 +36,14 @@
 #define DT_PERSIST_COUNT   2   // heute getrunkene Glaeser
 #define DT_PERSIST_GOAL    3   // heutiges Tagesziel (Glaeser), morgen wieder das Soll
 #define DT_PERSIST_TARGET  4   // gewaehltes Soll (Glaeser), gilt ueber Tage hinweg
+#define DT_PERSIST_GLASS   5   // Glasgroesse in ml, gilt ueber Tage hinweg
+
+// Wie viel in ein Glas geht. Waehlbar auf der Konfigseite; gebraucht wird die
+// Zahl nur, um getrunkenes Wasser an eine Gesundheitsakte weiterzureichen -
+// auf der Uhr selbst wird weiter in Glaesern gezaehlt, nicht in Millilitern.
+#define DT_GLASS_ML_DEFAULT 300
+#define DT_GLASS_ML_MIN     100
+#define DT_GLASS_ML_MAX     1000
 
 // Das Tagesziel laesst sich mit der unteren Taste bis hierher erhoehen.
 // Muss mindestens DT_GLASSES_MAX sein, sonst liesse sich das Soll nicht halten.

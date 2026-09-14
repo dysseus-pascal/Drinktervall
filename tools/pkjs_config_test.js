@@ -98,6 +98,14 @@ function save(w, value) {
   w.fire('webviewclosed', { response: JSON.stringify({ TARGET: value }) });
 }
 
+function saveBoth(w, target, glass) {
+  w.fire('webviewclosed', { response: JSON.stringify({ TARGET: target, GLASS_ML: glass }) });
+}
+
+function saveGlass(w, glass) {
+  w.fire('webviewclosed', { response: JSON.stringify({ GLASS_ML: glass }) });
+}
+
 console.log('\nDie Seite selbst');
 {
   const cfg = require(CFG);
@@ -174,6 +182,76 @@ console.log('\nUnsinn abweisen');
         JSON.stringify(w.store));
   w.fire('webviewclosed', {});
   check('Abgebrochene Seite aendert nichts', w.sent.length === 0, JSON.stringify(w.sent));
+}
+
+console.log('');
+console.log('Glasgroesse');
+{
+  const cfg = require(CFG);
+  [0, 1].forEach(function (lang) {
+    const sel = cfg(lang)[3].items[1];
+    check('Sprache ' + lang + ': Auswahlfeld GLASS_ML',
+          !!sel && sel.messageKey === 'GLASS_ML', JSON.stringify(sel && sel.messageKey));
+    if (!sel) return;
+    check('Sprache ' + lang + ': Voreinstellung 300 ml',
+          sel.defaultValue === '300', sel.defaultValue);
+    const vals = sel.options.map((o) => parseInt(o.value, 10));
+    check('Sprache ' + lang + ': alle Werte im erlaubten Bereich',
+          vals.every((v) => v >= 100 && v <= 1000), vals.join(','));
+    check('Sprache ' + lang + ': 3 dl ist dabei und heisst so',
+          sel.options.some((o) => o.value === '300' && o.label === '3 dl'),
+          sel.options.map((o) => o.label).join(' | '));
+  });
+}
+{
+  const w = world();
+  saveGlass(w, '500');
+  check('Glasgroesse geht an die Uhr',
+        !!w.last() && w.last().GLASS_ML === 500, JSON.stringify(w.last()));
+  check('Glasgroesse bleibt auf dem Telefon',
+        w.store.drinktervall_glass_ml === '500', w.store.drinktervall_glass_ml);
+}
+{
+  // Der Fall, der ohne Sorgfalt verlorenginge: die Soll-Pruefung steigt frueh
+  // aus, wenn TARGET in der Antwort fehlt. Die Glasgroesse desselben
+  // Speichervorgangs darf davon nicht mitgerissen werden.
+  const w = world();
+  saveGlass(w, '250');
+  check('Glasgroesse ohne TARGET in derselben Antwort ueberlebt',
+        w.store.drinktervall_glass_ml === '250', w.store.drinktervall_glass_ml);
+}
+{
+  const w = world();
+  saveBoth(w, '10', '400');
+  check('beides zusammen gespeichert',
+        w.store.drinktervall_target === '10' && w.store.drinktervall_glass_ml === '400',
+        w.store.drinktervall_target + ' / ' + w.store.drinktervall_glass_ml);
+}
+[['50', 'zu klein'], ['5000', 'zu gross'], ['abc', 'keine Zahl'], ['', 'leer']].forEach(function (c) {
+  const w = world();
+  saveGlass(w, c[0]);
+  check('Glasgroesse "' + c[0] + '" (' + c[1] + ') wird verworfen',
+        w.sent.length === 0 && w.store.drinktervall_glass_ml === undefined,
+        JSON.stringify(w.last()) + ' / ' + w.store.drinktervall_glass_ml);
+});
+{
+  const w = world({ drinktervall_glass_ml: '400', drinktervall_target: '12' });
+  w.fire('ready');
+  check('beides faehrt beim Start mit',
+        !!w.last() && w.last().GLASS_ML === 400 && w.last().TARGET === 12,
+        JSON.stringify(w.last()));
+}
+{
+  const w = world();
+  w.fire('ready');
+  check('ohne gewaehlte Glasgroesse schickt das Telefon keine',
+        !!w.last() && w.last().GLASS_ML === undefined, JSON.stringify(w.last()));
+}
+{
+  const w = world({ drinktervall_glass_ml: '9999' });
+  w.fire('ready');
+  check('verdorbene Glasgroesse wird beim Start ignoriert',
+        !!w.last() && w.last().GLASS_ML === undefined, JSON.stringify(w.last()));
 }
 
 console.log('\nSprache der Seite');

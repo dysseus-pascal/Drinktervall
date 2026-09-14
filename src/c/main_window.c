@@ -175,6 +175,7 @@ static void prv_up(ClickRecognizerRef recognizer, void *context) {
 static void prv_select(ClickRecognizerRef recognizer, void *context) {
   if (schedule_count() >= schedule_goal()) return;
   schedule_set_count(schedule_count() + 1);
+  phone_note_drink();
   vibes_short_pulse();
   phone_send_next();
   prv_sync();

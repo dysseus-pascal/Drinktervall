@@ -8,6 +8,7 @@
 
 static int s_count;
 static int s_target = DT_GLASSES_DEFAULT;
+static int s_glass_ml = DT_GLASS_ML_DEFAULT;
 static int s_goal = DT_GLASSES_DEFAULT;
 
 static int32_t prv_day_key(time_t t) {
@@ -31,6 +32,10 @@ void schedule_init(void) {
   const int stored = persist_exists(DT_PERSIST_TARGET) ? persist_read_int(DT_PERSIST_TARGET)
                                                        : DT_GLASSES_DEFAULT;
   s_target = prv_clamp_target(stored);
+  if (persist_exists(DT_PERSIST_GLASS)) {
+    const int ml = persist_read_int(DT_PERSIST_GLASS);
+    if (ml >= DT_GLASS_ML_MIN && ml <= DT_GLASS_ML_MAX) s_glass_ml = ml;
+  }
   s_goal = same_day ? persist_read_int(DT_PERSIST_GOAL) : s_target;
   s_count = same_day ? persist_read_int(DT_PERSIST_COUNT) : 0;
   if (s_goal < s_target) s_goal = s_target;
@@ -61,6 +66,18 @@ bool schedule_set_target(int target) {
   if (s_goal > DT_GOAL_MAX) s_goal = DT_GOAL_MAX;
   persist_write_int(DT_PERSIST_DAY, prv_day_key(time(NULL)));
   persist_write_int(DT_PERSIST_GOAL, s_goal);
+  return true;
+}
+
+int schedule_glass_ml(void) {
+  return s_glass_ml;
+}
+
+bool schedule_set_glass_ml(int ml) {
+  if (ml < DT_GLASS_ML_MIN || ml > DT_GLASS_ML_MAX) return false;
+  if (ml == s_glass_ml) return false;
+  s_glass_ml = ml;
+  persist_write_int(DT_PERSIST_GLASS, s_glass_ml);
   return true;
 }
 

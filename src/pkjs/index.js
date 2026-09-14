@@ -36,6 +36,10 @@ var LEGACY_IDS = ['aquatakt-next', 'drinktervall-next'];
 var LANG_KEY = 'drinktervall_lang';
 var TARGET_KEY = 'drinktervall_target';
 var TARGET_MIN = 4, TARGET_MAX = 16;
+// Glasgroesse in ml. Geht denselben Weg wie das Soll: auf dem Telefon gemerkt,
+// weil die Konfigseite auch bei geschlossener Watchapp aufgeht.
+var GLASS_KEY = 'drinktervall_glass_ml';
+var GLASS_MIN = 100, GLASS_MAX = 1000;
 
 var LAUNCH_CODE_DRUNK = 1;
 var LAUNCH_CODE_OPEN = 2;
@@ -103,6 +107,12 @@ function getLang() {
 function getTarget() {
   var v = parseInt(localStorage.getItem(TARGET_KEY), 10);
   if (!isFinite(v) || v < TARGET_MIN || v > TARGET_MAX) return null;
+  return v;
+}
+
+function getGlassMl() {
+  var v = parseInt(localStorage.getItem(GLASS_KEY), 10);
+  if (!isFinite(v) || v < GLASS_MIN || v > GLASS_MAX) return null;
   return v;
 }
 
@@ -277,6 +287,20 @@ Pebble.addEventListener('webviewclosed', function (e) {
   // false = Clay soll nichts von sich aus schicken; wir pruefen den Wert erst
   // und schicken ihn dann selbst.
   var dict = getClay().getSettings(e.response, false);
+
+  // Glasgroesse zuerst: die Soll-Pruefung unten steigt frueh aus, und dann
+  // ginge die Glasgroesse desselben Speichervorgangs verloren.
+  if (dict.GLASS_ML !== undefined) {
+    var ml = parseInt(dict.GLASS_ML.value, 10);
+    if (isFinite(ml) && ml >= GLASS_MIN && ml <= GLASS_MAX) {
+      try { localStorage.setItem(GLASS_KEY, String(ml)); } catch (err) {}
+      console.log('Konfig: Glas ' + ml + ' ml');
+      Pebble.sendAppMessage({ GLASS_ML: ml }, function () {}, function () {});
+    } else {
+      console.log('Konfig: ungueltige Glasgroesse ' + dict.GLASS_ML.value);
+    }
+  }
+
   if (dict.TARGET === undefined) return;
   var n = parseInt(dict.TARGET.value, 10);
   if (!isFinite(n) || n < TARGET_MIN || n > TARGET_MAX) {
@@ -298,6 +322,8 @@ Pebble.addEventListener('ready', function () {
   var msg = { REQUEST: 1 };
   var target = getTarget();
   if (target !== null) msg.TARGET = target;
+  var glass = getGlassMl();
+  if (glass !== null) msg.GLASS_ML = glass;
   Pebble.sendAppMessage(msg,
     function () {}, function () { console.log('AppMessage: Anfrage fehlgeschlagen'); });
 });

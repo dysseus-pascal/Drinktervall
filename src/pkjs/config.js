@@ -14,6 +14,12 @@
 var START_HOUR = 8, END_HOUR = 20;
 var MIN = 4, MAX = 16, DEFAULT = 8;
 
+// Glasgroesse. Gebraucht wird sie nur, wenn eine Companion-App das getrunkene
+// Wasser in eine Gesundheitsakte eintraegt; auf der Uhr wird weiter in
+// Glaesern gezaehlt. 3 dl ist ein gewoehnliches Trinkglas.
+var GLASS_DEFAULT = 300;
+var GLASS_SIZES = [100, 150, 200, 250, 300, 400, 500, 750, 1000];
+
 var TEXT = [
   {
     heading: 'Drinktervall',
@@ -26,6 +32,10 @@ var TEXT = [
           'bottom button on the watch raises today\u2019s goal without ' +
           'touching this setting.',
     glasses: function (n) { return n + ' glasses'; },
+    glassSection: 'Glass',
+    glassLabel: 'How much fits in your glass',
+    glassNote: 'Only needed to pass the water you drank on to a health record. ' +
+               'The watch keeps counting in glasses either way.',
     everyHour: 'every hour',
     everyHours: function (h) { return 'every ' + h + ' hours'; },
     everyMinutes: function (m) { return 'every ' + m + ' minutes'; },
@@ -43,6 +53,11 @@ var TEXT = [
           'geplant? Die untere Taste auf der Uhr erhöht das heutige Ziel, ' +
           'ohne diese Einstellung anzufassen.',
     glasses: function (n) { return n + ' Gläser'; },
+    glassSection: 'Glas',
+    glassLabel: 'Wie viel in dein Glas geht',
+    glassNote: 'Wird nur gebraucht, um getrunkenes Wasser an eine ' +
+               'Gesundheitsakte weiterzureichen. Gezählt wird auf der Uhr so ' +
+               'oder so in Gläsern.',
     everyHour: 'jede Stunde',
     everyHours: function (h) { return 'alle ' + h + ' Stunden'; },
     everyMinutes: function (m) { return 'alle ' + m + ' Minuten'; },
@@ -83,6 +98,29 @@ module.exports = function (lang) {
           options: options(t)
         },
         { type: 'text', defaultValue: t.note }
+      ]
+    },
+    {
+      type: 'section',
+      items: [
+        { type: 'heading', defaultValue: t.glassSection },
+        {
+          type: 'select',
+          messageKey: 'GLASS_ML',
+          label: t.glassLabel,
+          defaultValue: String(GLASS_DEFAULT),
+          options: GLASS_SIZES.map(function (ml) {
+            // Deziliter lesen sich bei runden Werten besser als Milliliter -
+            // 3 dl statt 300 ml. Krumme bleiben in ml, ein voller Liter wird
+            // einer.
+            var label;
+            if (ml === 1000) label = '1 l';
+            else if (ml % 100 === 0) label = (ml / 100) + ' dl';
+            else label = ml + ' ml';
+            return { label: label, value: String(ml) };
+          })
+        },
+        { type: 'text', defaultValue: t.glassNote }
       ]
     },
     { type: 'submit', defaultValue: t.submit }
