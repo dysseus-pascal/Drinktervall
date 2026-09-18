@@ -75,10 +75,19 @@ Glas aus der Trink-Animation und die Uhrzeit in LECO, darunter die schwarze
 Trennlinie und die Karte mit dem Aufruf, rechts die schwarze Aktionsleiste mit
 Häkchen (Getrunken) und Zz (Später). Erscheint zur geplanten Zeit von selbst (Wakeup), vibriert dreimal im Abstand von 20 s und bleibt stehen, bis eine Taste gedrückt wird.
 
+**Die Ruhezeit gilt.** Läuft sie, erscheint die Erinnerung zwar, sie vibriert
+aber nicht und macht kein Licht. Das ist von der Uhr übernommen und nicht neu
+erfunden: Pebble lässt Mitteilungen während der Ruhezeit ankommen, nur stumm.
+Sie ganz zu unterschlagen wäre etwas anderes als still zu sein — ein Glas, von
+dem niemand je erfährt, ist kein leiser Hinweis, sondern gar keiner. Auf der
+Konfigseite steht dafür **kein** Schalter: die Ruhezeit ist eine Einstellung der
+Uhr, und zwei Schalter für dieselbe Sache wären einer zu viel.
+
 | Taste  | Aktion                                  |
 |--------|-----------------------------------------|
 | Mitte  | Getrunken: Zähler +1, kurze Trink-Animation, dann schliesst sich
-|        | die App - die Unterbrechung bleibt so kurz wie möglich |
+|        | die App - die Unterbrechung bleibt so kurz wie möglich. Ohne
+|        | Animation bleibt stattdessen kurz der neue Stand stehen |
 | Unten  | Später: in 10 Minuten nochmals erinnern, die App schliesst sich sofort |
 | Zurück | Schliessen ohne zu zählen, das Glas gilt als verpasst; nach einem
 |        | Wakeup-Start beendet sich die App, sonst zurück zum Hauptscreen |
@@ -88,12 +97,17 @@ Launcher zeigt "n von m Gläsern, nächste HH:MM".
 
 ## Einstellungen
 
-Die App-Einstellungen der Telefon-App (Clay) haben genau einen Knopf: **wie
-viele Gläser der Tagesplan vorsieht**, 4 bis 16, voreingestellt 8. Jede Auswahl
-schreibt den Abstand gleich dazu ("8 Gläser · alle 90 Minuten"), weil die blosse
-Zahl nichts darüber sagt, wie oft es klopft. Die Seite gibt es auf Deutsch und
-Englisch; welche gilt, sagt die **Uhr** per `MESSAGE_KEY_LANG` - das Telefon
-kann die Uhrsprache nicht von sich aus erfahren.
+Die App-Einstellungen der Telefon-App (Clay) haben drei Knöpfe:
+
+| Knopf | Was er tut |
+|---|---|
+| **Gläser pro Tag** | 4 bis 16, voreingestellt 8. Jede Auswahl schreibt den Abstand gleich dazu ("8 Gläser · alle 90 Minuten"), weil die blosse Zahl nichts darüber sagt, wie oft es klopft |
+| **Wie viel in dein Glas geht** | nur nötig, um Getrunkenes an eine Gesundheitsakte weiterzureichen; gezählt wird auf der Uhr so oder so in Gläsern |
+| **Trink-Animation** | voreingestellt an. Aus heisst: kein formatfüllendes Glas mehr, stattdessen steigt der Pegel auf dem Hauptscreen. Gezählt wird deswegen nichts anders |
+
+Die Seite gibt es auf Deutsch und Englisch; welche gilt, sagt die **Uhr** per
+`MESSAGE_KEY_LANG` - das Telefon kann die Uhrsprache nicht von sich aus
+erfahren.
 
 Der gewählte Wert geht sofort an die Uhr, wenn die App dort gerade läuft. Meist
 läuft sie nicht: die Konfigseite öffnet man aus der Telefon-App heraus, und dann

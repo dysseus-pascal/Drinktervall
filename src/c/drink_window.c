@@ -1,9 +1,16 @@
 #include "drink_window.h"
 #include "theme.h"
 #include "glass_fx.h"
+#include "schedule.h"
 
 // Nach dem Ende der Animation bleibt der leere Grund noch so lange stehen
 #define HOLD_AFTER_MS 350
+
+// Ist die Animation abgeschaltet, bleibt statt ihrer der Hauptscreen mit dem
+// neuen Stand so lange stehen. Laenger als HOLD_AFTER_MS, weil es diesmal das
+// Einzige ist, was man zu sehen bekommt - unter einer halben Sekunde spraenge
+// der Zaehler weg, bevor man ihn gelesen hat.
+#define HOLD_NO_FX_MS 900
 
 static Window *s_window;
 static AppTimer *s_close_timer;
@@ -11,10 +18,13 @@ static bool s_quit_after;
 
 static void prv_close(void *data) {
   s_close_timer = NULL;
-  if (!s_window) return;
+  // OHNE FENSTER GIBT ES TROTZDEM ETWAS ZU TUN. Ist die Animation aus, laeuft
+  // dieser Zeitgeber ohne ein s_window - und dann ist gerade das Beenden der
+  // App seine ganze Aufgabe. Das fruehere "if (!s_window) return" haette die
+  // App offen stehen lassen.
   if (s_quit_after) {
     window_stack_pop_all(false);      // App verlassen, Watch zeigt das Zifferblatt
-  } else {
+  } else if (s_window) {
     window_stack_remove(s_window, true);
   }
 }
@@ -42,15 +52,28 @@ static void prv_unload(Window *window) {
   s_window = NULL;
 }
 
-void drink_window_push(bool quit_after) {
-  if (s_window) return;
+bool drink_window_push(bool quit_after) {
+  if (s_window) return true;
   s_quit_after = quit_after;
+
+  // Abgeschaltet: nichts zeigen. Der Weg muss trotzdem gleich enden wie mit
+  // Animation - wer ueber die Erinnerung oder einen Timeline-Pin hierher kam,
+  // erwartet, dass die App sich danach wieder schliesst. Nur der Hauptscreen
+  // bekommt seinen Pegelanstieg selbst hin, der braucht keinen Zeitgeber.
+  if (!schedule_animation()) {
+    if (quit_after && !s_close_timer) {
+      s_close_timer = app_timer_register(HOLD_NO_FX_MS, prv_close, NULL);
+    }
+    return false;
+  }
+
   s_window = window_create();
   window_set_background_color(s_window, DT_COLOR_FX_BG);
   window_set_window_handlers(s_window, (WindowHandlers) {
     .load = prv_load, .appear = prv_appear, .unload = prv_unload,
   });
   window_stack_push(s_window, true);
+  return true;
 }
 
 bool drink_window_is_open(void) {

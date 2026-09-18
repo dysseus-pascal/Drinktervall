@@ -40,6 +40,26 @@ void drinktervall_reminder_closed(void) {
   if (s_launched_by_wakeup) window_stack_pop_all(false);
 }
 
+// --- Ruhezeit ---
+// quiet_time_is_active() gibt es seit SDK 3.12; sie beantwortet genau die
+// Frage, die hier zu stellen ist - ob die Uhr gerade still sein soll. Selbst
+// Nachtstunden auszurechnen waere eine zweite, schlechtere Antwort daneben:
+// die Ruhezeit kennt auch den Kalender und den Schalter von Hand.
+
+bool drinktervall_quiet(void) { return quiet_time_is_active(); }
+
+void drinktervall_buzz_short(void) {
+  if (!drinktervall_quiet()) vibes_short_pulse();
+}
+
+void drinktervall_buzz_double(void) {
+  if (!drinktervall_quiet()) vibes_double_pulse();
+}
+
+void drinktervall_light(void) {
+  if (!drinktervall_quiet()) light_enable_interaction();
+}
+
 static void prv_init(void) {
   // Sprache der Uhr uebernehmen, bevor das erste Fenster Texte holt
   strings_refresh();
@@ -57,7 +77,7 @@ static void prv_init(void) {
     // Aus einem Timeline-Pin: zaehlen, kurz zeigen, App wieder verlassen
     schedule_set_count(schedule_count() + 1);
     phone_note_drink();
-    vibes_short_pulse();
+    drinktervall_buzz_short();
     drink_window_push(true);
   }
 

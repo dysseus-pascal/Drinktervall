@@ -33,6 +33,14 @@ int schedule_interval_min(void);
 int schedule_glass_ml(void);
 bool schedule_set_glass_ml(int ml);
 
+// Soll die Trink-Animation gezeigt werden? Kommt von der Konfigseite,
+// voreingestellt an. Steht hier, weil hier schon die beiden anderen
+// Einstellungen liegen, die den Tag ueberdauern - nicht, weil eine Animation
+// etwas mit dem Trinkplan zu tun haette.
+// Rueckgabe von set: true, wenn sich dadurch etwas geaendert hat.
+bool schedule_animation(void);
+bool schedule_set_animation(bool on);
+
 // Lokale Mitternacht des Tages, in dem `t` liegt (Epoch-Sekunden).
 time_t schedule_midnight(time_t t);
 

@@ -37,6 +37,17 @@
 #define DT_PERSIST_GOAL    3   // heutiges Tagesziel (Glaeser), morgen wieder das Soll
 #define DT_PERSIST_TARGET  4   // gewaehltes Soll (Glaeser), gilt ueber Tage hinweg
 #define DT_PERSIST_GLASS   5   // Glasgroesse in ml, gilt ueber Tage hinweg
+#define DT_PERSIST_ANIM    6   // Trink-Animation zeigen? (siehe DT_ANIM_DEFAULT)
+
+// Die Trink-Animation nach "Getrunken". Sie ist eine Rueckmeldung, keine
+// Auskunft - wer sie nicht mag, schaltet sie auf der Konfigseite ab; gezaehlt
+// wird genauso weiter.
+//
+// VORBELEGT AN, und das braucht Sorgfalt: persist_read_bool gibt fuer einen
+// Schluessel, den es nicht gibt, false zurueck. Wer das nicht abfaengt,
+// schaltet die Animation bei jedem, der nie etwas eingestellt hat, still ab -
+// und es sieht aus wie ein Fehler, nicht wie eine Einstellung.
+#define DT_ANIM_DEFAULT  true
 
 // Wie viel in ein Glas geht. Waehlbar auf der Konfigseite; gebraucht wird die
 // Zahl nur, um getrunkenes Wasser an eine Gesundheitsakte weiterzureichen -

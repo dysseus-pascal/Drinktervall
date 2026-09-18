@@ -88,7 +88,7 @@ static void prv_cancel_vibes(void) {
 
 static void prv_vibe(void *data) {
   s_vibe_timer = NULL;
-  vibes_double_pulse();
+  drinktervall_buzz_double();
   if (--s_vibes_left > 0) s_vibe_timer = app_timer_register(VIBE_INTERVAL_MS, prv_vibe, NULL);
 }
 
@@ -100,7 +100,7 @@ static void prv_select(ClickRecognizerRef recognizer, void *context) {
     schedule_set_count(schedule_count() + 1);
     phone_note_drink();
   }
-  vibes_short_pulse();
+  drinktervall_buzz_short();
   phone_send_next();
   prv_cancel_vibes();
   drink_window_push(true);
@@ -144,9 +144,14 @@ static void prv_load(Window *window) {
   action_bar_layer_set_click_config_provider(s_bar, prv_click_config);
   action_bar_layer_add_to_window(s_bar, window);
 
+  // Waehrend der Ruhezeit erscheint die Erinnerung, summt aber nicht und macht
+  // kein Licht - so haelt es die Uhr auch mit Mitteilungen. Dass sie stumm
+  // geblieben ist, sieht man ihr nicht an; deshalb steht es wenigstens im
+  // Protokoll, wenn spaeter jemand fragt, warum nichts geklopft hat.
+  if (drinktervall_quiet()) APP_LOG(APP_LOG_LEVEL_INFO, "Ruhezeit: Erinnerung bleibt stumm");
   s_vibes_left = VIBE_REPEATS;
   prv_vibe(NULL);
-  light_enable_interaction();
+  drinktervall_light();
 }
 
 static void prv_unload(Window *window) {

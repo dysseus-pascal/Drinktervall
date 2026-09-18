@@ -10,6 +10,7 @@ static int s_count;
 static int s_target = DT_GLASSES_DEFAULT;
 static int s_glass_ml = DT_GLASS_ML_DEFAULT;
 static int s_goal = DT_GLASSES_DEFAULT;
+static bool s_anim = DT_ANIM_DEFAULT;
 
 static int32_t prv_day_key(time_t t) {
   struct tm *lt = localtime(&t);
@@ -36,6 +37,10 @@ void schedule_init(void) {
     const int ml = persist_read_int(DT_PERSIST_GLASS);
     if (ml >= DT_GLASS_ML_MIN && ml <= DT_GLASS_ML_MAX) s_glass_ml = ml;
   }
+  // Nur lesen, wenn der Schluessel wirklich da ist - sonst laese ein fehlender
+  // Eintrag als false und schaltete die Animation ungefragt ab.
+  s_anim = persist_exists(DT_PERSIST_ANIM) ? persist_read_bool(DT_PERSIST_ANIM)
+                                           : DT_ANIM_DEFAULT;
   s_goal = same_day ? persist_read_int(DT_PERSIST_GOAL) : s_target;
   s_count = same_day ? persist_read_int(DT_PERSIST_COUNT) : 0;
   if (s_goal < s_target) s_goal = s_target;
@@ -78,6 +83,17 @@ bool schedule_set_glass_ml(int ml) {
   if (ml == s_glass_ml) return false;
   s_glass_ml = ml;
   persist_write_int(DT_PERSIST_GLASS, s_glass_ml);
+  return true;
+}
+
+bool schedule_animation(void) {
+  return s_anim;
+}
+
+bool schedule_set_animation(bool on) {
+  if (on == s_anim) return false;
+  s_anim = on;
+  persist_write_bool(DT_PERSIST_ANIM, s_anim);
   return true;
 }
 

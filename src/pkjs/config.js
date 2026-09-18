@@ -1,8 +1,13 @@
 // Konfigurationsseite fuer die Telefon-App (Clay).
 //
-// Einziger Knopf: wie viele Glaeser der Tagesplan vorsieht. Die Uhr bekommt
-// die Zahl per AppMessage (MESSAGE_KEY_TARGET) und rechnet Plan, Erinnerungen
-// und Pegel daraus aus - siehe src/c/schedule.c.
+// Drei Knoepfe: wie viele Glaeser der Tagesplan vorsieht (MESSAGE_KEY_TARGET),
+// wie viel in ein Glas geht (GLASS_ML) und ob die Trink-Animation gezeigt wird
+// (ANIMATION). Die Uhr bekommt sie per AppMessage und rechnet Plan,
+// Erinnerungen und Pegel daraus aus - siehe src/c/schedule.c.
+//
+// Die Ruhezeit steht hier NICHT als Schalter, obwohl die App sie beachtet: sie
+// ist eine Einstellung der Uhr, und zwei Schalter fuer dieselbe Sache waeren
+// einer zu viel. Auf der Seite steht nur, dass sie gilt.
 //
 // Zweisprachig wie die App selbst. Welche Sprache gilt, sagt die UHR per
 // MESSAGE_KEY_LANG; index.js merkt sich den Wert und reicht ihn hier herein.
@@ -36,6 +41,15 @@ var TEXT = [
     glassLabel: 'How much fits in your glass',
     glassNote: 'Only needed to pass the water you drank on to a health record. ' +
                'The watch keeps counting in glasses either way.',
+    fxSection: 'On the watch',
+    fxLabel: 'Drinking animation',
+    fxNote: 'The full-screen glass that fills up after every logged drink. ' +
+            'Switched off, the level on the main screen simply rises instead ' +
+            '— nothing is counted differently.',
+    quietNote: 'Quiet Time is obeyed: while it is on, a reminder still ' +
+               'appears, it just does not buzz and does not light the ' +
+               'screen. That follows the watch’s own setting, so there ' +
+               'is nothing to switch here.',
     everyHour: 'every hour',
     everyHours: function (h) { return 'every ' + h + ' hours'; },
     everyMinutes: function (m) { return 'every ' + m + ' minutes'; },
@@ -58,6 +72,15 @@ var TEXT = [
     glassNote: 'Wird nur gebraucht, um getrunkenes Wasser an eine ' +
                'Gesundheitsakte weiterzureichen. Gezählt wird auf der Uhr so ' +
                'oder so in Gläsern.',
+    fxSection: 'Auf der Uhr',
+    fxLabel: 'Trink-Animation',
+    fxNote: 'Das formatfüllende Glas, das sich nach jedem eingetragenen Glas ' +
+            'füllt. Abgeschaltet steigt stattdessen einfach der Pegel auf dem ' +
+            'Hauptscreen — gezählt wird deswegen nichts anders.',
+    quietNote: 'Die Ruhezeit gilt: solange sie läuft, erscheint eine ' +
+               'Erinnerung zwar, sie summt aber nicht und macht kein Licht. ' +
+               'Das richtet sich nach der Einstellung der Uhr, hier ist ' +
+               'dafür nichts zu schalten.',
     everyHour: 'jede Stunde',
     everyHours: function (h) { return 'alle ' + h + ' Stunden'; },
     everyMinutes: function (m) { return 'alle ' + m + ' Minuten'; },
@@ -121,6 +144,20 @@ module.exports = function (lang) {
           })
         },
         { type: 'text', defaultValue: t.glassNote }
+      ]
+    },
+    {
+      type: 'section',
+      items: [
+        { type: 'heading', defaultValue: t.fxSection },
+        {
+          type: 'toggle',
+          messageKey: 'ANIMATION',
+          label: t.fxLabel,
+          defaultValue: true
+        },
+        { type: 'text', defaultValue: t.fxNote },
+        { type: 'text', defaultValue: t.quietNote }
       ]
     },
     { type: 'submit', defaultValue: t.submit }

@@ -1,7 +1,7 @@
 {
   "name": "drinktervall",
   "author": "dysseus-pascal",
-  "version": "1.8.1",
+  "version": "1.9.0",
   "license": "CC0-1.0",
   "keywords": [
     "pebble-app"
@@ -36,7 +36,8 @@
       "LANG",
       "TARGET",
       "GLASS_ML",
-      "DRANK_AT"
+      "DRANK_AT",
+      "ANIMATION"
     ],
     "resources": {
       "media": [

@@ -106,6 +106,10 @@ function saveGlass(w, glass) {
   w.fire('webviewclosed', { response: JSON.stringify({ GLASS_ML: glass }) });
 }
 
+function saveAnim(w, on) {
+  w.fire('webviewclosed', { response: JSON.stringify({ ANIMATION: on }) });
+}
+
 console.log('\nDie Seite selbst');
 {
   const cfg = require(CFG);
@@ -252,6 +256,85 @@ console.log('Glasgroesse');
   w.fire('ready');
   check('verdorbene Glasgroesse wird beim Start ignoriert',
         !!w.last() && w.last().GLASS_ML === undefined, JSON.stringify(w.last()));
+}
+
+console.log('\nTrink-Animation');
+{
+  const cfg = require(CFG);
+  [0, 1].forEach(function (lang) {
+    const items = cfg(lang)[4].items;
+    const tog = items.filter((i) => i.messageKey === 'ANIMATION')[0];
+    check('Sprache ' + lang + ': Schalter ANIMATION vorhanden', !!tog, JSON.stringify(items));
+    if (!tog) return;
+    // VOREINGESTELLT AN. Stuende hier false, schaltete die Seite die Animation
+    // bei jedem ab, der sie nie angefasst hat - und das saehe aus wie ein
+    // Fehler, nicht wie eine Einstellung.
+    check('Sprache ' + lang + ': voreingestellt an', tog.defaultValue === true,
+          JSON.stringify(tog.defaultValue));
+    check('Sprache ' + lang + ': Ruhezeit wird erklaert, aber nicht geschaltet',
+          items.some((i) => i.type === 'text' && /Ruhezeit|Quiet Time/.test(i.defaultValue)) &&
+          !items.some((i) => i.messageKey === 'QUIET'),
+          JSON.stringify(items.map((i) => i.messageKey || i.type)));
+  });
+}
+{
+  const w = world();
+  saveAnim(w, false);
+  check('aus geht an die Uhr', !!w.last() && w.last().ANIMATION === 0, JSON.stringify(w.last()));
+  check('aus bleibt als "0" auf dem Telefon',
+        w.store.drinktervall_animation === '0', w.store.drinktervall_animation);
+}
+{
+  const w = world({ drinktervall_animation: '0' });
+  saveAnim(w, true);
+  check('an geht an die Uhr', !!w.last() && w.last().ANIMATION === 1, JSON.stringify(w.last()));
+  check('an bleibt als "1" auf dem Telefon',
+        w.store.drinktervall_animation === '1', w.store.drinktervall_animation);
+}
+{
+  // Was Clay fuer einen Schalter zurueckgibt, ist nicht festgelegt: true,
+  // 'true' und 1 sind alle schon vorgekommen. Wuerde hier nur auf `true`
+  // geprueft, kaeme ein 'true' als AUS an - man schaltet ein und bekommt das
+  // Gegenteil. localStorage macht aus allem Text, 'false' waere dann wahr.
+  [true, 'true', 1, '1'].forEach(function (v) {
+    const w = world();
+    saveAnim(w, v);
+    check(JSON.stringify(v) + ' gilt als an',
+          w.store.drinktervall_animation === '1', w.store.drinktervall_animation);
+  });
+  [false, 'false', 0, '0'].forEach(function (v) {
+    const w = world();
+    saveAnim(w, v);
+    check(JSON.stringify(v) + ' gilt als aus',
+          w.store.drinktervall_animation === '0', w.store.drinktervall_animation);
+  });
+}
+{
+  // Derselbe Fall wie bei der Glasgroesse: die Soll-Pruefung steigt frueh aus,
+  // wenn TARGET fehlt. Der Schalter desselben Speichervorgangs darf davon
+  // nicht mitgerissen werden.
+  const w = world();
+  saveAnim(w, false);
+  check('Schalter ohne TARGET in derselben Antwort ueberlebt',
+        w.store.drinktervall_animation === '0', w.store.drinktervall_animation);
+}
+{
+  const w = world({ drinktervall_animation: '0' });
+  w.fire('ready');
+  check('Schalter faehrt beim naechsten Start mit',
+        !!w.last() && w.last().ANIMATION === 0, JSON.stringify(w.last()));
+}
+{
+  const w = world();
+  w.fire('ready');
+  check('ohne je gewaehlten Schalter schickt das Telefon keinen',
+        !!w.last() && w.last().ANIMATION === undefined, JSON.stringify(w.last()));
+}
+{
+  const w = world({ drinktervall_animation: 'vielleicht' });
+  w.fire('ready');
+  check('verdorbener Schalter wird beim Start ignoriert',
+        !!w.last() && w.last().ANIMATION === undefined, JSON.stringify(w.last()));
 }
 
 console.log('\nSprache der Seite');

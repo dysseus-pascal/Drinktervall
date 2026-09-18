@@ -1,5 +1,6 @@
 #include "main_window.h"
 #include "theme.h"
+#include "drinktervall.h"
 #include "drink_window.h"
 #include "glass_fx.h"
 #include "schedule.h"
@@ -16,6 +17,8 @@
 // Trink-Animation (drink_window); wenn es sich schliesst, ziehen Anzeige und
 // Pegel nach. s_shown_count ist der angezeigte Stand, schedule_count() der
 // echte - der steigt schon beim Tastendruck, also bevor die Animation laeuft.
+// Ist die Animation auf der Konfigseite abgeschaltet, faellt das Fenster weg
+// und der Pegel steigt sofort; gezaehlt wird in beiden Faellen gleich.
 
 #define FILL_ANIM_MS 350
 
@@ -146,8 +149,10 @@ static void prv_sync(void) {
   const bool grew = count > s_shown_count;
   if (grew && s_fx_count != count) {
     s_fx_count = count;
-    drink_window_push(false);
-    return;
+    // Ist die Animation abgeschaltet, kommt kein Fenster - dann uebernimmt der
+    // steigende Pegel unten die Rueckmeldung, statt hinter dem Fenster zu
+    // passieren, wo ihn niemand saehe.
+    if (drink_window_push(false)) return;
   }
   s_shown_count = count;
   layer_mark_dirty(s_canvas);
@@ -176,7 +181,7 @@ static void prv_select(ClickRecognizerRef recognizer, void *context) {
   if (schedule_count() >= schedule_goal()) return;
   schedule_set_count(schedule_count() + 1);
   phone_note_drink();
-  vibes_short_pulse();
+  drinktervall_buzz_short();
   phone_send_next();
   prv_sync();
 }

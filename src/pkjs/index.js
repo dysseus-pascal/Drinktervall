@@ -40,6 +40,11 @@ var TARGET_MIN = 4, TARGET_MAX = 16;
 // weil die Konfigseite auch bei geschlossener Watchapp aufgeht.
 var GLASS_KEY = 'drinktervall_glass_ml';
 var GLASS_MIN = 100, GLASS_MAX = 1000;
+// Trink-Animation an/aus. Auch hier gemerkt, aus demselben Grund. Gespeichert
+// wird '1' oder '0' und NICHT der Rueckgabewert von Clay: der ist je nach
+// Schalterart ein Boolean, ein String oder eine Zahl, und localStorage macht
+// aus allem ohnehin Text - 'false' waere dann wahr.
+var ANIM_KEY = 'drinktervall_animation';
 
 var LAUNCH_CODE_DRUNK = 1;
 var LAUNCH_CODE_OPEN = 2;
@@ -114,6 +119,23 @@ function getGlassMl() {
   var v = parseInt(localStorage.getItem(GLASS_KEY), 10);
   if (!isFinite(v) || v < GLASS_MIN || v > GLASS_MAX) return null;
   return v;
+}
+
+// Trink-Animation, oder null wenn nie etwas gewaehlt wurde. null heisst auch
+// hier "nichts zu sagen": die Uhr bleibt dann bei ihrer Voreinstellung (an).
+// Nur die gespeicherte '1' oder '0' gilt - alles andere ist kein Wert von uns.
+function getAnimation() {
+  var v = localStorage.getItem(ANIM_KEY);
+  if (v === '1') return 1;
+  if (v === '0') return 0;
+  return null;
+}
+
+// Was Clay fuer einen Schalter zurueckgibt, ist nicht festgelegt: true, 'true'
+// oder 1 sind alle schon vorgekommen. Deshalb hier auf alle drei pruefen statt
+// auf eine Form zu wetten.
+function truthy(v) {
+  return v === true || v === 1 || v === '1' || v === 'true';
 }
 
 // Clay erst bauen, wenn die Seite gebraucht wird: dann steht die Sprache der
@@ -301,6 +323,15 @@ Pebble.addEventListener('webviewclosed', function (e) {
     }
   }
 
+  // Die Animation ebenfalls VOR der Soll-Pruefung: die steigt unten frueh aus,
+  // und dann ginge der Schalter desselben Speichervorgangs verloren.
+  if (dict.ANIMATION !== undefined) {
+    var on = truthy(dict.ANIMATION.value) ? 1 : 0;
+    try { localStorage.setItem(ANIM_KEY, String(on)); } catch (err) {}
+    console.log('Konfig: Animation ' + (on ? 'an' : 'aus'));
+    Pebble.sendAppMessage({ ANIMATION: on }, function () {}, function () {});
+  }
+
   if (dict.TARGET === undefined) return;
   var n = parseInt(dict.TARGET.value, 10);
   if (!isFinite(n) || n < TARGET_MIN || n > TARGET_MAX) {
@@ -324,6 +355,8 @@ Pebble.addEventListener('ready', function () {
   if (target !== null) msg.TARGET = target;
   var glass = getGlassMl();
   if (glass !== null) msg.GLASS_ML = glass;
+  var anim = getAnimation();
+  if (anim !== null) msg.ANIMATION = anim;
   Pebble.sendAppMessage(msg,
     function () {}, function () { console.log('AppMessage: Anfrage fehlgeschlagen'); });
 });

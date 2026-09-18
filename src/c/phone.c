@@ -74,6 +74,11 @@ static void prv_inbox_received(DictionaryIterator *iter, void *context) {
   Tuple *glass = dict_find(iter, MESSAGE_KEY_GLASS_ML);
   if (glass) schedule_set_glass_ml(glass->value->int32);
 
+  // Trink-Animation an oder aus. Aendert nichts am Zaehlen und nichts am Plan,
+  // deshalb muss danach auch nichts neu geplant werden.
+  Tuple *anim = dict_find(iter, MESSAGE_KEY_ANIMATION);
+  if (anim) schedule_set_animation(anim->value->int32 != 0);
+
   Tuple *target = dict_find(iter, MESSAGE_KEY_TARGET);
   if (target && schedule_set_target(target->value->int32)) {
     // Der Plan hat sich verschoben: Wecker neu stellen und den Hauptscreen
