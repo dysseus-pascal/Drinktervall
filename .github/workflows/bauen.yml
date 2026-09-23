@@ -1,0 +1,126 @@
+# Baut die Uhr-App und legt die fertige drinktervall.pbw ins Repo.
+#
+# WARUM HIER: bei Kieselsport stand die pbw im Repo bei 0.1.0, waehrend die
+# Quellen bei 0.5.0 waren - wer sie installierte, bekam eine Uhr ohne
+# Startmeldung, ohne Saetze und ohne Bahnen. Sie von Hand nachzuziehen,
+# wird vergessen; hier entsteht sie bei jeder Aenderung an den Quellen neu.
+#
+# Der Lauf belegt, dass die App uebersetzt. Dass sie auf der Uhr das
+# Richtige TUT, belegt er nicht.
+name: Bauen
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'src/**'
+      - 'resources/**'
+      - 'package.json'
+      - 'wscript'
+      - '.github/workflows/bauen.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  bauen:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      # Clay und das Buendeln des JavaScript-Teils brauchen Node.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Pebble-SDK bereitstellen
+        run: |
+          pip install --quiet pebble-tool
+          pebble sdk install latest < /dev/null
+
+      - name: Clay holen
+        run: npm install --no-audit --no-fund
+
+      - name: Uebersetzen
+        run: pebble build < /dev/null
+
+      # Der Name der Datei im Build haengt am Ordnernamen, nicht an der App.
+      - name: drinktervall.pbw ersetzen
+        run: cp build/*.pbw drinktervall.pbw
+
+      - name: Paket anhaengen
+        uses: actions/upload-artifact@v4
+        with:
+          name: drinktervall
+          path: drinktervall.pbw
+          if-no-files-found: error
+
+      # Ein Push mit dem GITHUB_TOKEN loest keinen neuen Lauf aus - die
+      # Schleife "bauen, einchecken, bauen" gibt es deshalb nicht.
+      - name: Einchecken
+        if: github.ref == 'refs/heads/main'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add drinktervall.pbw
+          if git diff --cached --quiet; then
+            echo "Keine Aenderung."
+          else
+            git commit -m "drinktervall.pbw neu gebaut ($(jq -r .version package.json))"
+            git push
+          fi
+
+      # EINE NEUE FASSUNG AUF MAIN IST EIN RELEASE. Steht in package.json
+      # eine version, zu der es noch kein Release gibt, legt der Lauf es an -
+      # samt Tag und pbw. Ein Tag von Hand braucht es nicht.
+      #
+      # Der Text kommt aus .github/release/<fassung>.md (erste Zeile Titel,
+      # der Rest Text), sonst aus dem Commit. Ein bestehendes Release wird
+      # nicht angeruehrt.
+      - name: Release anlegen
+        if: github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          FASSUNG="$(jq -r .version package.json)"
+          TAG="v$FASSUNG"
+          DATEI="drinktervall-$FASSUNG.pbw"
+          cp drinktervall.pbw "$DATEI"
+          NOTIZ=".github/release/$FASSUNG.md"
+          if [ -f "$NOTIZ" ]; then
+            TITEL="$FASSUNG - $(head -1 "$NOTIZ")"
+            tail -n +2 "$NOTIZ" > notizen.md
+          else
+            TITEL="$FASSUNG - $(git log -1 --format=%s)"
+            git log -1 --format=%b | sed '/^Co-Authored-By:/d;/^Claude-Session:/d' > notizen.md
+          fi
+          hat_paket() {
+            gh release view "$TAG" --json assets -q '.assets[].name' | grep -qx "$DATEI"
+          }
+          anlegen() {
+            gh release create "$TAG" --target "$GITHUB_SHA" --title "$TITEL" --notes-file notizen.md
+            gh release upload "$TAG" "$DATEI" --clobber
+          }
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            # GIBT ES DAS RELEASE SCHON, FEHLT VIELLEICHT NUR DAS PAKET. Ein
+            # Hochladen kann still danebengehen - und dann blockiert ein
+            # haengengebliebener Rest den Namen ("already exists"), ohne
+            # dass er irgendwo zu sehen waere. Dagegen hilft nur: das
+            # Release loeschen und neu anlegen. Der Text ist derselbe.
+            if hat_paket; then
+              echo "Release $TAG samt Paket gibt es schon."
+              exit 0
+            fi
+            if ! gh release upload "$TAG" "$DATEI" --clobber; then
+              gh release delete "$TAG" --yes
+              anlegen
+            fi
+          else
+            anlegen
+          fi
+          hat_paket

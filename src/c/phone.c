@@ -4,14 +4,15 @@
 #include "schedule.h"
 #include "main_window.h"
 #include "strings.h"
+#include "nacht.h"
 
 // Status eines heutigen Slots (siehe src/pkjs/index.js)
 enum { SlotFuture = 0, SlotDrunk = 2, SlotMissed = 3 };
 
 // Ausgangspuffer: fuenf Zahlenfelder zu je 11 Byte, dazu die Slot-Daten mit
 // 7 Byte Kopf und 5 Byte je Glas, plus ein Byte fuer das Woerterbuch selbst.
-// Bei DT_GLASSES_MAX = 16 sind das 143 Byte; 256 laesst Luft fuer ein
-// weiteres Feld, ohne dass jemand nachrechnen muss.
+// Bei DT_GLASSES_MAX = 16 sind das 143 Byte, dazu vier Felder fuer die
+// Nacht (44 Byte); 256 laesst noch Luft.
 #define OUTBOX_SIZE 256
 #define INBOX_SIZE  128
 
@@ -53,6 +54,19 @@ void phone_send_next(void) {
     slots[i * 5 + 4] = (time_t)t > now ? SlotFuture : (i < count ? SlotDrunk : SlotMissed);
   }
   dict_write_data(out, MESSAGE_KEY_SLOTS, slots, (uint16_t)(slot_count * 5));
+
+  // DIE NACHT FAEHRT MIT. Kiesel-Helper hoert diese Meldung ohnehin und
+  // traegt Schlaf und Ruhepuls in die Gesundheitsakte ein - mit Riegel, also
+  // je Nacht und je Tag nur einmal, so oft die Meldung auch kommt.
+  const Nacht nacht = nacht_lesen();
+  if (nacht.ende > nacht.beginn) {
+    dict_write_int32(out, MESSAGE_KEY_SLEEP_START, (int32_t)nacht.beginn);
+    dict_write_int32(out, MESSAGE_KEY_SLEEP_END, (int32_t)nacht.ende);
+    dict_write_int32(out, MESSAGE_KEY_SLEEP_RESTFUL, (int32_t)nacht.erholsam_s);
+  }
+  if (nacht.ruhepuls > 0) {
+    dict_write_int32(out, MESSAGE_KEY_RESTING_HR, (int32_t)nacht.ruhepuls);
+  }
 
   // Nur wenn gerade wirklich getrunken wurde. Der Vermerk ist danach
   // verbraucht - so traegt eine Companion-App jedes Glas genau einmal ein,
