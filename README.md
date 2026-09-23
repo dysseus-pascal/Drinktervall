@@ -23,8 +23,10 @@ eigene App, die morgens dafür aufwacht, wäre ein Schirm mehr, der angeht.
 
 Die Nacht ist der längste Schlaf, der in den letzten 24 Stunden endete
 (`health_service_activities_iterate` über `HealthActivitySleep`); ein
-Nickerchen am Nachmittag zählt nicht. Auf einer Uhr ohne Pulsmesser fehlt der
-Ruhepuls, und das Feld bleibt weg.
+Nickerchen am Nachmittag zählt nicht. Der Ruhepuls ist der **mittlere Puls
+dieser Nacht** (`health_service_aggregate_averaged`): einen eigenen Ruhepuls
+kennt das SDK nicht, und was die Uhr im Schlaf misst, ist die nächstliegende
+Zahl dazu. Auf einer Uhr ohne Pulsmesser bleibt das Feld weg.
 
 ## Screenshots
 

@@ -31,9 +31,17 @@ Nacht nacht_lesen(void) {
     }
   }
 
-  if (health_service_metric_accessible(HealthMetricRestingHeartRateBPM, jetzt, jetzt)
-      & HealthServiceAccessibilityMaskAvailable) {
-    const HealthValue puls = health_service_peek_current_value(HealthMetricRestingHeartRateBPM);
+  // DER RUHEPULS IST DER MITTLERE PULS DER NACHT. Einen eigenen Ruhepuls
+  // kennt das SDK nicht (kein HealthMetricRestingHeartRateBPM); was die Uhr
+  // im Schlaf misst, ist die naechstliegende Zahl dazu - und dieselbe, die
+  // andere Uhren als Ruhepuls zeigen.
+  if (s_nacht.ende > s_nacht.beginn &&
+      (health_service_metric_averaged_accessible(HealthMetricHeartRateBPM, s_nacht.beginn,
+                                                 s_nacht.ende, HealthServiceTimeScopeOnce)
+       & HealthServiceAccessibilityMaskAvailable)) {
+    const HealthValue puls = health_service_aggregate_averaged(
+        HealthMetricHeartRateBPM, s_nacht.beginn, s_nacht.ende,
+        HealthAggregationAvg, HealthServiceTimeScopeOnce);
     if (puls > 0 && puls < 250) s_nacht.ruhepuls = (uint16_t)puls;
   }
   return s_nacht;
