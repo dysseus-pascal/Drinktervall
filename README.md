@@ -11,23 +11,6 @@ Abschnitt [Einstellungen](#einstellungen).
 Die Oberfläche folgt der **Sprache der Uhr** (Deutsch und Englisch, Englisch als
 Rückfall) - siehe Abschnitt [Sprachen](#sprachen).
 
-## Die Nacht fährt mit
-
-Seit 1.10.0 schickt die Uhr mit jeder Standmeldung ans Telefon auch die
-**letzte Nacht** — Schlafbeginn, Schlafende, erholsame Sekunden — und den
-**Ruhepuls** von heute (`SLEEP_START`, `SLEEP_END`, `SLEEP_RESTFUL`,
-`RESTING_HR`). Nicht, weil Drinktervall etwas damit anfängt: Kiesel-Helper
-hört diese Meldung ohnehin mit und trägt beides in die Gesundheitsakte ein.
-Drinktervall redet mehrmals am Tag mit dem Telefon, bei jedem Wecker; eine
-eigene App, die morgens dafür aufwacht, wäre ein Schirm mehr, der angeht.
-
-Die Nacht ist der längste Schlaf, der in den letzten 24 Stunden endete
-(`health_service_activities_iterate` über `HealthActivitySleep`); ein
-Nickerchen am Nachmittag zählt nicht. Der Ruhepuls ist der **mittlere Puls
-dieser Nacht** (`health_service_aggregate_averaged`): einen eigenen Ruhepuls
-kennt das SDK nicht, und was die Uhr im Schlaf misst, ist die nächstliegende
-Zahl dazu. Auf einer Uhr ohne Pulsmesser bleibt das Feld weg.
-
 ## Screenshots
 
 **Emery** (200 × 228, Farbe)
