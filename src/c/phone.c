@@ -42,6 +42,10 @@ static bool s_queue_loaded;
 static bool s_carried;       // die letzte Nachricht trug s_queue[0]
 static AppTimer *s_retry;
 static uint8_t s_attempts;
+// Eine Standmeldung ist faellig, auch ohne Glas: nach einer Aenderung der
+// Einstellungen soll das Telefon den neuen Stand hoeren, und ein besetzter
+// Postausgang darf das nicht verschlucken.
+static bool s_report_due;
 
 static void prv_queue_load(void) {
   if (s_queue_loaded) return;
@@ -81,11 +85,11 @@ bool phone_pending(void) {
 
 static void prv_retry_cb(void *data) {
   s_retry = NULL;
-  if (phone_pending()) phone_send_next();
+  if (phone_pending() || s_report_due) phone_send_next();
 }
 
 static void prv_schedule_retry(uint32_t ms) {
-  if (s_retry || !phone_pending()) return;
+  if (s_retry || (!phone_pending() && !s_report_due)) return;
   // Ein paar Anlaeufe in kurzem Abstand, dann Ruhe - beim naechsten Start,
   // Wecker oder Glas geht es ohnehin wieder los.
   if (s_attempts >= 5) return;
@@ -94,6 +98,7 @@ static void prv_schedule_retry(uint32_t ms) {
 }
 
 static void prv_sent(DictionaryIterator *iter, void *context) {
+  s_report_due = false;
   if (s_carried && s_queue_len > 0) {
     memmove(&s_queue[0], &s_queue[1], (s_queue_len - 1) * sizeof(Drink));
     s_queue_len--;
@@ -115,7 +120,7 @@ void phone_send_next(void) {
   prv_queue_load();
   DictionaryIterator *out;
   if (app_message_outbox_begin(&out) != APP_MSG_OK) {
-    // BESETZT: nicht still aufgeben, wenn ein Glas wartet.
+    // BESETZT: nicht still aufgeben, wenn ein Glas oder ein Stand wartet.
     prv_schedule_retry(700);
     return;
   }
@@ -148,41 +153,57 @@ void phone_send_next(void) {
   }
   dict_write_data(out, MESSAGE_KEY_SLOTS, slots, (uint16_t)(slot_count * 5));
 
+  // DIE EINSTELLUNGEN DER UHR FAHREN IMMER MIT. Die Uhr ist die eine
+  // Stelle, an der sie gelten; die Konfigseite der Pebble-App und
+  // Kiesel-Helper aendern sie beide hier - und lesen hier ab, was gilt.
+  // Ohne diese Zeilen zeigte jede Seite ihren eigenen, womoeglich alten Stand.
+  dict_write_int32(out, MESSAGE_KEY_TARGET, schedule_target());
+  dict_write_int32(out, MESSAGE_KEY_ANIMATION, schedule_animation() ? 1 : 0);
+
   // Das aelteste unbestaetigte Glas. Verbraucht ist es erst in prv_sent -
-  // wenn das Telefon die Nachricht bestaetigt hat.
+  // wenn das Telefon die Nachricht bestaetigt hat. GLASS_ML steht nur EINMAL
+  // in der Nachricht: mit einem Glas dessen Menge, sonst die Glasgroesse.
   s_carried = false;
   if (s_queue_len > 0) {
     dict_write_int32(out, MESSAGE_KEY_DRANK_AT, (int32_t)s_queue[0].at);
     dict_write_int32(out, MESSAGE_KEY_GLASS_ML, (int32_t)s_queue[0].ml);
     s_carried = true;
+  } else {
+    dict_write_int32(out, MESSAGE_KEY_GLASS_ML, schedule_glass_ml());
   }
 
   app_message_outbox_send();
 }
 
 static void prv_inbox_received(DictionaryIterator *iter, void *context) {
-  // Neues Soll von der Konfigseite. Zuerst anwenden, damit die Antwort unten
-  // schon den neuen Plan traegt.
-  // Glasgroesse von der Konfigseite. Aendert am Verhalten der Uhr nichts, sie
-  // wird nur mitgeschickt, wenn getrunken wurde.
-  Tuple *glass = dict_find(iter, MESSAGE_KEY_GLASS_ML);
-  if (glass) schedule_set_glass_ml(glass->value->int32);
+  // Einstellungen - von der Konfigseite der Pebble-App oder von Kiesel-Helper,
+  // der Uhr ist das gleich. Danach geht der neue Stand an beide zurueck.
+  bool einstellung = false;
 
-  // Trink-Animation an oder aus. Aendert nichts am Zaehlen und nichts am Plan,
-  // deshalb muss danach auch nichts neu geplant werden.
+  // Glasgroesse. Aendert am Verhalten der Uhr nichts, sie geht mit jedem Glas
+  // hinaus.
+  Tuple *glass = dict_find(iter, MESSAGE_KEY_GLASS_ML);
+  if (glass) { schedule_set_glass_ml(glass->value->int32); einstellung = true; }
+
+  // Trink-Animation an oder aus. Aendert nichts am Zaehlen und nichts am Plan.
   Tuple *anim = dict_find(iter, MESSAGE_KEY_ANIMATION);
-  if (anim) schedule_set_animation(anim->value->int32 != 0);
+  if (anim) { schedule_set_animation(anim->value->int32 != 0); einstellung = true; }
 
   Tuple *target = dict_find(iter, MESSAGE_KEY_TARGET);
-  if (target && schedule_set_target(target->value->int32)) {
-    // Der Plan hat sich verschoben: Wecker neu stellen und den Hauptscreen
-    // nachziehen, der Pegel haengt am Tagesziel.
-    schedule_plan_wakeups(0);
-    main_window_refresh();
-    phone_send_next();
-    return;
+  if (target) {
+    einstellung = true;
+    if (schedule_set_target(target->value->int32)) {
+      // Der Plan hat sich verschoben: Wecker neu stellen und den Hauptscreen
+      // nachziehen, der Pegel haengt am Tagesziel.
+      schedule_plan_wakeups(0);
+      main_window_refresh();
+    }
   }
-  if (dict_find(iter, MESSAGE_KEY_REQUEST)) phone_send_next();
+
+  if (einstellung || dict_find(iter, MESSAGE_KEY_REQUEST)) {
+    s_report_due = true;
+    phone_send_next();
+  }
 }
 
 void phone_init(void) {

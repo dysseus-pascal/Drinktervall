@@ -310,6 +310,22 @@ es bis 1.6.2 nicht: es stammte aus einer Pebble-App ohne Lizenz. Ersetzt durch
 ein eigenes, das `tools/make_snooze_icon.js` erzeugt — damit die Widmung
 lückenlos gilt.
 
+## Einstellen auf der Konfigseite oder in Kiesel-Helper
+
+Seit 1.12.0 lassen sich Soll, Glasgrösse und Animation an zwei Stellen
+ändern: wie bisher auf der Konfigseite in der Pebble-App, und in
+[Kiesel-Helper](https://github.com/dysseus-pascal/Kiesel-Helper). **Die Uhr
+ist die eine Stelle, an der sie gelten.** Beide schicken ihre Änderung an die
+Uhr, und die Uhr meldet mit jeder Standmeldung, was gilt (`TARGET`,
+`GLASS_ML`, `ANIMATION`). Die Telefonseite übernimmt das in die
+Konfigseite, Kiesel-Helper in seine Einstellungen.
+
+Bis 1.11 schickte die Telefonseite bei jedem Start ihren gespeicherten Stand
+an die Uhr. Eine Änderung aus Kiesel-Helper wäre damit beim nächsten Öffnen
+wieder überschrieben worden. Jetzt geht beim Start nur noch, was auf der
+Konfigseite gespeichert wurde, aber nie ankam — dafür steht ein Vermerk,
+bis die Uhr bestätigt.
+
 ## Kein Glas geht verloren
 
 Seit 1.11.0 steht jedes Glas in einer **Warteschlange im Persist**, bis das

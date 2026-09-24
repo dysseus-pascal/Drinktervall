@@ -46,6 +46,61 @@ var GLASS_MIN = 100, GLASS_MAX = 1000;
 // aus allem ohnehin Text - 'false' waere dann wahr.
 var ANIM_KEY = 'drinktervall_animation';
 
+// DIE UHR IST DIE EINE STELLE, AN DER DIE EINSTELLUNGEN GELTEN. Geaendert
+// werden sie hier auf der Konfigseite ODER in Kiesel-Helper; beide schicken an
+// die Uhr, und die Uhr meldet mit jeder Standmeldung, was gilt. Diese Seite
+// uebernimmt das - sonst zeigte die Konfigseite einen alten Stand und schickte
+// ihn beim naechsten Start wieder hin, ueber eine Aenderung aus Kiesel-Helper.
+//
+// NUR WAS NICHT ANKAM, GEHT BEIM START NOCH EINMAL. Wurde auf der Konfigseite
+// gespeichert, waehrend die App auf der Uhr nicht lief, steht hier ein
+// Vermerk - und nur dann schickt der 'ready'-Zweig die gespeicherten Werte.
+var PENDING_KEY = 'drinktervall_pending';
+
+function pending() {
+  try { return localStorage.getItem(PENDING_KEY) === '1'; } catch (e) { return false; }
+}
+function setPending(on) {
+  try { if (on) localStorage.setItem(PENDING_KEY, '1'); else localStorage.removeItem(PENDING_KEY); } catch (e) {}
+}
+
+// Was die Konfigseite beim naechsten Oeffnen zeigt: Clay liest es aus
+// 'clay-settings'. Hier wird hineingeschrieben, was die Uhr gemeldet hat.
+function mergeClaySettings(values) {
+  try {
+    var s = JSON.parse(localStorage.getItem('clay-settings') || '{}') || {};
+    for (var k in values) { if (values.hasOwnProperty(k)) s[k] = values[k]; }
+    localStorage.setItem('clay-settings', JSON.stringify(s));
+  } catch (e) {}
+}
+
+// Den Stand der Uhr uebernehmen - ausser eine eigene Aenderung ist noch
+// unterwegs; die ginge sonst unter.
+function adoptWatchSettings(p) {
+  if (pending()) return;
+  var clay = {};
+  if (p.TARGET !== undefined) {
+    var n = parseInt(p.TARGET, 10);
+    if (isFinite(n) && n >= TARGET_MIN && n <= TARGET_MAX) {
+      try { localStorage.setItem(TARGET_KEY, String(n)); } catch (e) {}
+      clay.TARGET = String(n);
+    }
+  }
+  if (p.GLASS_ML !== undefined && p.DRANK_AT === undefined) {
+    var ml = parseInt(p.GLASS_ML, 10);
+    if (isFinite(ml) && ml >= GLASS_MIN && ml <= GLASS_MAX) {
+      try { localStorage.setItem(GLASS_KEY, String(ml)); } catch (e) {}
+      clay.GLASS_ML = String(ml);
+    }
+  }
+  if (p.ANIMATION !== undefined) {
+    var on = parseInt(p.ANIMATION, 10) ? 1 : 0;
+    try { localStorage.setItem(ANIM_KEY, String(on)); } catch (e) {}
+    clay.ANIMATION = on === 1;
+  }
+  mergeClaySettings(clay);
+}
+
 var LAUNCH_CODE_DRUNK = 1;
 var LAUNCH_CODE_OPEN = 2;
 var SLOT_DRUNK = 2, SLOT_MISSED = 3;
@@ -296,6 +351,7 @@ function pushState(msg) {
 
 Pebble.addEventListener('appmessage', function (e) {
   var p = e.payload;
+  adoptWatchSettings(p);
   if (!p.hasOwnProperty('NEXT_TIME')) return;
   pushState(p);
 });
@@ -306,57 +362,59 @@ Pebble.addEventListener('showConfiguration', function () {
 
 Pebble.addEventListener('webviewclosed', function (e) {
   if (!e || !e.response) return;
-  // false = Clay soll nichts von sich aus schicken; wir pruefen den Wert erst
-  // und schicken ihn dann selbst.
+  // false = Clay soll nichts von sich aus schicken; wir pruefen die Werte erst
+  // und schicken sie dann selbst - alle in EINER Nachricht.
   var dict = getClay().getSettings(e.response, false);
+  var msg = {};
 
-  // Glasgroesse zuerst: die Soll-Pruefung unten steigt frueh aus, und dann
-  // ginge die Glasgroesse desselben Speichervorgangs verloren.
   if (dict.GLASS_ML !== undefined) {
     var ml = parseInt(dict.GLASS_ML.value, 10);
     if (isFinite(ml) && ml >= GLASS_MIN && ml <= GLASS_MAX) {
       try { localStorage.setItem(GLASS_KEY, String(ml)); } catch (err) {}
-      console.log('Konfig: Glas ' + ml + ' ml');
-      Pebble.sendAppMessage({ GLASS_ML: ml }, function () {}, function () {});
+      msg.GLASS_ML = ml;
     } else {
       console.log('Konfig: ungueltige Glasgroesse ' + dict.GLASS_ML.value);
     }
   }
-
-  // Die Animation ebenfalls VOR der Soll-Pruefung: die steigt unten frueh aus,
-  // und dann ginge der Schalter desselben Speichervorgangs verloren.
   if (dict.ANIMATION !== undefined) {
     var on = truthy(dict.ANIMATION.value) ? 1 : 0;
     try { localStorage.setItem(ANIM_KEY, String(on)); } catch (err) {}
-    console.log('Konfig: Animation ' + (on ? 'an' : 'aus'));
-    Pebble.sendAppMessage({ ANIMATION: on }, function () {}, function () {});
+    msg.ANIMATION = on;
   }
+  if (dict.TARGET !== undefined) {
+    var n = parseInt(dict.TARGET.value, 10);
+    if (isFinite(n) && n >= TARGET_MIN && n <= TARGET_MAX) {
+      try { localStorage.setItem(TARGET_KEY, String(n)); } catch (err) {}
+      msg.TARGET = n;
+    } else {
+      console.log('Konfig: ungueltiges Soll ' + dict.TARGET.value + ' - verworfen');
+    }
+  }
+  if (!Object.keys(msg).length) return;
 
-  if (dict.TARGET === undefined) return;
-  var n = parseInt(dict.TARGET.value, 10);
-  if (!isFinite(n) || n < TARGET_MIN || n > TARGET_MAX) {
-    console.log('Konfig: ungueltiges Soll ' + dict.TARGET.value + ' - verworfen');
-    return;
-  }
-  try { localStorage.setItem(TARGET_KEY, String(n)); } catch (err) {}
-  console.log('Konfig: Soll ' + n + ' Glaeser');
-  // Laeuft die App auf der Uhr gerade, greift es sofort. Laeuft sie nicht,
-  // schlaegt das hier fehl - dann holt es der 'ready'-Zweig beim naechsten
-  // Start nach.
-  Pebble.sendAppMessage({ TARGET: n }, function () {},
+  // Bis die Uhr bestaetigt, gilt die Aenderung als unterwegs: kein Stand der
+  // Uhr ueberschreibt sie, und beim naechsten Start geht sie noch einmal.
+  setPending(true);
+  Pebble.sendAppMessage(msg,
+    function () { setPending(false); console.log('Konfig: an die Uhr'); },
     function () { console.log('Konfig: Uhr nicht erreichbar, gilt ab dem naechsten Start'); });
 });
 
 Pebble.addEventListener('ready', function () {
-  // Das gespeicherte Soll faehrt bei der Anfrage mit: so uebernimmt die Uhr
-  // eine Aenderung, die getaetigt wurde, waehrend die App nicht lief.
+  // Nur eine Aenderung, die nie ankam, faehrt bei der Anfrage mit. Sonst
+  // gilt, was die Uhr hat - womoeglich aus Kiesel-Helper -, und die Antwort
+  // auf die Anfrage bringt es hierher.
   var msg = { REQUEST: 1 };
-  var target = getTarget();
-  if (target !== null) msg.TARGET = target;
-  var glass = getGlassMl();
-  if (glass !== null) msg.GLASS_ML = glass;
-  var anim = getAnimation();
-  if (anim !== null) msg.ANIMATION = anim;
+  var mitWerten = pending();
+  if (mitWerten) {
+    var target = getTarget();
+    if (target !== null) msg.TARGET = target;
+    var glass = getGlassMl();
+    if (glass !== null) msg.GLASS_ML = glass;
+    var anim = getAnimation();
+    if (anim !== null) msg.ANIMATION = anim;
+  }
   Pebble.sendAppMessage(msg,
-    function () {}, function () { console.log('AppMessage: Anfrage fehlgeschlagen'); });
+    function () { if (mitWerten) setPending(false); },
+    function () { console.log('AppMessage: Anfrage fehlgeschlagen'); });
 });
