@@ -9,8 +9,9 @@ void phone_init(void);
 // Zaehler und die heutigen Slots mit Status. Nach jeder Aenderung rufen.
 void phone_send_next(void);
 
-// Vermerken, dass gerade ein Glas getrunken wurde. Die NAECHSTE Nachricht
-// traegt dann Zeitpunkt und Menge mit; danach ist der Vermerk verbraucht.
+// Vermerken, dass gerade ein Glas getrunken wurde. Es kommt in eine
+// Warteschlange im Persist und geht mit der naechsten Nachricht hinaus -
+// verbraucht ist es erst, wenn das Telefon die Nachricht BESTAETIGT hat.
 //
 // WOZU: eine Companion-App auf dem Telefon kann das getrunkene Wasser in eine
 // Gesundheitsakte eintragen (Health Connect). Auf der Uhr aendert sich dadurch
@@ -21,3 +22,7 @@ void phone_send_next(void);
 // laeuft auch beim Start und bei jedem Wecker. Stuende die Menge immer dabei,
 // trueg die Akte bei jedem Aufwachen ein weiteres Glas ein.
 void phone_note_drink(void);
+
+// Wartet noch ein Glas auf die Bestaetigung des Telefons? Das Trink-Fenster
+// haelt die App so lange offen, hoechstens ein paar Sekunden.
+bool phone_pending(void);

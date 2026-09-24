@@ -15,16 +15,110 @@ enum { SlotFuture = 0, SlotDrunk = 2, SlotMissed = 3 };
 #define OUTBOX_SIZE 256
 #define INBOX_SIZE  128
 
-// Zeitpunkt des zuletzt getrunkenen Glases, 0 = nichts zu melden.
-static time_t s_drank_at;
+// --- Die Glaeser, die noch zum Telefon muessen ---
+//
+// EINE WARTESCHLANGE IM PERSIST, NICHT EIN VERMERK IM SPEICHER. Bis 1.10
+// stand hier ein einziger Zeitpunkt, der beim Schreiben der Nachricht
+// verbraucht war - ob sie ankam oder nicht. War der Postausgang in diesem
+// Augenblick besetzt, antwortete das Telefon nicht rechtzeitig, oder ging die
+// App nach der Animation zu, bevor die Nachricht draussen war, war das Glas
+// auf der Uhr gezaehlt und fuer das Telefon verloren. Und zwei Glaeser vor
+// einer erfolgreichen Nachricht wurden zu einem.
+//
+// Jetzt steht jedes Glas in der Schlange, bis das Telefon die Nachricht, die
+// es trug, bestaetigt hat. Jede Nachricht traegt das AELTESTE; nach der
+// Bestaetigung geht das naechste. Was beim Beenden noch drinsteht, geht beim
+// naechsten Start. Kiesel-Helper traegt ein Glas je Zeitpunkt nur einmal ein
+// - ein zweites Mal geschickt ist also harmlos, verloren ist es nicht mehr.
+#define QUEUE_MAX 12
+typedef struct __attribute__((packed)) {
+  uint32_t at;
+  uint16_t ml;
+} Drink;
+
+static Drink s_queue[QUEUE_MAX];
+static uint8_t s_queue_len;
+static bool s_queue_loaded;
+static bool s_carried;       // die letzte Nachricht trug s_queue[0]
+static AppTimer *s_retry;
+static uint8_t s_attempts;
+
+static void prv_queue_load(void) {
+  if (s_queue_loaded) return;
+  s_queue_loaded = true;
+  s_queue_len = 0;
+  if (!persist_exists(DT_PERSIST_QUEUE)) return;
+  const int n = persist_read_data(DT_PERSIST_QUEUE, s_queue, sizeof(s_queue));
+  if (n > 0) s_queue_len = (uint8_t)(n / sizeof(Drink));
+}
+
+static void prv_queue_save(void) {
+  if (s_queue_len == 0) {
+    persist_delete(DT_PERSIST_QUEUE);
+  } else {
+    persist_write_data(DT_PERSIST_QUEUE, s_queue, s_queue_len * sizeof(Drink));
+  }
+}
 
 void phone_note_drink(void) {
-  s_drank_at = time(NULL);
+  prv_queue_load();
+  if (s_queue_len == QUEUE_MAX) {
+    // Voll: das aelteste faellt weg. Zwoelf unbestaetigte Glaeser heissen,
+    // dass seit Stunden kein Telefon zuhoert - das dreizehnte ist wichtiger.
+    memmove(&s_queue[0], &s_queue[1], (QUEUE_MAX - 1) * sizeof(Drink));
+    s_queue_len--;
+  }
+  s_queue[s_queue_len].at = (uint32_t)time(NULL);
+  s_queue[s_queue_len].ml = (uint16_t)schedule_glass_ml();
+  s_queue_len++;
+  prv_queue_save();
+}
+
+bool phone_pending(void) {
+  prv_queue_load();
+  return s_queue_len > 0;
+}
+
+static void prv_retry_cb(void *data) {
+  s_retry = NULL;
+  if (phone_pending()) phone_send_next();
+}
+
+static void prv_schedule_retry(uint32_t ms) {
+  if (s_retry || !phone_pending()) return;
+  // Ein paar Anlaeufe in kurzem Abstand, dann Ruhe - beim naechsten Start,
+  // Wecker oder Glas geht es ohnehin wieder los.
+  if (s_attempts >= 5) return;
+  s_attempts++;
+  s_retry = app_timer_register(ms, prv_retry_cb, NULL);
+}
+
+static void prv_sent(DictionaryIterator *iter, void *context) {
+  if (s_carried && s_queue_len > 0) {
+    memmove(&s_queue[0], &s_queue[1], (s_queue_len - 1) * sizeof(Drink));
+    s_queue_len--;
+    prv_queue_save();
+    s_attempts = 0;
+  }
+  s_carried = false;
+  // Noch mehr in der Schlange: gleich das naechste.
+  if (phone_pending() && !s_retry) s_retry = app_timer_register(150, prv_retry_cb, NULL);
+}
+
+static void prv_failed(DictionaryIterator *iter, AppMessageResult reason, void *context) {
+  APP_LOG(APP_LOG_LEVEL_WARNING, "Nachricht nicht angekommen: %d", (int)reason);
+  s_carried = false;
+  prv_schedule_retry(1500);
 }
 
 void phone_send_next(void) {
+  prv_queue_load();
   DictionaryIterator *out;
-  if (app_message_outbox_begin(&out) != APP_MSG_OK) return;
+  if (app_message_outbox_begin(&out) != APP_MSG_OK) {
+    // BESETZT: nicht still aufgeben, wenn ein Glas wartet.
+    prv_schedule_retry(700);
+    return;
+  }
   const time_t now = time(NULL);
   const int count = schedule_count();
   const int slot_count = schedule_target();
@@ -54,13 +148,13 @@ void phone_send_next(void) {
   }
   dict_write_data(out, MESSAGE_KEY_SLOTS, slots, (uint16_t)(slot_count * 5));
 
-  // Nur wenn gerade wirklich getrunken wurde. Der Vermerk ist danach
-  // verbraucht - so traegt eine Companion-App jedes Glas genau einmal ein,
-  // auch wenn danach noch zehn Standmeldungen folgen.
-  if (s_drank_at != 0) {
-    dict_write_int32(out, MESSAGE_KEY_DRANK_AT, (int32_t)s_drank_at);
-    dict_write_int32(out, MESSAGE_KEY_GLASS_ML, (int32_t)schedule_glass_ml());
-    s_drank_at = 0;
+  // Das aelteste unbestaetigte Glas. Verbraucht ist es erst in prv_sent -
+  // wenn das Telefon die Nachricht bestaetigt hat.
+  s_carried = false;
+  if (s_queue_len > 0) {
+    dict_write_int32(out, MESSAGE_KEY_DRANK_AT, (int32_t)s_queue[0].at);
+    dict_write_int32(out, MESSAGE_KEY_GLASS_ML, (int32_t)s_queue[0].ml);
+    s_carried = true;
   }
 
   app_message_outbox_send();
@@ -93,5 +187,12 @@ static void prv_inbox_received(DictionaryIterator *iter, void *context) {
 
 void phone_init(void) {
   app_message_register_inbox_received(prv_inbox_received);
+  app_message_register_outbox_sent(prv_sent);
+  app_message_register_outbox_failed(prv_failed);
   app_message_open(INBOX_SIZE, OUTBOX_SIZE);
+  // Liegen noch Glaeser vom letzten Mal da - weil die App zuging, bevor das
+  // Telefon antwortete -, gehen sie jetzt. Mit etwas Abstand, damit die
+  // Verbindung erst steht.
+  prv_queue_load();
+  if (s_queue_len > 0) s_retry = app_timer_register(1000, prv_retry_cb, NULL);
 }

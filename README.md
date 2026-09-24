@@ -309,3 +309,21 @@ Alles im Repository ist eigene Arbeit. Das Snooze-Symbol der Aktionsleiste war
 es bis 1.6.2 nicht: es stammte aus einer Pebble-App ohne Lizenz. Ersetzt durch
 ein eigenes, das `tools/make_snooze_icon.js` erzeugt — damit die Widmung
 lückenlos gilt.
+
+## Kein Glas geht verloren
+
+Seit 1.11.0 steht jedes Glas in einer **Warteschlange im Persist**, bis das
+Telefon die Nachricht bestätigt hat, die es trug. Bis dahin gab es nur einen
+Vermerk im Speicher, der beim Schreiben der Nachricht verbraucht war — ob sie
+ankam oder nicht. War der Postausgang besetzt, antwortete das Telefon nicht
+rechtzeitig, oder ging die App nach der Animation zu, bevor die Nachricht
+draussen war, war das Glas auf der Uhr gezählt und für Kiesel-Helper verloren.
+Zwei Gläser vor einer erfolgreichen Nachricht wurden zu einem.
+
+Jetzt trägt jede Nachricht das älteste unbestätigte Glas; nach der Bestätigung
+geht das nächste. Scheitert eine, fasst die Uhr bis zu fünfmal nach. Nach dem
+Trinken hält das Trink-Fenster die App bis zu fünf Sekunden offen, bis das
+Telefon das Glas hat. Was dann noch in der Schlange steht, geht beim nächsten
+Start. Kiesel-Helper trägt ein Glas je Zeitpunkt nur einmal ein — doppelt
+geschickt ist harmlos.
+

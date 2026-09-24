@@ -38,6 +38,7 @@
 #define DT_PERSIST_TARGET  4   // gewaehltes Soll (Glaeser), gilt ueber Tage hinweg
 #define DT_PERSIST_GLASS   5   // Glasgroesse in ml, gilt ueber Tage hinweg
 #define DT_PERSIST_ANIM    6   // Trink-Animation zeigen? (siehe DT_ANIM_DEFAULT)
+#define DT_PERSIST_QUEUE   7   // Glaeser, die das Telefon noch nicht bestaetigt hat (phone.c)
 
 // Die Trink-Animation nach "Getrunken". Sie ist eine Rueckmeldung, keine
 // Auskunft - wer sie nicht mag, schaltet sie auf der Konfigseite ab; gezaehlt
