@@ -28,7 +28,7 @@ const fs = require('fs'), path = require('path');
 const defPath = process.argv[2] || path.join('src', 'c', 'strings_table.h');
 const srcDir = process.argv[3] || path.join('src', 'c');
 
-// STR(id, maxbytes, "en", "de") - Zeichenketten duerfen Klammern und Kommas
+// STR(id, maxbytes, "en", "de", "fr", "it", "es") - Zeichenketten duerfen Klammern und Kommas
 // enthalten, deshalb wird von Hand zerlegt statt per Regex.
 function parseArgs(s) {
   const out = [];
@@ -51,7 +51,7 @@ function unquote(s) {
   return m ? m[1].replace(/\\"/g, '"').replace(/\\n/g, '\n').replace(/\\\\/g, '\\') : null;
 }
 
-const LANGS = ['en', 'de'];
+const LANGS = ['en', 'de', 'fr', 'it', 'es'];
 const text = fs.readFileSync(defPath, 'utf8');
 const rows = [];
 let errors = 0, notes = 0;

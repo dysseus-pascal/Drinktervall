@@ -4,7 +4,7 @@
 // Tabelle aus strings_table.h. Sie liegt im App-Abbild und zaehlt damit zum
 // Speicherabdruck, belegt aber keinen Heap.
 static const char *const s_table[STR_COUNT][STRINGS_LANG_COUNT] = {
-#define STR(id, maxbytes, en, de) { en, de },
+#define STR(id, maxbytes, en, de, fr, it, es) { en, de, fr, it, es },
 #include "strings_table.h"
 #undef STR
 };
@@ -18,6 +18,9 @@ static StringLang s_lang = STRINGS_EN;
 static StringLang prv_pick_language(const char *locale) {
   if (!locale) return STRINGS_EN;
   if (strncmp(locale, "de", 2) == 0) return STRINGS_DE;
+  if (strncmp(locale, "fr", 2) == 0) return STRINGS_FR;
+  if (strncmp(locale, "it", 2) == 0) return STRINGS_IT;
+  if (strncmp(locale, "es", 2) == 0) return STRINGS_ES;
   return STRINGS_EN;
 }
 

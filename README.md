@@ -8,8 +8,8 @@ Voreingestellt sind **acht Gläser**, also alle 90 Minuten eines. Wie viele es
 sein sollen, wählt man in den App-Einstellungen der Telefon-App - siehe
 Abschnitt [Einstellungen](#einstellungen).
 
-Die Oberfläche folgt der **Sprache der Uhr** (Deutsch und Englisch, Englisch als
-Rückfall) - siehe Abschnitt [Sprachen](#sprachen).
+Die Oberfläche folgt der **Sprache der Uhr** (Deutsch, Englisch, Französisch,
+Italienisch und Spanisch, Englisch als Rückfall) - siehe Abschnitt [Sprachen](#sprachen).
 
 ## Screenshots
 
@@ -188,8 +188,21 @@ es keinen Token; die Pins werden dann übersprungen (Log: "timeline: kein Token"
 
 Die App liest beim Start `i18n_get_system_locale()` und folgt damit der
 Einstellung der Uhr unter *Settings -> Display -> Language*. Ausgeliefert werden
-**Englisch** und **Deutsch**; jede andere Uhrsprache bekommt Englisch. Einen
-eigenen Sprachschalter gibt es bewusst nicht.
+**Englisch**, **Deutsch**, **Französisch**, **Italienisch** und **Spanisch**;
+jede andere Uhrsprache bekommt Englisch. Einen eigenen Sprachschalter gibt es
+bewusst nicht.
+
+Dieselben fünf Sprachen gelten für die Timeline-Pins und die Konfigseite. Die
+Uhr meldet ihre Sprache als Zahl in `MESSAGE_KEY_LANG`: 0 Englisch, 1 Deutsch,
+2 Französisch, 3 Italienisch, 4 Spanisch. Die Reihenfolge ist fest - eine
+ältere Telefonseite kennt nur 0 und 1 und zeigt bei allem anderen Englisch.
+Neue Sprachen kommen nur hinten dazu.
+
+Französisch, Italienisch und Spanisch sind oft länger als Deutsch. Wo ein Text
+in einen festen Puffer oder eine schmale Spalte muss, ist die Übersetzung
+deshalb knapper als wörtlich (etwa „Bicch. 3“ in der Trinkplan-Liste, „But+“
+in der Seitenleiste). Fachbegriffe wie Timeline, Pin und Quiet Time bleiben
+unübersetzt.
 
 | Deutsch | Englisch |
 |:--:|:--:|
@@ -198,7 +211,7 @@ eigenen Sprachschalter gibt es bewusst nicht.
 Alle Texte der Watch stehen in `src/c/strings_table.h`, eine Zeile je Text:
 
 ```
-STR(STR_GLASS_N_OF_M, 20, "Glass %d of %d", "Glas %d von %d")
+STR(STR_GLASS_N_OF_M, 20, "Glass %d of %d", "Glas %d von %d", "Verre %d sur %d", "Bicchiere %d/%d", "Vaso %d de %d")
 ```
 
 Die Datei wird zweimal eingebunden (X-Makro) - einmal für die Aufzählung der

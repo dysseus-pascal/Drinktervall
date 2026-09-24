@@ -113,7 +113,7 @@ function saveAnim(w, on) {
 console.log('\nDie Seite selbst');
 {
   const cfg = require(CFG);
-  [0, 1].forEach(function (lang) {
+  [0, 1, 2, 3, 4].forEach(function (lang) {
     const items = cfg(lang)[2].items;
     const sel = items.filter((i) => i.messageKey === 'TARGET')[0];
     check('Sprache ' + lang + ': Auswahlfeld vorhanden', !!sel, JSON.stringify(items));
@@ -192,7 +192,7 @@ console.log('');
 console.log('Glasgroesse');
 {
   const cfg = require(CFG);
-  [0, 1].forEach(function (lang) {
+  [0, 1, 2, 3, 4].forEach(function (lang) {
     const sel = cfg(lang)[3].items[1];
     check('Sprache ' + lang + ': Auswahlfeld GLASS_ML',
           !!sel && sel.messageKey === 'GLASS_ML', JSON.stringify(sel && sel.messageKey));
@@ -261,7 +261,7 @@ console.log('Glasgroesse');
 console.log('\nTrink-Animation');
 {
   const cfg = require(CFG);
-  [0, 1].forEach(function (lang) {
+  [0, 1, 2, 3, 4].forEach(function (lang) {
     const items = cfg(lang)[4].items;
     const tog = items.filter((i) => i.messageKey === 'ANIMATION')[0];
     check('Sprache ' + lang + ': Schalter ANIMATION vorhanden', !!tog, JSON.stringify(items));
@@ -353,6 +353,17 @@ console.log('\nSprache der Seite');
   w3.fire('showConfiguration');
   check('Ohne bekannte Sprache auf Englisch',
         JSON.stringify(w3.clays[0]) === JSON.stringify(cfg(0)), 'nicht die englische Fassung');
+
+  // 2 Franzoesisch, 3 Italienisch, 4 Spanisch - dieselben Nummern wie
+  // StringLang auf der Uhr. Eine Nummer, die das Telefon nicht kennt, faellt
+  // auf Englisch zurueck statt auf eine leere Seite.
+  [2, 3, 4, 9].forEach(function (lang) {
+    const wl = world({ drinktervall_lang: String(lang) });
+    wl.fire('showConfiguration');
+    const want = lang === 9 ? 0 : lang;
+    check('Sprache ' + lang + ': Konfigseite in Sprache ' + want,
+          JSON.stringify(wl.clays[0]) === JSON.stringify(cfg(want)), 'falsche Fassung');
+  });
 }
 
 console.log('\nFehler: ' + fails);

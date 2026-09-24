@@ -9,7 +9,8 @@
 // ist eine Einstellung der Uhr, und zwei Schalter fuer dieselbe Sache waeren
 // einer zu viel. Auf der Seite steht nur, dass sie gilt.
 //
-// Zweisprachig wie die App selbst. Welche Sprache gilt, sagt die UHR per
+// In fuenf Sprachen wie die App selbst (Reihenfolge wie StringLang in
+// src/c/strings.h: en, de, fr, it, es). Welche Sprache gilt, sagt die UHR per
 // MESSAGE_KEY_LANG; index.js merkt sich den Wert und reicht ihn hier herein.
 // Das Telefon kann die Uhrsprache nicht von sich aus erfahren, deshalb steht
 // vor dem allerersten Abgleich Englisch da.
@@ -86,6 +87,95 @@ var TEXT = [
     everyMinutes: function (m) { return 'alle ' + m + ' Minuten'; },
     everyHm: function (h, m) { return 'alle ' + h + ' Std. ' + m + ' Min.'; },
     submit: 'Speichern'
+  },
+  {
+    heading: 'Drinktervall',
+    intro: 'La montre vous rappelle de boire, à intervalles réguliers sur la ' +
+           'journée (de ' + START_HOUR + ' h à ' + END_HOUR + ' h).',
+    section: 'Plan du jour',
+    label: 'Verres par jour',
+    note: 'Chaque rappel est décalé de dix minutes au plus, pour ne pas ' +
+          'tomber chaque jour à la même minute. Bu plus que prévu ? Le ' +
+          'bouton du bas de la montre relève l’objectif du jour sans ' +
+          'toucher à ce réglage.',
+    glasses: function (n) { return n + ' verres'; },
+    glassSection: 'Verre',
+    glassLabel: 'Contenance de votre verre',
+    glassNote: 'Ne sert qu’à transmettre l’eau bue à un dossier de ' +
+               'santé. La montre compte de toute façon en verres.',
+    fxSection: 'Sur la montre',
+    fxLabel: 'Animation de boisson',
+    fxNote: 'Le verre plein écran qui se remplit après chaque verre noté. ' +
+            'Désactivée, le niveau monte simplement sur l’écran ' +
+            'principal — rien n’est compté autrement.',
+    quietNote: 'Le mode silencieux (Quiet Time) est respecté : pendant ' +
+               'ce temps, un rappel apparaît quand même, mais sans vibrer ni ' +
+               'allumer l’écran. C’est le réglage de la montre qui ' +
+               'compte, il n’y a donc rien à régler ici.',
+    everyHour: 'toutes les heures',
+    everyHours: function (h) { return 'toutes les ' + h + ' heures'; },
+    everyMinutes: function (m) { return 'toutes les ' + m + ' minutes'; },
+    everyHm: function (h, m) { return 'toutes les ' + h + ' h ' + m + ' min'; },
+    submit: 'Enregistrer'
+  },
+  {
+    heading: 'Drinktervall',
+    intro: 'L’orologio ti ricorda di bere, a intervalli regolari durante ' +
+           'la giornata (dalle ' + START_HOUR + ' alle ' + END_HOUR + ').',
+    section: 'Piano del giorno',
+    label: 'Bicchieri al giorno',
+    note: 'Ogni promemoria viene spostato fino a dieci minuti, così non ' +
+          'arriva ogni giorno allo stesso minuto. Hai bevuto più del previsto? ' +
+          'Il tasto in basso sull’orologio alza l’obiettivo di oggi ' +
+          'senza toccare questa impostazione.',
+    glasses: function (n) { return n + ' bicchieri'; },
+    glassSection: 'Bicchiere',
+    glassLabel: 'Quanto contiene il tuo bicchiere',
+    glassNote: 'Serve solo per passare l’acqua bevuta a una cartella ' +
+               'sanitaria. Sull’orologio si contano comunque i bicchieri.',
+    fxSection: 'Sull’orologio',
+    fxLabel: 'Animazione del bicchiere',
+    fxNote: 'Il bicchiere a tutto schermo che si riempie dopo ogni bicchiere ' +
+            'registrato. Se è spenta, sale semplicemente il livello nella ' +
+            'schermata principale — non cambia nulla nel conteggio.',
+    quietNote: 'La modalità silenziosa (Quiet Time) viene rispettata: mentre ' +
+               'è attiva, il promemoria compare comunque, ma non vibra e non ' +
+               'accende lo schermo. Vale l’impostazione dell’orologio, ' +
+               'qui non c’è nulla da attivare.',
+    everyHour: 'ogni ora',
+    everyHours: function (h) { return 'ogni ' + h + ' ore'; },
+    everyMinutes: function (m) { return 'ogni ' + m + ' minuti'; },
+    everyHm: function (h, m) { return 'ogni ' + h + ' h ' + m + ' min'; },
+    submit: 'Salva'
+  },
+  {
+    heading: 'Drinktervall',
+    intro: 'El reloj te recuerda beber, repartido por igual a lo largo del ' +
+           'día (de ' + START_HOUR + ':00 a ' + END_HOUR + ':00).',
+    section: 'Plan del día',
+    label: 'Vasos al día',
+    note: 'Cada aviso se desplaza hasta diez minutos para que no llegue cada ' +
+          'día al mismo minuto. ¿Has bebido más de lo previsto? El botón ' +
+          'inferior del reloj sube la meta de hoy sin tocar este ajuste.',
+    glasses: function (n) { return n + ' vasos'; },
+    glassSection: 'Vaso',
+    glassLabel: 'Cuánto cabe en tu vaso',
+    glassNote: 'Solo hace falta para pasar el agua bebida a un registro de ' +
+               'salud. El reloj sigue contando en vasos igualmente.',
+    fxSection: 'En el reloj',
+    fxLabel: 'Animación al beber',
+    fxNote: 'El vaso a pantalla completa que se llena tras cada vaso ' +
+            'anotado. Si está desactivada, simplemente sube el nivel en la ' +
+            'pantalla principal — no se cuenta nada de otra forma.',
+    quietNote: 'Se respeta el modo silencio (Quiet Time): mientras está ' +
+               'activo, el aviso aparece igualmente, pero no vibra ni ' +
+               'enciende la pantalla. Manda el ajuste del reloj, así que ' +
+               'aquí no hay nada que activar.',
+    everyHour: 'cada hora',
+    everyHours: function (h) { return 'cada ' + h + ' horas'; },
+    everyMinutes: function (m) { return 'cada ' + m + ' minutos'; },
+    everyHm: function (h, m) { return 'cada ' + h + ' h ' + m + ' min'; },
+    submit: 'Guardar'
   }
 ];
 

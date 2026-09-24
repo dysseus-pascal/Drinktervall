@@ -2,8 +2,9 @@
 //   * ein Pin fuer die naechste Erinnerung (Zukunft)
 //   * je ein Pin fuer jeden heutigen Slot, der schon vorbei ist:
 //     "Glas n getrunken" oder "Glas n verpasst" mit der Aktion "Nachholen"
-// Die Pin-Texte gibt es auf Englisch und Deutsch; welche Sprache gilt, sagt die
-// Uhr per MESSAGE_KEY_LANG (siehe src/c/strings_table.h).
+// Die Pin-Texte gibt es auf Englisch, Deutsch, Franzoesisch, Italienisch und
+// Spanisch; welche Sprache gilt, sagt die Uhr per MESSAGE_KEY_LANG
+// (siehe src/c/strings_table.h).
 // Die Watch schickt den Stand per AppMessage (src/c/phone.c): naechste
 // Erinnerung, Tagesziel, Zaehler und die heutigen Slots mit Status. Pins
 // haben die feste ID drinktervall-JJJJMMTT-n und wechseln ihren Inhalt.
@@ -134,7 +135,9 @@ var PIN_ICON = {
 
 // Die Texte je Sprache. Welche gilt, sagt die Uhr per MESSAGE_KEY_LANG - das
 // Telefon kann die Uhrsprache nicht von sich aus erfahren. Index 0 ist
-// Englisch und zugleich der Rueckfall, genau wie in src/c/strings_table.h.
+// Englisch und zugleich der Rueckfall, genau wie in src/c/strings_table.h;
+// danach 1 Deutsch, 2 Franzoesisch, 3 Italienisch, 4 Spanisch (StringLang in
+// src/c/strings.h).
 // %n = Glasnummer, %g = Tagesziel. Fehlt `body` bzw. `action`, bekommt der Pin
 // keinen Text bzw. keine Trink-Aktion.
 var PIN_TEXT = [
@@ -149,6 +152,24 @@ var PIN_TEXT = [
     drunk:  { title: 'Glas %n getrunken' },
     missed: { title: 'Glas %n verpasst', body: 'Nachholen? Die App zählt das Glas.', action: 'Nachholen' },
     open:   'App öffnen'
+  },
+  {
+    next:   { title: 'Verre d\'eau %n sur %g', body: 'C\'est l\'heure d\'un verre d\'eau.', action: 'Bu' },
+    drunk:  { title: 'Verre %n bu' },
+    missed: { title: 'Verre %n manqué', body: 'Rattraper ? L\'app compte le verre.', action: 'Rattraper' },
+    open:   'Ouvrir l\'app'
+  },
+  {
+    next:   { title: 'Bicchiere %n di %g', body: 'È ora di un bicchiere d\'acqua.', action: 'Bevuto' },
+    drunk:  { title: 'Bicchiere %n bevuto' },
+    missed: { title: 'Bicchiere %n saltato', body: 'Recuperare? L\'app conta il bicchiere.', action: 'Recupera' },
+    open:   'Apri app'
+  },
+  {
+    next:   { title: 'Vaso de agua %n de %g', body: 'Hora de un vaso de agua.', action: 'Bebido' },
+    drunk:  { title: 'Vaso %n bebido' },
+    missed: { title: 'Vaso %n perdido', body: '¿Recuperarlo? La app cuenta el vaso.', action: 'Recuperar' },
+    open:   'Abrir app'
   }
 ];
 
@@ -158,7 +179,7 @@ function pinId(epoch, index) { return 'drinktervall-' + dayKey(new Date(epoch * 
 
 function getLang() {
   var v = parseInt(localStorage.getItem(LANG_KEY), 10);
-  return v === 1 ? 1 : 0;
+  return (v >= 1 && v < PIN_TEXT.length) ? v : 0;
 }
 
 // Gespeichertes Soll, oder null wenn noch nie eines gewaehlt wurde. null heisst
