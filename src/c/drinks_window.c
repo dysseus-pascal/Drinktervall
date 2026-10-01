@@ -141,35 +141,34 @@ static void prv_extra_push(uint8_t kind) {
   window_stack_push(s_extra_window, true);
 }
 
-// --- Die Liste: eigene Kaffees, eigene Getraenke, dann die Sorten ---
+// --- Die Liste: eigene Getraenke, dann die Sorten ---
 //
-// Welche Abschnitte es gibt, haengt an den Einstellungen: ohne Kaffeezeiten
-// und ohne eigene Getraenke bleiben nur die Sorten.
+// Ohne eigene Getraenke bleiben nur die Sorten.
 
-typedef enum { SecCoffees, SecCustom, SecKinds } Sec;
+typedef enum { SecCustom, SecKinds } Sec;
 
 static int prv_sections(Sec *out) {
   int n = 0;
-  if (coffee_count() > 0) out[n++] = SecCoffees;
+  // Die Kaffees aus dem Plan stehen hier bewusst nicht: sie doppelten nur
+  // die Sorten darunter (auf der Uhr stand dreimal "Espresso" uebereinander).
   if (custom_count() > 0) out[n++] = SecCustom;
   out[n++] = SecKinds;
   return n;
 }
 
 static Sec prv_sec(uint16_t section) {
-  Sec secs[3];
+  Sec secs[2];
   const int n = prv_sections(secs);
   return secs[section < n ? section : n - 1];
 }
 
 static uint16_t prv_list_sections(MenuLayer *m, void *ctx) {
-  Sec secs[3];
+  Sec secs[2];
   return (uint16_t)prv_sections(secs);
 }
 
 static uint16_t prv_list_num(MenuLayer *m, uint16_t section, void *ctx) {
   switch (prv_sec(section)) {
-    case SecCoffees: return coffee_count();
     case SecCustom: return custom_count();
     default: return CoffeeKindCount;
   }
@@ -180,7 +179,7 @@ static int16_t prv_header_h(MenuLayer *m, uint16_t section, void *ctx) {
 }
 
 static void prv_header(GContext *ctx, const Layer *cell, uint16_t section, void *data) {
-  static const StringId titel[3] = { STR_MY_COFFEES, STR_MY_DRINKS, STR_DRINKS };
+  static const StringId titel[2] = { STR_MY_DRINKS, STR_DRINKS };
   const GRect b = layer_get_bounds(cell);
   graphics_context_set_text_color(ctx, DT_COLOR_TEXT);
   graphics_draw_text(ctx, S(titel[prv_sec(section)]), fonts_get_system_font(FONT_KEY_GOTHIC_14_BOLD),
@@ -190,14 +189,6 @@ static void prv_header(GContext *ctx, const Layer *cell, uint16_t section, void 
 
 static void prv_list_draw(GContext *ctx, const Layer *cell, MenuIndex *i, void *data) {
   switch (prv_sec(i->section)) {
-    case SecCoffees: {
-      const CoffeeSlot *slot = coffee_slot(i->row);
-      if (!slot) return;
-      char text[40];
-      coffee_describe(slot, text, sizeof(text));
-      prv_row(ctx, cell, coffee_vessel(slot), text, -1);
-      return;
-    }
     case SecCustom: {
       const CustomDrink *d = custom_drink(i->row);
       if (d) prv_row(ctx, cell, VesselCustom, d->name, -1);
@@ -212,11 +203,6 @@ static void prv_list_draw(GContext *ctx, const Layer *cell, MenuIndex *i, void *
 
 static void prv_list_select(MenuLayer *m, MenuIndex *i, void *ctx) {
   switch (prv_sec(i->section)) {
-    case SecCoffees: {
-      const CoffeeSlot *slot = coffee_slot(i->row);
-      if (slot) prv_log(slot);
-      return;
-    }
     case SecCustom: {
       // Ein eigenes Getraenk hat keine Zusaetze: ein Druck, eingetragen.
       const CustomDrink *d = custom_drink(i->row);

@@ -52,9 +52,8 @@ Erinnerung stammen aus einem Testbuild mit Zeitlupe und Wakeup nach 60 s).
 Wasser, Mitte lang der Trinkplan, unten das Tagesziel höher. In der
 Seitenleiste steht oben ein Becher für die Getränkeauswahl.
 
-**Getränkeauswahl** - für alles ausserhalb des Plans. Oben die eingestellten
-Kaffees genau wie im Plan (ein Druck trägt ein), dann die eigenen Getränke,
-dann die vier Sorten. Nach einer Sorte folgen Milch (nur beim Kaffee) und
+**Getränkeauswahl** - für alles ausserhalb des Plans. Oben die eigenen
+Getränke (ein Druck trägt ein), dann die vier Sorten. Nach einer Sorte folgen Milch (nur beim Kaffee) und
 Zucker zum Abhaken; die Auswahl steht schon auf "Eintragen". Danach läuft die
 Animation des Gefässes, und der Eintrag geht wie beim Kaffee ans Telefon.
 

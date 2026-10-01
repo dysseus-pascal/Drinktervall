@@ -74,7 +74,6 @@ STR(STR_SUGAR,           0,  "sugar",           "Zucker", "sucre", "zucchero", "
 STR(STR_ENJOY,           0,  "Enjoy!",          "Wohl bekomm's!", "Bonne dégustation !", "Buona pausa!", "¡Que aproveche!")
 
 // ---- Getraenkeauswahl -----------------------------------------------------
-STR(STR_MY_COFFEES,      0,  "Your coffees",    "Deine Kaffees", "Vos cafés", "I tuoi caffè", "Tus cafés")
 STR(STR_MY_DRINKS,       0,  "Your drinks",     "Deine Getränke", "Vos boissons", "Le tue bevande", "Tus bebidas")
 STR(STR_DRINKS,          0,  "Drinks",          "Getränke", "Boissons", "Bevande", "Bebidas")
 STR(STR_MILK_ROW,        0,  "Milk",            "Milch", "Lait", "Latte", "Leche")
