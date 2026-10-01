@@ -5,6 +5,8 @@
 #include "glass_fx.h"
 #include "schedule.h"
 #include "plan_window.h"
+#include "drinks_window.h"
+#include "coffee.h"
 #include "phone.h"
 #include "strings.h"
 
@@ -12,6 +14,9 @@
 // die dunkle Seitenleiste mit Glas-Symbol und Tasten-Hinweisen. Der Pegel
 // (getrunkene Glaeser / Tagesziel) steigt als hellblaues Band ueber den
 // Inhalt; s_water ist dieses Band, s_canvas zeichnet Text und Leiste darueber.
+//
+// Tasten: oben die Getraenkeauswahl (drinks_window), Mitte kurz ein Glas,
+// Mitte lang der Trinkplan, unten das Tagesziel hoeher.
 //
 // Ein neues Glas (mittlere Taste) oeffnet zuerst das Vollbild-Fenster mit der
 // Trink-Animation (drink_window); wenn es sich schliesst, ziehen Anzeige und
@@ -92,11 +97,19 @@ static void prv_canvas_update(Layer *layer, GContext *ctx) {
   graphics_context_set_fill_color(ctx, DT_COLOR_SIDEBAR);
   graphics_fill_rect(ctx, GRect(sx, 0, DT_SIDEBAR_W, b.size.h), 0, GCornerNone);
   const int16_t cx = sx + DT_SIDEBAR_W / 2 - DT_SIDEBAR_GLASS_DX;
-  glass_fx_draw_still(ctx, GPoint(cx, DT_SIDEBAR_GLASS_Y),
-                      DT_SIDEBAR_GLASS_W, DT_SIDEBAR_GLASS_FILL, DT_COLOR_FX_WATER);
+  // Das Glas oben nur, wenn es neben dem Becher der oberen Taste Platz hat:
+  // auf flint und gabbro laegen beide uebereinander, dort bleibt der Becher.
+  if (DT_SIDEBAR_GLASS_Y + 16 < b.size.h / 4 - 12) {
+    glass_fx_draw_still(ctx, GPoint(cx, DT_SIDEBAR_GLASS_Y),
+                        DT_SIDEBAR_GLASS_W, DT_SIDEBAR_GLASS_FILL, DT_COLOR_FX_WATER);
+  }
   graphics_context_set_text_color(ctx, DT_COLOR_ON_SIDEBAR);
-  const char *hints[3] = { S(STR_HINT_PLAN), S(STR_HINT_PLUS_ONE), S(STR_HINT_GOAL_UP) };
-  for (int i = 0; i < 3; i++) {
+  // Oben steht kein Wort, sondern ein Becher: die Taste oeffnet die
+  // Getraenkeauswahl, und "Drinks" passt nicht in 30 Pixel.
+  const CoffeeSlot becher = { 0, CoffeeCoffee, 0 };
+  glass_fx_draw_vessel_still(ctx, GPoint(cx - 3, b.size.h / 4), 18, coffee_vessel(&becher));
+  const char *hints[3] = { NULL, S(STR_HINT_PLUS_ONE), S(STR_HINT_GOAL_UP) };
+  for (int i = 1; i < 3; i++) {
     const int16_t hy = b.size.h * (i + 1) / 4;
     graphics_draw_text(ctx, hints[i], fonts_get_system_font(FONT_KEY_GOTHIC_14_BOLD),
                        GRect(cx - 24, hy - 9, 48, 18),
@@ -173,7 +186,13 @@ static void prv_tick(struct tm *tick_time, TimeUnits units_changed) {
   layer_mark_dirty(s_canvas);
 }
 
+// Oben: Getraenkeauswahl, fuer Kaffee ausserhalb des Plans.
 static void prv_up(ClickRecognizerRef recognizer, void *context) {
+  drinks_window_push();
+}
+
+// Mitte lang: der Trinkplan. Kurz bleibt das Glas Wasser - der haeufigste Fall.
+static void prv_select_long(ClickRecognizerRef recognizer, void *context) {
   plan_window_push();
 }
 
@@ -197,6 +216,7 @@ static void prv_down(ClickRecognizerRef recognizer, void *context) {
 static void prv_click_config(void *context) {
   window_single_click_subscribe(BUTTON_ID_UP, prv_up);
   window_single_click_subscribe(BUTTON_ID_SELECT, prv_select);
+  window_long_click_subscribe(BUTTON_ID_SELECT, 0, prv_select_long, NULL);
   window_single_click_subscribe(BUTTON_ID_DOWN, prv_down);
 }
 

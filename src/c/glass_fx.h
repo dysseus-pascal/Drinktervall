@@ -13,6 +13,7 @@ typedef enum {
   VesselCoffeeMilk,     //< derselbe Becher, mit Milch heller
   VesselLatte,          //< hohes Glas: Milch, Kaffee, Schaum, Trinkhalm
   VesselCan,            //< Dose in Blau-Silber mit Sonne; wird beim Trinken zerdrueckt
+  VesselCustom,         //< eigenes Getraenk: das Glas, farbig, mit Trinkhalm
 } Vessel;
 
 // Overlay fuer die Trink-Animation: ein volles Glas ploppt am `anchor` auf,

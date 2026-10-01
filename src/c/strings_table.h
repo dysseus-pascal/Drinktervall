@@ -44,7 +44,6 @@ STR(STR_N_DONE,          20, "%d done",         "%d getrunken", "Déjà bu : %d"
 
 // Seitenleiste, auf Hoehe der drei Tasten. Auf flint nur 30 px breit -
 // hoechstens fuenf schmale Zeichen.
-STR(STR_HINT_PLAN,       0,  "Plan",            "Plan", "Plan", "Piano", "Plan")
 STR(STR_HINT_PLUS_ONE,   0,  "+1",              "+1", "+1", "+1", "+1")
 STR(STR_HINT_GOAL_UP,    0,  "Goal+",           "Ziel+", "But+", "Meta+", "Meta+")
 
@@ -73,3 +72,11 @@ STR(STR_ENERGY_DRINK,    0,  "Energy drink",    "Energy-Drink", "Boisson énergi
 STR(STR_MILK,            0,  "milk",            "Milch", "lait", "latte", "leche")
 STR(STR_SUGAR,           0,  "sugar",           "Zucker", "sucre", "zucchero", "azúcar")
 STR(STR_ENJOY,           0,  "Enjoy!",          "Wohl bekomm's!", "Bonne dégustation !", "Buona pausa!", "¡Que aproveche!")
+
+// ---- Getraenkeauswahl -----------------------------------------------------
+STR(STR_MY_COFFEES,      0,  "Your coffees",    "Deine Kaffees", "Vos cafés", "I tuoi caffè", "Tus cafés")
+STR(STR_MY_DRINKS,       0,  "Your drinks",     "Deine Getränke", "Vos boissons", "Le tue bevande", "Tus bebidas")
+STR(STR_DRINKS,          0,  "Drinks",          "Getränke", "Boissons", "Bevande", "Bebidas")
+STR(STR_MILK_ROW,        0,  "Milk",            "Milch", "Lait", "Latte", "Leche")
+STR(STR_SUGAR_ROW,       0,  "Sugar",           "Zucker", "Sucre", "Zucchero", "Azúcar")
+STR(STR_LOG,             0,  "Log it",          "Eintragen", "Noter", "Registra", "Registrar")

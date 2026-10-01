@@ -1,6 +1,7 @@
 #pragma once
 #include <pebble.h>
 #include "glass_fx.h"
+#include "config.h"
 
 // Kaffeezeiten: bis zu DT_COFFEE_MAX feste Uhrzeiten am Tag, je mit Sorte,
 // Milch und Zucker. Eingestellt auf der Konfigseite, auf der Uhr gemerkt.
@@ -15,6 +16,10 @@ typedef enum {
   CoffeeEnergyDrink,
   CoffeeKindCount,
 } CoffeeKind;
+
+// Ein eigenes Getraenk traegt diese Nummer als Sorte. Es steht nie im Plan,
+// darum liegt es ausserhalb von CoffeeKindCount.
+#define COFFEE_KIND_CUSTOM 4
 
 #define COFFEE_MILK  0x01
 #define COFFEE_SUGAR 0x02
@@ -46,3 +51,18 @@ void coffee_describe(const CoffeeSlot *slot, char *buf, size_t len);
 
 // Das Gefaess der Animation zu diesem Kaffee: Kaffee mit Milch ist heller.
 Vessel coffee_vessel(const CoffeeSlot *slot);
+
+// --- Eigene Getraenke ---
+typedef struct {
+  char name[DT_CUSTOM_NAME];
+  uint16_t kcal;
+  uint16_t mg;       //< Koffein
+} CustomDrink;
+
+int custom_count(void);
+const CustomDrink *custom_drink(int idx);
+
+// Als Text zwischen Uhr und Telefon: je Getraenk eine Zeile "Name|kcal|mg".
+// Rueckgabe von from: true, wenn sich etwas geaendert hat.
+bool custom_from_string(const char *text);
+void custom_to_string(char *buf, size_t len);

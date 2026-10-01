@@ -410,5 +410,27 @@ console.log('\nKaffeezeiten');
   check('unzugestellter Plan faehrt beim Start mit', JSON.stringify(w2.last().COFFEE) === '[1,88,2,1,1]', JSON.stringify(w2.last()));
 }
 
+console.log('\nEigene Getraenke');
+{
+  const w = world();
+  w.fire('webviewclosed', { response: JSON.stringify({
+    CUSTOM_N: '2', CUSTOM_NAME1: 'Smoothie', CUSTOM_KCAL1: '180', CUSTOM_MG1: '',
+    CUSTOM_NAME2: 'Ma|te', CUSTOM_KCAL2: '20', CUSTOM_MG2: '80', CUSTOM_NAME3: 'Cola', CUSTOM_KCAL3: '140',
+  }) });
+  check('zwei Getraenke als Zeilen, | im Namen ersetzt', w.last().CUSTOM === 'Smoothie|180|0\nMa te|20|80', JSON.stringify(w.last()));
+}
+{
+  const w = world();
+  w.fire('webviewclosed', { response: JSON.stringify({ CUSTOM_N: '1', CUSTOM_NAME1: '  ', CUSTOM_KCAL1: '50' }) });
+  check('ohne Namen zaehlt keines', w.last().CUSTOM === '', JSON.stringify(w.last()));
+}
+{
+  const w = world();
+  w.fire('appmessage', { payload: { CUSTOM: 'Smoothie|180|0' } });
+  const clay = JSON.parse(w.store['clay-settings'] || '{}');
+  check('Getraenke der Uhr landen auf der Seite',
+        clay.CUSTOM_N === '1' && clay.CUSTOM_NAME1 === 'Smoothie' && clay.CUSTOM_KCAL1 === '180', JSON.stringify(clay));
+}
+
 console.log('\nFehler: ' + fails);
 process.exit(fails ? 1 : 0);

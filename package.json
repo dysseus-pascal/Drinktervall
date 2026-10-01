@@ -1,7 +1,7 @@
 {
   "name": "drinktervall",
   "author": "dysseus-pascal",
-  "version": "1.15.0",
+  "version": "1.16.0",
   "license": "CC0-1.0",
   "keywords": [
     "pebble-app"
@@ -58,7 +58,21 @@
       "COFFEE_TIME4",
       "COFFEE_TYPE4",
       "COFFEE_MILK4",
-      "COFFEE_SUGAR4"
+      "COFFEE_SUGAR4",
+      "CUSTOM",
+      "DRINK_NAME",
+      "DRINK_KCAL",
+      "DRINK_MG",
+      "CUSTOM_N",
+      "CUSTOM_NAME1",
+      "CUSTOM_KCAL1",
+      "CUSTOM_MG1",
+      "CUSTOM_NAME2",
+      "CUSTOM_KCAL2",
+      "CUSTOM_MG2",
+      "CUSTOM_NAME3",
+      "CUSTOM_KCAL3",
+      "CUSTOM_MG3"
     ],
     "resources": {
       "media": [

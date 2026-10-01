@@ -42,6 +42,13 @@
 #define DT_PERSIST_COFFEE  8   // Kaffeeplan: Zeiten, Sorte, Milch und Zucker (coffee.c)
 #define DT_PERSIST_COFFEE_QUEUE 9   // Kaffees, die das Telefon noch nicht bestaetigt hat
 #define DT_PERSIST_SNOOZE  10  // ein offenes "Spaeter": Zeitpunkt und Cookie (schedule.c)
+#define DT_PERSIST_CUSTOM  11  // eigene Getraenke: Name, kcal, Koffein (coffee.c)
+#define DT_PERSIST_COFFEE_QUEUE2 12 // Kaffee-Schlange seit 1.16 (mit eigenem Getraenk)
+
+// Eigene Getraenke: von Hand auf der Konfigseite angelegt, auf der Uhr nur
+// zum Eintragen. Drei reichen fuer die Gewohnheiten neben dem Kaffee.
+#define DT_CUSTOM_MAX    3
+#define DT_CUSTOM_NAME   16
 
 // Kaffeezeiten: feste Uhrzeiten, kein Raster wie beim Wasser - Kaffee trinkt
 // man nicht gleichmaessig verteilt, sondern zu seinen Zeiten. Vier reichen:

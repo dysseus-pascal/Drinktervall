@@ -46,6 +46,7 @@ static Vessel s_vessel;
 #define FX_CAN_BLUE   PBL_IF_COLOR_ELSE(GColorDukeBlue, GColorDarkGray)
 #define FX_CAN_SILVER PBL_IF_COLOR_ELSE(GColorLightGray, GColorWhite)
 #define FX_SUN        PBL_IF_COLOR_ELSE(GColorYellow, GColorWhite)
+#define FX_CUSTOM     PBL_IF_COLOR_ELSE(GColorInchworm, GColorLightGray)
 #define FX_RED        PBL_IF_COLOR_ELSE(GColorRed, GColorBlack)
 
 // Aktuelle Transformation und Strichstaerke; prv_set_metrics setzt beides.
@@ -323,6 +324,11 @@ static void prv_draw_vessel(GContext *ctx, int32_t level, Face face, GColor wate
     case VesselCoffeeMilk: prv_draw_mug(ctx, level, face, FX_MILKCOFFEE, steam); break;
     case VesselLatte:      prv_draw_latte(ctx, level, face); break;
     case VesselCan:        prv_draw_can(ctx, level, face); break;
+    case VesselCustom:
+      // Das Wasserglas mit einem Trinkhalm - fuer alles, was keine eigene Form hat.
+      prv_draw_glass(ctx, level, face, FX_CUSTOM);
+      prv_line(ctx, prv_gp(16, -22), prv_gp(32, -64));
+      break;
     default:               prv_draw_glass(ctx, level, face, water); break;
   }
 }

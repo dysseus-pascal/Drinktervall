@@ -12,9 +12,11 @@ enum { SlotFuture = 0, SlotDrunk = 2, SlotMissed = 3 };
 // Ausgangspuffer: fuenf Zahlenfelder zu je 11 Byte, dazu die Slot-Daten mit
 // 7 Byte Kopf und 5 Byte je Glas, plus ein Byte fuer das Woerterbuch selbst.
 // Bei DT_GLASSES_MAX = 16 sind das 143 Byte; dazu der Kaffeeplan (7 + 17)
-// und ein Kaffee (2 x 11) - 192 Byte. 256 laesst noch Luft.
-#define OUTBOX_SIZE 256
-#define INBOX_SIZE  128
+// und ein Kaffee (2 x 11) - 192 Byte; die eigenen Getraenke (bis 90 Zeichen)
+// und ein eigenes Getraenk unterwegs (Name, kcal, Koffein) bringen es auf
+// rund 340. Eingehend steht der ganze Plan samt eigener Getraenke drin.
+#define OUTBOX_SIZE 384
+#define INBOX_SIZE  256
 
 // --- Die Glaeser, die noch zum Telefon muessen ---
 //
@@ -45,11 +47,23 @@ static bool s_carried;       // die letzte Nachricht trug s_queue[0]
 // Die Kaffees gehen denselben Weg in einer eigenen Schlange: ein Kaffee ist
 // kein Glas Wasser, und in einer Nachricht kann je eines von beiden mitfahren.
 #define COFFEE_QUEUE_MAX 8
+// Ein eigenes Getraenk reist mit Name, kcal und Koffein: aendert man es auf
+// der Konfigseite, bevor es draussen ist, bleibt das Getrunkene, wie es war.
 typedef struct __attribute__((packed)) {
   uint32_t at;
   uint8_t kind;
   uint8_t flags;
+  uint16_t kcal;
+  uint16_t mg;
+  char name[DT_CUSTOM_NAME];
 } Coffee;
+
+// Die Schlange von 1.14/1.15 - noch ohne eigenes Getraenk.
+typedef struct __attribute__((packed)) {
+  uint32_t at;
+  uint8_t kind;
+  uint8_t flags;
+} CoffeeAlt;
 
 static Coffee s_coffees[COFFEE_QUEUE_MAX];
 static uint8_t s_coffees_len;
@@ -70,9 +84,17 @@ static void prv_queue_load(void) {
     const int n = persist_read_data(DT_PERSIST_QUEUE, s_queue, sizeof(s_queue));
     if (n > 0) s_queue_len = (uint8_t)(n / sizeof(Drink));
   }
-  if (persist_exists(DT_PERSIST_COFFEE_QUEUE)) {
-    const int n = persist_read_data(DT_PERSIST_COFFEE_QUEUE, s_coffees, sizeof(s_coffees));
+  if (persist_exists(DT_PERSIST_COFFEE_QUEUE2)) {
+    const int n = persist_read_data(DT_PERSIST_COFFEE_QUEUE2, s_coffees, sizeof(s_coffees));
     if (n > 0) s_coffees_len = (uint8_t)(n / sizeof(Coffee));
+  } else if (persist_exists(DT_PERSIST_COFFEE_QUEUE)) {
+    // Was 1.14/1.15 noch nicht losbrachte, in die neue Form uebernehmen.
+    CoffeeAlt alt[COFFEE_QUEUE_MAX];
+    const int n = persist_read_data(DT_PERSIST_COFFEE_QUEUE, alt, sizeof(alt));
+    for (int i = 0; n > 0 && i < n / (int)sizeof(CoffeeAlt); i++) {
+      s_coffees[s_coffees_len++] = (Coffee){ .at = alt[i].at, .kind = alt[i].kind, .flags = alt[i].flags };
+    }
+    persist_delete(DT_PERSIST_COFFEE_QUEUE);
   }
 }
 
@@ -83,20 +105,32 @@ static void prv_queue_save(void) {
     persist_write_data(DT_PERSIST_QUEUE, s_queue, s_queue_len * sizeof(Drink));
   }
   if (s_coffees_len == 0) {
-    persist_delete(DT_PERSIST_COFFEE_QUEUE);
+    persist_delete(DT_PERSIST_COFFEE_QUEUE2);
   } else {
-    persist_write_data(DT_PERSIST_COFFEE_QUEUE, s_coffees, s_coffees_len * sizeof(Coffee));
+    persist_write_data(DT_PERSIST_COFFEE_QUEUE2, s_coffees, s_coffees_len * sizeof(Coffee));
   }
 }
 
-void phone_note_coffee(uint8_t kind, uint8_t flags) {
+static void prv_coffee_push(const Coffee *c) {
   prv_queue_load();
   if (s_coffees_len == COFFEE_QUEUE_MAX) {
     memmove(&s_coffees[0], &s_coffees[1], (COFFEE_QUEUE_MAX - 1) * sizeof(Coffee));
     s_coffees_len--;
   }
-  s_coffees[s_coffees_len++] = (Coffee){ (uint32_t)time(NULL), kind, flags };
+  s_coffees[s_coffees_len++] = *c;
   prv_queue_save();
+}
+
+void phone_note_coffee(uint8_t kind, uint8_t flags) {
+  const Coffee c = { .at = (uint32_t)time(NULL), .kind = kind, .flags = flags };
+  prv_coffee_push(&c);
+}
+
+void phone_note_custom(const CustomDrink *drink) {
+  Coffee c = { .at = (uint32_t)time(NULL), .kind = COFFEE_KIND_CUSTOM,
+               .kcal = drink->kcal, .mg = drink->mg };
+  strncpy(c.name, drink->name, DT_CUSTOM_NAME - 1);
+  prv_coffee_push(&c);
 }
 
 void phone_note_drink(void) {
@@ -204,6 +238,9 @@ void phone_send_next(void) {
   dict_write_int32(out, MESSAGE_KEY_ANIMATION, schedule_animation() ? 1 : 0);
   uint8_t plan[COFFEE_BYTES_MAX];
   dict_write_data(out, MESSAGE_KEY_COFFEE, plan, (uint16_t)coffee_to_bytes(plan));
+  char eigene[DT_CUSTOM_MAX * (DT_CUSTOM_NAME + 12)];
+  custom_to_string(eigene, sizeof(eigene));
+  dict_write_cstring(out, MESSAGE_KEY_CUSTOM, eigene);
 
   // Der aelteste unbestaetigte Kaffee, Sorte und Flags in einem Feld: die
   // Sorte in den unteren vier Bits, Milch und Zucker darueber.
@@ -211,6 +248,14 @@ void phone_send_next(void) {
   if (s_coffees_len > 0) {
     dict_write_int32(out, MESSAGE_KEY_COFFEE_AT, (int32_t)s_coffees[0].at);
     dict_write_int32(out, MESSAGE_KEY_COFFEE_KIND, s_coffees[0].kind | (s_coffees[0].flags << 4));
+    if (s_coffees[0].kind == COFFEE_KIND_CUSTOM) {
+      char name[DT_CUSTOM_NAME];
+      strncpy(name, s_coffees[0].name, DT_CUSTOM_NAME - 1);
+      name[DT_CUSTOM_NAME - 1] = 0;
+      dict_write_cstring(out, MESSAGE_KEY_DRINK_NAME, name);
+      dict_write_int32(out, MESSAGE_KEY_DRINK_KCAL, s_coffees[0].kcal);
+      dict_write_int32(out, MESSAGE_KEY_DRINK_MG, s_coffees[0].mg);
+    }
     s_coffee_carried = true;
   }
 
@@ -248,6 +293,13 @@ static void prv_inbox_received(DictionaryIterator *iter, void *context) {
   if (coffee && coffee->type == TUPLE_BYTE_ARRAY) {
     einstellung = true;
     if (coffee_from_bytes(coffee->value->data, coffee->length)) schedule_plan_wakeups(0, 0);
+  }
+
+  // Eigene Getraenke: nur fuer die Getraenkeauswahl, kein Wecker.
+  Tuple *custom = dict_find(iter, MESSAGE_KEY_CUSTOM);
+  if (custom && custom->type == TUPLE_CSTRING) {
+    einstellung = true;
+    custom_from_string(custom->value->cstring);
   }
 
   Tuple *target = dict_find(iter, MESSAGE_KEY_TARGET);

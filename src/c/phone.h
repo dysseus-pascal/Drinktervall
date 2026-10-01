@@ -28,6 +28,10 @@ void phone_note_drink(void);
 // erst mit der Bestaetigung. Die Companion-App rechnet daraus Koffein und kcal.
 void phone_note_coffee(uint8_t kind, uint8_t flags);
 
+// Ein eigenes Getraenk vermerken - mit Name, kcal und Koffein, wie es jetzt ist.
+#include "coffee.h"
+void phone_note_custom(const CustomDrink *drink);
+
 // Wartet noch ein Glas oder ein Kaffee auf die Bestaetigung des Telefons? Das Trink-Fenster
 // haelt die App so lange offen, hoechstens ein paar Sekunden.
 bool phone_pending(void);

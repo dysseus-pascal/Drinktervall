@@ -64,6 +64,13 @@ var TEXT = [
     coffeeTypes: ['Espresso', 'Coffee', 'Latte macchiato', 'Energy drink'],
     coffeeMilk: 'Milk',
     coffeeSugar: 'Sugar',
+    customSection: 'Own drinks',
+    customCount: 'How many?',
+    customSlot: 'Drink',
+    customName: 'Name',
+    customNamePh: 'e.g. Smoothie',
+    customKcal: 'kcal',
+    customMg: 'Caffeine (mg)',
     submit: 'Save'
   },
   {
@@ -104,6 +111,13 @@ var TEXT = [
     coffeeTypes: ['Espresso', 'Kaffee', 'Latte macchiato', 'Energy-Drink'],
     coffeeMilk: 'Milch',
     coffeeSugar: 'Zucker',
+    customSection: 'Eigene Getränke',
+    customCount: 'Wie viele?',
+    customSlot: 'Getränk',
+    customName: 'Name',
+    customNamePh: 'z. B. Smoothie',
+    customKcal: 'kcal',
+    customMg: 'Koffein (mg)',
     submit: 'Speichern'
   },
   {
@@ -143,6 +157,13 @@ var TEXT = [
     coffeeTypes: ['Espresso', 'Café', 'Latte macchiato', 'Boisson énergisante'],
     coffeeMilk: 'Lait',
     coffeeSugar: 'Sucre',
+    customSection: 'Boissons perso',
+    customCount: 'Combien\u00a0?',
+    customSlot: 'Boisson',
+    customName: 'Nom',
+    customNamePh: 'p. ex. smoothie',
+    customKcal: 'kcal',
+    customMg: 'Caféine (mg)',
     submit: 'Enregistrer'
   },
   {
@@ -182,6 +203,13 @@ var TEXT = [
     coffeeTypes: ['Espresso', 'Caffè', 'Latte macchiato', 'Energy drink'],
     coffeeMilk: 'Latte',
     coffeeSugar: 'Zucchero',
+    customSection: 'Bevande tue',
+    customCount: 'Quante?',
+    customSlot: 'Bevanda',
+    customName: 'Nome',
+    customNamePh: 'es. smoothie',
+    customKcal: 'kcal',
+    customMg: 'Caffeina (mg)',
     submit: 'Salva'
   },
   {
@@ -220,6 +248,13 @@ var TEXT = [
     coffeeTypes: ['Espresso', 'Café', 'Latte macchiato', 'Bebida energética'],
     coffeeMilk: 'Leche',
     coffeeSugar: 'Azúcar',
+    customSection: 'Bebidas propias',
+    customCount: '¿Cuántas?',
+    customSlot: 'Bebida',
+    customName: 'Nombre',
+    customNamePh: 'p. ej. batido',
+    customKcal: 'kcal',
+    customMg: 'Cafeína (mg)',
     submit: 'Guardar'
   }
 ];
@@ -260,6 +295,25 @@ function coffeeSlot(t, n) {
       },
       { type: 'toggle', messageKey: 'COFFEE_MILK' + n, label: t.coffeeMilk, defaultValue: false },
       { type: 'toggle', messageKey: 'COFFEE_SUGAR' + n, label: t.coffeeSugar, defaultValue: false }
+    ]
+  };
+}
+
+// Eigene Getraenke: so viele wie DT_CUSTOM_MAX in src/c/config.h. Namen
+// kuerzer als DT_CUSTOM_NAME, die Uhr schneidet sonst ab.
+var CUSTOM_MAX = 3;
+
+function customSlot(t, n) {
+  return {
+    type: 'section',
+    items: [
+      { type: 'heading', id: 'cushead' + n, defaultValue: t.customSlot + ' ' + n },
+      { type: 'input', messageKey: 'CUSTOM_NAME' + n, label: t.customName,
+        attributes: { placeholder: t.customNamePh, limit: 15 } },
+      { type: 'input', messageKey: 'CUSTOM_KCAL' + n, label: t.customKcal,
+        attributes: { type: 'number', min: 0, max: 2000, placeholder: '0' } },
+      { type: 'input', messageKey: 'CUSTOM_MG' + n, label: t.customMg,
+        attributes: { type: 'number', min: 0, max: 1000, placeholder: '0' } }
     ]
   };
 }
@@ -347,10 +401,22 @@ module.exports = function (lang) {
       ]
     }
   ].concat([1, 2, 3, 4].map(function (n) { return coffeeSlot(t, n); }))
+   .concat([{
+     type: 'section',
+     items: [
+       { type: 'heading', defaultValue: t.customSection },
+       {
+         type: 'select', messageKey: 'CUSTOM_N', label: t.customCount, defaultValue: '0',
+         options: [0, 1, 2, 3].map(function (n) { return { label: String(n), value: String(n) }; })
+       }
+     ]
+   }])
+   .concat([1, 2, 3].map(function (n) { return customSlot(t, n); }))
    .concat([{ type: 'submit', defaultValue: t.submit }]);
 };
 
 module.exports.COFFEE_MAX = COFFEE_MAX;
+module.exports.CUSTOM_MAX = CUSTOM_MAX;
 
 /**
  * Laeuft IN DER KONFIGSEITE, nicht hier: Clay reicht diese Funktion in die
@@ -374,7 +440,21 @@ module.exports.custom = function () {
 
   function on(v) { return v === true || v === 1 || v === '1' || v === 'true'; }
 
+  // Eigene Getraenke: so viele Kaesten wie gewaehlt.
+  function cusbox(i) {
+    var head = clayConfig.getItemById('cushead' + i);
+    if (!head || !head.$element || !head.$element[0]) return null;
+    var el = head.$element[0];
+    return el.closest ? el.closest('.section') : null;
+  }
+
   function apply() {
+    var cn = clayConfig.getItemByMessageKey('CUSTOM_N');
+    var eigene = cn ? parseInt(cn.get(), 10) || 0 : 0;
+    for (var c = 1; c <= 3; c++) {
+      var cb = cusbox(c);
+      if (cb) { if (c <= eigene) cb.classList.remove('hide'); else cb.classList.add('hide'); }
+    }
     var schalter = clayConfig.getItemByMessageKey('COFFEE_ON');
     var aktiv = schalter ? on(schalter.get()) : false;
     var anzahl = clayConfig.getItemByMessageKey('COFFEE_N');
@@ -395,7 +475,7 @@ module.exports.custom = function () {
 
   clayConfig.on(clayConfig.EVENTS.AFTER_BUILD, function () {
     apply();
-    var keys = ['COFFEE_ON', 'COFFEE_N', 'COFFEE_TYPE1', 'COFFEE_TYPE2', 'COFFEE_TYPE3', 'COFFEE_TYPE4'];
+    var keys = ['CUSTOM_N', 'COFFEE_ON', 'COFFEE_N', 'COFFEE_TYPE1', 'COFFEE_TYPE2', 'COFFEE_TYPE3', 'COFFEE_TYPE4'];
     for (var k = 0; k < keys.length; k++) {
       var it = clayConfig.getItemByMessageKey(keys[k]);
       if (it) it.on('change', apply);

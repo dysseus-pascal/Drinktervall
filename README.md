@@ -48,6 +48,16 @@ Erinnerung stammen aus einem Testbuild mit Zeitlupe und Wakeup nach 60 s).
 
 ## Bedienung
 
+**Tasten auf dem Hauptscreen:** oben die Getränkeauswahl, Mitte kurz ein Glas
+Wasser, Mitte lang der Trinkplan, unten das Tagesziel höher. In der
+Seitenleiste steht oben ein Becher für die Getränkeauswahl.
+
+**Getränkeauswahl** - für alles ausserhalb des Plans. Oben die eingestellten
+Kaffees genau wie im Plan (ein Druck trägt ein), dann die eigenen Getränke,
+dann die vier Sorten. Nach einer Sorte folgen Milch (nur beim Kaffee) und
+Zucker zum Abhaken; die Auswahl steht schon auf "Eintragen". Danach läuft die
+Animation des Gefässes, und der Eintrag geht wie beim Kaffee ans Telefon.
+
 **Hauptscreen** - im Stil der Pebble-Timeline: weisser Grund, schwarze Schrift,
 rechts die dunkelblaue Seitenleiste mit dem Glas-Symbol oben und den
 Tasten-Hinweisen. Aufgebaut wie ein Timeline-Eintrag: kleine Uhrzeit, die
@@ -179,6 +189,17 @@ Bits, Milch `0x10`, Zucker `0x20`). Eine Companion-App rechnet daraus Koffein
 und kcal. Der Plan selbst geht als `COFFEE` hin und her: ein Byte Anzahl, dann
 je Kaffee Minute des Tages (2 Byte, little endian), Sorte, Flags (Milch 1,
 Zucker 2). Aus ist ein einzelnes Null-Byte.
+
+### Eigene Getränke
+
+Darunter lassen sich bis zu drei eigene Getränke anlegen: Name (bis 15
+Zeichen), kcal und Koffein in mg. Sie stehen nur in der Getränkeauswahl, nicht
+im Plan. Ihre Animation ist das Glas, hellgrün und mit Trinkhalm.
+
+An die Uhr gehen sie als `CUSTOM`, eine Zeile je Getränk: `Name|kcal|mg`.
+Ein eingetragenes eigenes Getränk reist als `COFFEE_KIND` 4 mit `DRINK_NAME`,
+`DRINK_KCAL` und `DRINK_MG` - mit den Werten von dem Moment, in dem es
+getrunken wurde.
 
 ## Zeitplan
 

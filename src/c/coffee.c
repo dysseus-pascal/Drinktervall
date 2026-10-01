@@ -22,7 +22,66 @@ static int prv_parse(const uint8_t *buf, int len, CoffeeSlot *out) {
   return n;
 }
 
+static CustomDrink s_custom[DT_CUSTOM_MAX];
+static int s_custom_count;
+
+static void prv_custom_load(void) {
+  s_custom_count = 0;
+  if (!persist_exists(DT_PERSIST_CUSTOM)) return;
+  const int n = persist_read_data(DT_PERSIST_CUSTOM, s_custom, sizeof(s_custom));
+  if (n > 0) s_custom_count = n / (int)sizeof(CustomDrink);
+  for (int i = 0; i < s_custom_count; i++) s_custom[i].name[DT_CUSTOM_NAME - 1] = 0;
+}
+
+int custom_count(void) {
+  return s_custom_count;
+}
+
+const CustomDrink *custom_drink(int idx) {
+  return (idx >= 0 && idx < s_custom_count) ? &s_custom[idx] : NULL;
+}
+
+// Zeilen "Name|kcal|mg". Ohne Namen zaehlt eine Zeile nicht - auf der Uhr
+// waere sie eine leere Zeile in der Liste.
+bool custom_from_string(const char *text) {
+  CustomDrink neu[DT_CUSTOM_MAX];
+  memset(neu, 0, sizeof(neu));
+  int n = 0;
+  const char *p = text;
+  while (*p && n < DT_CUSTOM_MAX) {
+    const char *ende = strchr(p, '\n');
+    if (!ende) ende = p + strlen(p);
+    const char *a = memchr(p, '|', ende - p);
+    const char *b = a ? memchr(a + 1, '|', ende - a - 1) : NULL;
+    if (a && b && a > p) {
+      size_t l = (size_t)(a - p);
+      if (l > DT_CUSTOM_NAME - 1) l = DT_CUSTOM_NAME - 1;
+      memcpy(neu[n].name, p, l);
+      neu[n].kcal = (uint16_t)atoi(a + 1);
+      neu[n].mg = (uint16_t)atoi(b + 1);
+      n++;
+    }
+    p = *ende ? ende + 1 : ende;
+  }
+  if (n == s_custom_count && memcmp(neu, s_custom, n * sizeof(CustomDrink)) == 0) return false;
+  memcpy(s_custom, neu, sizeof(neu));
+  s_custom_count = n;
+  if (n) persist_write_data(DT_PERSIST_CUSTOM, s_custom, n * sizeof(CustomDrink));
+  else persist_delete(DT_PERSIST_CUSTOM);
+  return true;
+}
+
+void custom_to_string(char *buf, size_t len) {
+  buf[0] = 0;
+  for (int i = 0; i < s_custom_count; i++) {
+    const size_t l = strlen(buf);
+    snprintf(buf + l, len - l, "%s%s|%d|%d", i ? "\n" : "", s_custom[i].name,
+             (int)s_custom[i].kcal, (int)s_custom[i].mg);
+  }
+}
+
 void coffee_init(void) {
+  prv_custom_load();
   s_count = 0;
   if (!persist_exists(DT_PERSIST_COFFEE)) return;
   uint8_t buf[COFFEE_BYTES_MAX];
@@ -86,6 +145,7 @@ void coffee_describe(const CoffeeSlot *slot, char *buf, size_t len) {
 
 Vessel coffee_vessel(const CoffeeSlot *slot) {
   switch (slot->kind) {
+    case COFFEE_KIND_CUSTOM: return VesselCustom;
     case CoffeeEspresso: return VesselEspresso;
     case CoffeeLatteMacchiato: return VesselLatte;
     case CoffeeEnergyDrink: return VesselCan;

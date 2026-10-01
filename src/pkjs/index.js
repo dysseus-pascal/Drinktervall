@@ -51,6 +51,8 @@ var ANIM_KEY = 'drinktervall_animation';
 // Grund wie das Soll.
 var COFFEE_KEY = 'drinktervall_coffee';
 var COFFEE_MILK = 1, COFFEE_SUGAR = 2, COFFEE_PLAIN = 1;
+// Eigene Getraenke, wie sie an die Uhr gehen: je Zeile "Name|kcal|mg".
+var CUSTOM_KEY = 'drinktervall_custom';
 
 // DIE UHR IST DIE EINE STELLE, AN DER DIE EINSTELLUNGEN GELTEN. Geaendert
 // werden sie hier auf der Konfigseite ODER in Kiesel-Helper; beide schicken an
@@ -107,6 +109,38 @@ function coffeeToClay(bytes, clay) {
   }
 }
 
+// Die eigenen Getraenke aus den Feldern. Ohne Namen zaehlt ein Getraenk
+// nicht; "|" und Zeilenumbruch im Namen wuerden die Zeile zerlegen.
+function customText(dict) {
+  var n = parseInt(dict.CUSTOM_N && dict.CUSTOM_N.value, 10) || 0;
+  var zeilen = [];
+  for (var i = 1; i <= n && i <= clayConfig.CUSTOM_MAX; i++) {
+    var name = String((dict['CUSTOM_NAME' + i] && dict['CUSTOM_NAME' + i].value) || '')
+      .replace(/[|\n\r]/g, ' ').trim().slice(0, 15);
+    if (!name) continue;
+    var kcal = Math.max(0, Math.min(2000, parseInt(dict['CUSTOM_KCAL' + i] && dict['CUSTOM_KCAL' + i].value, 10) || 0));
+    var mg = Math.max(0, Math.min(1000, parseInt(dict['CUSTOM_MG' + i] && dict['CUSTOM_MG' + i].value, 10) || 0));
+    zeilen.push(name + '|' + kcal + '|' + mg);
+  }
+  return zeilen.join('\n');
+}
+
+// Die eigenen Getraenke der Uhr in die Felder der Konfigseite.
+function customToClay(text, clay) {
+  var zeilen = text ? String(text).split('\n') : [];
+  clay.CUSTOM_N = String(zeilen.length);
+  zeilen.forEach(function (z, i) {
+    var f = z.split('|');
+    clay['CUSTOM_NAME' + (i + 1)] = f[0] || '';
+    clay['CUSTOM_KCAL' + (i + 1)] = f[1] || '0';
+    clay['CUSTOM_MG' + (i + 1)] = f[2] || '0';
+  });
+}
+
+function getCustom() {
+  try { var v = localStorage.getItem(CUSTOM_KEY); return v === null ? null : v; } catch (e) { return null; }
+}
+
 function getCoffee() {
   try {
     var v = JSON.parse(localStorage.getItem(COFFEE_KEY));
@@ -152,6 +186,10 @@ function adoptWatchSettings(p) {
     var bytes = Array.prototype.slice.call(p.COFFEE);
     try { localStorage.setItem(COFFEE_KEY, JSON.stringify(bytes)); } catch (e) {}
     coffeeToClay(bytes, clay);
+  }
+  if (p.CUSTOM !== undefined) {
+    try { localStorage.setItem(CUSTOM_KEY, String(p.CUSTOM)); } catch (e) {}
+    customToClay(p.CUSTOM, clay);
   }
   mergeClaySettings(clay);
 }
@@ -465,6 +503,10 @@ Pebble.addEventListener('webviewclosed', function (e) {
       console.log('Konfig: ungueltiges Soll ' + dict.TARGET.value + ' - verworfen');
     }
   }
+  if (dict.CUSTOM_N !== undefined) {
+    msg.CUSTOM = customText(dict);
+    try { localStorage.setItem(CUSTOM_KEY, msg.CUSTOM); } catch (err) {}
+  }
   if (dict.COFFEE_ON !== undefined) {
     msg.COFFEE = coffeeBytes(dict);
     try { localStorage.setItem(COFFEE_KEY, JSON.stringify(msg.COFFEE)); } catch (err) {}
@@ -494,6 +536,8 @@ Pebble.addEventListener('ready', function () {
     if (anim !== null) msg.ANIMATION = anim;
     var coffee = getCoffee();
     if (coffee !== null) msg.COFFEE = coffee;
+    var custom = getCustom();
+    if (custom !== null) msg.CUSTOM = custom;
   }
   Pebble.sendAppMessage(msg,
     function () { if (mitWerten) setPending(false); },
