@@ -1,7 +1,7 @@
 {
   "name": "drinktervall",
   "author": "dysseus-pascal",
-  "version": "1.16.2",
+  "version": "1.17.0",
   "license": "CC0-1.0",
   "keywords": [
     "pebble-app"
@@ -72,7 +72,13 @@
       "CUSTOM_MG2",
       "CUSTOM_NAME3",
       "CUSTOM_KCAL3",
-      "CUSTOM_MG3"
+      "CUSTOM_MG3",
+      "CUSTOM_REMIND1",
+      "CUSTOM_TIME1",
+      "CUSTOM_REMIND2",
+      "CUSTOM_TIME2",
+      "CUSTOM_REMIND3",
+      "CUSTOM_TIME3"
     ],
     "resources": {
       "media": [

@@ -19,7 +19,7 @@ static MenuLayer *s_list_menu, *s_extra_menu;
 static CoffeeSlot s_pick;    // die gewaehlte Sorte mit ihren Zusaetzen
 
 static const StringId s_kind_names[CoffeeKindCount] = {
-  STR_ESPRESSO, STR_COFFEE, STR_LATTE_MACCHIATO, STR_ENERGY_DRINK,
+  STR_ESPRESSO, STR_COFFEE, STR_TEA, STR_ENERGY_DRINK,
 };
 
 // Eine Zeile: Gefaess links, Text daneben. Auf dem runden Schirm weiter
@@ -76,7 +76,7 @@ static void prv_finish(const CoffeeSlot *slot) {
 // --- Zusaetze: Milch (nur Kaffee), Zucker, Eintragen ---
 
 static int prv_extra_rows(void) {
-  return s_pick.kind == CoffeeCoffee ? 3 : 2;
+  return coffee_milk_possible(s_pick.kind) ? 3 : 2;
 }
 
 static uint16_t prv_extra_num(MenuLayer *m, uint16_t section, void *ctx) {
@@ -94,7 +94,7 @@ static void prv_extra_draw(GContext *ctx, const Layer *cell, MenuIndex *i, void 
     prv_row(ctx, cell, v, S(STR_LOG), -1);
     return;
   }
-  // Beim Kaffee kommt zuerst die Milch, sonst gleich der Zucker.
+  // Zuerst die Milch, wo es sie gibt, sonst gleich der Zucker.
   const bool milk = rows == 3 && i->row == 0;
   const uint8_t bit = milk ? COFFEE_MILK : COFFEE_SUGAR;
   prv_row(ctx, cell, v, S(milk ? STR_MILK_ROW : STR_SUGAR_ROW), (s_pick.flags & bit) ? 1 : 0);

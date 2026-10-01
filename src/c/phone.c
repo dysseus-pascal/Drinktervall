@@ -299,7 +299,7 @@ static void prv_inbox_received(DictionaryIterator *iter, void *context) {
   Tuple *custom = dict_find(iter, MESSAGE_KEY_CUSTOM);
   if (custom && custom->type == TUPLE_CSTRING) {
     einstellung = true;
-    custom_from_string(custom->value->cstring);
+    if (custom_from_string(custom->value->cstring)) schedule_plan_wakeups(0, 0);
   }
 
   Tuple *target = dict_find(iter, MESSAGE_KEY_TARGET);

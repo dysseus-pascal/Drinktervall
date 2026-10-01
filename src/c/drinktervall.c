@@ -19,7 +19,9 @@ static bool s_launched_by_wakeup;
 // Welche Erinnerung ein Wecker meint, steht in seinem Cookie: Kaffees tragen
 // SCHEDULE_COOKIE_COFFEE + Platz, alles darunter ist Wasser.
 static void prv_remind(int32_t cookie) {
-  if (cookie >= SCHEDULE_COOKIE_COFFEE) {
+  if (cookie >= SCHEDULE_COOKIE_CUSTOM) {
+    coffee_window_push_custom((int)(cookie - SCHEDULE_COOKIE_CUSTOM));
+  } else if (cookie >= SCHEDULE_COOKIE_COFFEE) {
     coffee_window_push((int)(cookie - SCHEDULE_COOKIE_COFFEE));
   } else {
     reminder_window_push();

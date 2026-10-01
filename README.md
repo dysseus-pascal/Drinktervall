@@ -159,22 +159,20 @@ ganzen Weg auf der Telefonseite.
 
 Ganz unten auf der Seite steht ein Schalter **Kaffee-Erinnerungen**. Erst
 eingeschaltet erscheint die Frage, wie viele (1 bis 4), und dann je Kaffee eine
-Zeile mit Uhrzeit (Viertelstundenraster 5 bis 23 Uhr), Sorte und Zucker. Milch
-gibt es nur beim Kaffee: beim Espresso keine, beim Latte macchiato gehört sie
-zur Sorte.
+Zeile mit Uhrzeit (Viertelstundenraster 5 bis 23 Uhr), Sorte, Milch und
+Zucker. Milch gibt es zu allem ausser dem Energy-Drink.
 
 | Sorte | Nummer |
 |---|---|
 | Espresso | 0 |
 | Kaffee | 1 |
-| Latte macchiato | 2 |
+| Tee (bis 1.16 Latte macchiato) | 2 |
 | Energy-Drink | 3 |
 
 Jede Sorte hat ihr eigenes Gefäss im Stil des Glases, im Kopf der Erinnerung
 und in der Trink-Animation (`glass_fx.c`, `Vessel`): Espressotasse auf
-Untertasse, Kaffeebecher (mit Milch heller), hohes Latte-macchiato-Glas mit
-Milch, Kaffee, Schaum und Trinkhalm, und eine Dose in Blau-Silber mit gelber
-Sonne. In eine Dose sieht man nicht hinein, sie wird beim Trinken zerdrückt.
+Untertasse, Kaffeebecher, breite Teetasse mit Beutelschnur und Etikett (alle
+mit Milch heller), und eine Dose in Blau-Silber mit gelber Sonne. In eine Dose sieht man nicht hinein, sie wird beim Trinken zerdrückt.
 
 Zur Uhrzeit erscheint eine Erinnerung wie beim Wasser, mit Tasse statt Glas:
 Haken = getrunken, Zz = in zehn Minuten nochmals, Zurück = diesmal nicht. Die
@@ -192,10 +190,12 @@ Zucker 2). Aus ist ein einzelnes Null-Byte.
 ### Eigene Getränke
 
 Darunter lassen sich bis zu drei eigene Getränke anlegen: Name (bis 15
-Zeichen), kcal und Koffein in mg. Sie stehen nur in der Getränkeauswahl, nicht
-im Plan. Ihre Animation ist das Glas, hellgrün und mit Trinkhalm.
+Zeichen), kcal, Koffein in mg und auf Wunsch eine Erinnerungszeit. Mit Zeit
+erinnert die Uhr täglich wie beim Kaffee ("Time for Proteinshake!"), sonst
+steht das Getränk nur in der Getränkeauswahl. Ihre Animation ist das Glas, hellgrün und mit Trinkhalm.
 
-An die Uhr gehen sie als `CUSTOM`, eine Zeile je Getränk: `Name|kcal|mg`.
+An die Uhr gehen sie als `CUSTOM`, eine Zeile je Getränk: `Name|kcal|mg|Minute`
+(Minute des Tages, -1 ohne Erinnerung; ohne viertes Feld keine Erinnerung).
 Ein eingetragenes eigenes Getränk reist als `COFFEE_KIND` 4 mit `DRINK_NAME`,
 `DRINK_KCAL` und `DRINK_MG` - mit den Werten von dem Moment, in dem es
 getrunken wurde.

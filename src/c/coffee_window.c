@@ -28,6 +28,21 @@ static GBitmap *s_icon_check, *s_icon_snooze;
 static AppTimer *s_vibe_timer, *s_close_timer;
 static int s_vibes_left;
 static int s_idx;
+// Erinnert das Fenster an ein eigenes Getraenk (s_idx zaehlt dann dort)?
+static bool s_eigen;
+
+// Das Gefaess: das eigene Getraenk im Glas mit Trinkhalm, sonst nach Sorte.
+static bool prv_da(void) {
+  return s_eigen ? custom_drink(s_idx) != NULL : coffee_slot(s_idx) != NULL;
+}
+
+static Vessel prv_gefaess(void) {
+  return s_eigen ? VesselCustom : coffee_vessel(coffee_slot(s_idx));
+}
+
+static int32_t prv_cookie(void) {
+  return (s_eigen ? SCHEDULE_COOKIE_CUSTOM : SCHEDULE_COOKIE_COFFEE) + s_idx;
+}
 static bool s_done;
 static uint16_t s_waited_ms;
 
@@ -36,7 +51,7 @@ static void prv_update(Layer *layer, GContext *ctx) {
   const bool wide = b.size.w >= 150;
   const int16_t margin = PBL_IF_ROUND_ELSE(40, 8);
   const int16_t head_h = wide ? 74 : 60;
-  const CoffeeSlot *slot = coffee_slot(s_idx);
+  const bool da = prv_da();
 
   graphics_context_set_text_color(ctx, DT_COLOR_TEXT);
   char clock[10];
@@ -47,8 +62,8 @@ static void prv_update(Layer *layer, GContext *ctx) {
   // Das Gefaess wie in der Animation, klein und still - wie das Glas in der
   // Wasser-Erinnerung.
   const int16_t cup_w = wide ? 36 : 28;
-  if (slot) glass_fx_draw_vessel_still(ctx, GPoint(margin + cup_w / 2, head_h / 2 + 8), cup_w,
-                                       coffee_vessel(slot));
+  if (da) glass_fx_draw_vessel_still(ctx, GPoint(margin + cup_w / 2, head_h / 2 + 8), cup_w,
+                                     prv_gefaess());
   graphics_draw_text(ctx, clock,
                      fonts_get_system_font(wide ? FONT_KEY_LECO_26_BOLD_NUMBERS_AM_PM
                                                 : FONT_KEY_LECO_20_BOLD_NUMBERS),
@@ -61,7 +76,11 @@ static void prv_update(Layer *layer, GContext *ctx) {
   const int16_t text_w = b.size.w - 2 * margin;
   int16_t y = head_h + 6;
   GFont title_font = fonts_get_system_font(wide ? FONT_KEY_GOTHIC_24_BOLD : FONT_KEY_GOTHIC_18_BOLD);
-  const char *title = s_done ? S(STR_ENJOY) : S(STR_COFFEE_TIME);
+  // Beim eigenen Getraenk steht sein Name im Aufruf: "Zeit fuer Proteinshake!"
+  char aufruf[48];
+  const CustomDrink *eigen = s_eigen ? custom_drink(s_idx) : NULL;
+  if (eigen) snprintf(aufruf, sizeof(aufruf), S(STR_TIME_FOR_FMT), eigen->name);
+  const char *title = s_done ? S(STR_ENJOY) : (eigen ? aufruf : S(STR_COFFEE_TIME));
   GRect title_box = GRect(margin, y, text_w, 90);
   GSize title_size = graphics_text_layout_get_content_size(title, title_font, title_box,
                                                            GTextOverflowModeWordWrap,
@@ -69,9 +88,9 @@ static void prv_update(Layer *layer, GContext *ctx) {
   graphics_draw_text(ctx, title, title_font, title_box, GTextOverflowModeWordWrap,
                      GTextAlignmentLeft, NULL);
   y += title_size.h + 4;
-  if (slot) {
+  if (da && !s_eigen) {
     char sub[40];
-    coffee_describe(slot, sub, sizeof(sub));
+    coffee_describe(coffee_slot(s_idx), sub, sizeof(sub));
     graphics_draw_text(ctx, sub, fonts_get_system_font(wide ? FONT_KEY_GOTHIC_18 : FONT_KEY_GOTHIC_14),
                        GRect(margin, y, text_w, 44), GTextOverflowModeWordWrap,
                        GTextAlignmentLeft, NULL);
@@ -107,16 +126,22 @@ static void prv_close(void *data) {
 // Getrunken: fuer die Akte vormerken, kurz bestaetigen, dann zu.
 static void prv_select(ClickRecognizerRef recognizer, void *context) {
   if (s_done) return;
-  const CoffeeSlot *slot = coffee_slot(s_idx);
-  if (slot) phone_note_coffee(slot->kind, slot->flags);
+  const bool da = prv_da();
+  if (s_eigen) {
+    const CustomDrink *d = custom_drink(s_idx);
+    if (d) phone_note_custom(d);
+  } else {
+    const CoffeeSlot *slot = coffee_slot(s_idx);
+    if (slot) phone_note_coffee(slot->kind, slot->flags);
+  }
   s_done = true;
   prv_cancel_vibes();
   drinktervall_buzz_short();
   phone_send_next();
   // MIT ANIMATION wie beim Glas: das Gefaess leert sich, das Trink-Fenster
   // wartet auf das Telefon und beendet die App. Ohne bleibt "Enjoy!" stehen.
-  if (slot && schedule_animation()) {
-    drink_window_push_vessel(true, coffee_vessel(slot));
+  if (da && schedule_animation()) {
+    drink_window_push_vessel(true, prv_gefaess());
     window_stack_remove(s_window, false);
     return;
   }
@@ -128,7 +153,7 @@ static void prv_select(ClickRecognizerRef recognizer, void *context) {
 // Spaeter: in DT_SNOOZE_MIN Minuten dieselbe Kaffee-Erinnerung nochmals.
 static void prv_down(ClickRecognizerRef recognizer, void *context) {
   if (s_done) return;
-  schedule_plan_wakeups(time(NULL) + DT_SNOOZE_MIN * 60, SCHEDULE_COOKIE_COFFEE + s_idx);
+  schedule_plan_wakeups(time(NULL) + DT_SNOOZE_MIN * 60, prv_cookie());
   prv_cancel_vibes();
   window_stack_pop_all(false);
 }
@@ -183,23 +208,25 @@ static void prv_unload(Window *window) {
   s_canvas = NULL;
 }
 
-void coffee_window_push(int idx) {
+static void prv_push(int idx, bool eigen) {
   // Ein Platz, den es nicht mehr gibt (Plan geaendert, Wecker noch alt):
   // dann keine Erinnerung statt einer leeren.
-  if (!coffee_slot(idx)) {
+  if (eigen ? !custom_drink(idx) : !coffee_slot(idx)) {
     drinktervall_reminder_closed();
     return;
   }
   if (s_window) {
-    // Schon offen: auf den neuen Kaffee umstellen und neu vibrieren.
+    // Schon offen: auf das neue Getraenk umstellen und neu vibrieren.
     if (s_done) return;
     s_idx = idx;
+    s_eigen = eigen;
     s_vibes_left = VIBE_REPEATS;
     if (!s_vibe_timer) prv_vibe(NULL);
     layer_mark_dirty(s_canvas);
     return;
   }
   s_idx = idx;
+  s_eigen = eigen;
   s_done = false;
   s_window = window_create();
   window_set_background_color(s_window, DT_COLOR_BG);
@@ -207,4 +234,12 @@ void coffee_window_push(int idx) {
     .load = prv_load, .unload = prv_unload,
   });
   window_stack_push(s_window, true);
+}
+
+void coffee_window_push(int idx) {
+  prv_push(idx, false);
+}
+
+void coffee_window_push_custom(int idx) {
+  prv_push(idx, true);
 }

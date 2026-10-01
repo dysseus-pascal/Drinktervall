@@ -9,9 +9,11 @@ typedef void (*GlassFxDone)(void);
 typedef enum {
   VesselGlass = 0,      //< Wasser
   VesselEspresso,       //< kleine Tasse auf Untertasse
+  VesselEspressoMilk,   //< dieselbe, mit Milch heller
   VesselCoffee,         //< Becher mit Henkel, schwarz
   VesselCoffeeMilk,     //< derselbe Becher, mit Milch heller
-  VesselLatte,          //< hohes Glas: Milch, Kaffee, Schaum, Trinkhalm
+  VesselTea,            //< breite Teetasse mit Beutelschnur und Etikett
+  VesselTeaMilk,        //< dieselbe, mit Milch heller
   VesselCan,            //< Dose in Blau-Silber mit Sonne; wird beim Trinken zerdrueckt
   VesselCustom,         //< eigenes Getraenk: das Glas, farbig, mit Trinkhalm
 } Vessel;

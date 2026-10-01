@@ -213,7 +213,7 @@ typedef struct {
 
 // Die naechsten Termine aus Wasser und Kaffee, nach Zeit geordnet. Bis drei
 // Tage voraus: mehr als acht Wecker kann die App ohnehin nicht stellen.
-#define TERMINE_MAX (3 * (DT_GLASSES_MAX + DT_COFFEE_MAX))
+#define TERMINE_MAX (3 * (DT_GLASSES_MAX + DT_COFFEE_MAX + DT_CUSTOM_MAX))
 
 static int prv_termine(time_t now, Termin *out) {
   int n = 0;
@@ -227,6 +227,10 @@ static int prv_termine(time_t now, Termin *out) {
     for (int k = 0; k < coffee_count(); k++) {
       const time_t t = coffee_time(m, k);
       if (t > now + LEAD_S) out[n++] = (Termin){ t, SCHEDULE_COOKIE_COFFEE + k };
+    }
+    for (int k = 0; k < custom_count(); k++) {
+      const time_t t = custom_time(m, k);
+      if (t > now + LEAD_S) out[n++] = (Termin){ t, SCHEDULE_COOKIE_CUSTOM + k };
     }
   }
   // Einfuegesortierung: hoechstens sechzig Eintraege, und die Wasser-Slots

@@ -54,6 +54,8 @@ int schedule_next(time_t now, time_t *when);
 // Cookies der Wecker fuer Kaffees: SCHEDULE_COOKIE_COFFEE + Platz. Darunter
 // liegen die Glaeser (0..DT_GLASSES_MAX-1) und das "Spaeter" fuers Wasser.
 #define SCHEDULE_COOKIE_COFFEE 200
+// Und eigene Getraenke mit Erinnerung: SCHEDULE_COOKIE_CUSTOM + Platz.
+#define SCHEDULE_COOKIE_CUSTOM 300
 
 // Alle Wakeups neu planen: optional zuerst ein Snooze-Wakeup mit `snooze_cookie`,
 // dann die naechsten Termine aus Wasser und Kaffee bis zum Limit von 8.

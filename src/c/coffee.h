@@ -12,7 +12,8 @@
 typedef enum {
   CoffeeEspresso = 0,
   CoffeeCoffee,
-  CoffeeLatteMacchiato,
+  // Bis 1.16 stand hier der Latte macchiato; seit 1.17 ist Platz 2 der Tee.
+  CoffeeTea,
   CoffeeEnergyDrink,
   CoffeeKindCount,
 } CoffeeKind;
@@ -49,7 +50,10 @@ bool coffee_from_bytes(const uint8_t *buf, int len);
 // "Espresso", "Coffee, milk, sugar" - fuer die Erinnerung.
 void coffee_describe(const CoffeeSlot *slot, char *buf, size_t len);
 
-// Das Gefaess der Animation zu diesem Kaffee: Kaffee mit Milch ist heller.
+// Milch gibt es zu allem ausser dem Energy-Drink.
+bool coffee_milk_possible(uint8_t kind);
+
+// Das Gefaess der Animation zu diesem Kaffee: mit Milch ist er heller.
 Vessel coffee_vessel(const CoffeeSlot *slot);
 
 // --- Eigene Getraenke ---
@@ -57,12 +61,18 @@ typedef struct {
   char name[DT_CUSTOM_NAME];
   uint16_t kcal;
   uint16_t mg;       //< Koffein
+  int16_t minute;    //< Erinnerung, Minute des Tages; -1 = keine
 } CustomDrink;
+
+// Zeitpunkt der Erinnerung an das eigene Getraenk `idx`, 0 ohne Erinnerung.
+time_t custom_time(time_t midnight, int idx);
 
 int custom_count(void);
 const CustomDrink *custom_drink(int idx);
 
-// Als Text zwischen Uhr und Telefon: je Getraenk eine Zeile "Name|kcal|mg".
+// Als Text zwischen Uhr und Telefon: je Getraenk eine Zeile
+// "Name|kcal|mg|Minute", Minute -1 ohne Erinnerung. Ohne viertes Feld (bis
+// 1.16) gibt es keine Erinnerung.
 // Rueckgabe von from: true, wenn sich etwas geaendert hat.
 bool custom_from_string(const char *text);
 void custom_to_string(char *buf, size_t len);

@@ -61,7 +61,7 @@ var TEXT = [
     coffeeSlot: 'Coffee',
     coffeeTime: 'When',
     coffeeType: 'What',
-    coffeeTypes: ['Espresso', 'Coffee', 'Latte macchiato', 'Energy drink'],
+    coffeeTypes: ['Espresso', 'Coffee', 'Tea', 'Energy drink'],
     coffeeMilk: 'Milk',
     coffeeSugar: 'Sugar',
     customSection: 'Own drinks',
@@ -71,6 +71,8 @@ var TEXT = [
     customNamePh: 'e.g. Smoothie',
     customKcal: 'kcal',
     customMg: 'Caffeine (mg)',
+    customRemind: 'Reminder',
+    customTime: 'When',
     submit: 'Save'
   },
   {
@@ -108,7 +110,7 @@ var TEXT = [
     coffeeSlot: 'Kaffee',
     coffeeTime: 'Wann',
     coffeeType: 'Was',
-    coffeeTypes: ['Espresso', 'Kaffee', 'Latte macchiato', 'Energy-Drink'],
+    coffeeTypes: ['Espresso', 'Kaffee', 'Tee', 'Energy-Drink'],
     coffeeMilk: 'Milch',
     coffeeSugar: 'Zucker',
     customSection: 'Eigene Getränke',
@@ -118,6 +120,8 @@ var TEXT = [
     customNamePh: 'z. B. Smoothie',
     customKcal: 'kcal',
     customMg: 'Koffein (mg)',
+    customRemind: 'Erinnerung',
+    customTime: 'Wann',
     submit: 'Speichern'
   },
   {
@@ -154,7 +158,7 @@ var TEXT = [
     coffeeSlot: 'Café',
     coffeeTime: 'Quand',
     coffeeType: 'Quoi',
-    coffeeTypes: ['Espresso', 'Café', 'Latte macchiato', 'Boisson énergisante'],
+    coffeeTypes: ['Espresso', 'Café', 'Thé', 'Boisson énergisante'],
     coffeeMilk: 'Lait',
     coffeeSugar: 'Sucre',
     customSection: 'Boissons perso',
@@ -164,6 +168,8 @@ var TEXT = [
     customNamePh: 'p. ex. smoothie',
     customKcal: 'kcal',
     customMg: 'Caféine (mg)',
+    customRemind: 'Rappel',
+    customTime: 'Quand',
     submit: 'Enregistrer'
   },
   {
@@ -200,7 +206,7 @@ var TEXT = [
     coffeeSlot: 'Caffè',
     coffeeTime: 'Quando',
     coffeeType: 'Cosa',
-    coffeeTypes: ['Espresso', 'Caffè', 'Latte macchiato', 'Energy drink'],
+    coffeeTypes: ['Espresso', 'Caffè', 'Tè', 'Energy drink'],
     coffeeMilk: 'Latte',
     coffeeSugar: 'Zucchero',
     customSection: 'Bevande tue',
@@ -210,6 +216,8 @@ var TEXT = [
     customNamePh: 'es. smoothie',
     customKcal: 'kcal',
     customMg: 'Caffeina (mg)',
+    customRemind: 'Promemoria',
+    customTime: 'Quando',
     submit: 'Salva'
   },
   {
@@ -245,7 +253,7 @@ var TEXT = [
     coffeeSlot: 'Café',
     coffeeTime: 'Cuándo',
     coffeeType: 'Qué',
-    coffeeTypes: ['Espresso', 'Café', 'Latte macchiato', 'Bebida energética'],
+    coffeeTypes: ['Espresso', 'Café', 'Té', 'Bebida energética'],
     coffeeMilk: 'Leche',
     coffeeSugar: 'Azúcar',
     customSection: 'Bebidas propias',
@@ -255,6 +263,8 @@ var TEXT = [
     customNamePh: 'p. ej. batido',
     customKcal: 'kcal',
     customMg: 'Cafeína (mg)',
+    customRemind: 'Aviso',
+    customTime: 'Cuándo',
     submit: 'Guardar'
   }
 ];
@@ -264,7 +274,7 @@ var TEXT = [
 // Nummer geht an die Uhr und von dort an die Companion-App.
 var COFFEE_MAX = 4;
 var COFFEE_DEFAULT_TIMES = [420, 600, 840, 960];   // 07:00, 10:00, 14:00, 16:00
-var COFFEE_PLAIN = '1';                             // Kaffee: nur er hat Milch zur Wahl
+var COFFEE_ENERGY = '3';                            // Milch zu allem ausser dem Energy-Drink
 
 // Viertelstundenraster von 5 bis 23 Uhr: Kaffee hat feste Gewohnheiten, aber
 // nicht nur zur vollen und halben Stunde.
@@ -290,7 +300,7 @@ function coffeeSlot(t, n) {
       },
       {
         type: 'select', messageKey: 'COFFEE_TYPE' + n, label: t.coffeeType,
-        defaultValue: COFFEE_PLAIN,
+        defaultValue: '1',
         options: t.coffeeTypes.map(function (name, i) { return { label: name, value: String(i) }; })
       },
       { type: 'toggle', messageKey: 'COFFEE_MILK' + n, label: t.coffeeMilk, defaultValue: false },
@@ -313,7 +323,12 @@ function customSlot(t, n) {
       { type: 'input', messageKey: 'CUSTOM_KCAL' + n, label: t.customKcal,
         attributes: { type: 'number', min: 0, max: 2000, placeholder: '0' } },
       { type: 'input', messageKey: 'CUSTOM_MG' + n, label: t.customMg,
-        attributes: { type: 'number', min: 0, max: 1000, placeholder: '0' } }
+        attributes: { type: 'number', min: 0, max: 1000, placeholder: '0' } },
+      { type: 'toggle', messageKey: 'CUSTOM_REMIND' + n, label: t.customRemind, defaultValue: false },
+      {
+        type: 'select', messageKey: 'CUSTOM_TIME' + n, label: t.customTime,
+        defaultValue: '960', options: coffeeTimes()
+      }
     ]
   };
 }
@@ -454,6 +469,10 @@ module.exports.custom = function () {
     for (var c = 1; c <= 3; c++) {
       var cb = cusbox(c);
       if (cb) { if (c <= eigene) cb.classList.remove('hide'); else cb.classList.add('hide'); }
+      // Die Zeit nur, wenn die Erinnerung an ist.
+      var erinnern = clayConfig.getItemByMessageKey('CUSTOM_REMIND' + c);
+      var zeit = clayConfig.getItemByMessageKey('CUSTOM_TIME' + c);
+      if (zeit) { if (erinnern && on(erinnern.get())) zeit.show(); else zeit.hide(); }
     }
     var schalter = clayConfig.getItemByMessageKey('COFFEE_ON');
     var aktiv = schalter ? on(schalter.get()) : false;
@@ -469,13 +488,14 @@ module.exports.custom = function () {
       }
       var art = clayConfig.getItemByMessageKey('COFFEE_TYPE' + i);
       var milch = clayConfig.getItemByMessageKey('COFFEE_MILK' + i);
-      if (milch) { if (art && art.get() === '1') milch.show(); else milch.hide(); }
+      // Milch zu allem ausser dem Energy-Drink (Sorte 3).
+      if (milch) { if (art && art.get() !== '3') milch.show(); else milch.hide(); }
     }
   }
 
   clayConfig.on(clayConfig.EVENTS.AFTER_BUILD, function () {
     apply();
-    var keys = ['CUSTOM_N', 'COFFEE_ON', 'COFFEE_N', 'COFFEE_TYPE1', 'COFFEE_TYPE2', 'COFFEE_TYPE3', 'COFFEE_TYPE4'];
+    var keys = ['CUSTOM_N', 'CUSTOM_REMIND1', 'CUSTOM_REMIND2', 'CUSTOM_REMIND3', 'COFFEE_ON', 'COFFEE_N', 'COFFEE_TYPE1', 'COFFEE_TYPE2', 'COFFEE_TYPE3', 'COFFEE_TYPE4'];
     for (var k = 0; k < keys.length; k++) {
       var it = clayConfig.getItemByMessageKey(keys[k]);
       if (it) it.on('change', apply);

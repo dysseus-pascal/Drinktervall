@@ -44,6 +44,7 @@
 #define DT_PERSIST_SNOOZE  10  // ein offenes "Spaeter": Zeitpunkt und Cookie (schedule.c)
 #define DT_PERSIST_CUSTOM  11  // eigene Getraenke: Name, kcal, Koffein (coffee.c)
 #define DT_PERSIST_COFFEE_QUEUE2 12 // Kaffee-Schlange seit 1.16 (mit eigenem Getraenk)
+#define DT_PERSIST_CUSTOM2 13  // eigene Getraenke seit 1.17, mit Erinnerungszeit
 
 // Eigene Getraenke: von Hand auf der Konfigseite angelegt, auf der Uhr nur
 // zum Eintragen. Drei reichen fuer die Gewohnheiten neben dem Kaffee.

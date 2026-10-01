@@ -50,8 +50,9 @@ var ANIM_KEY = 'drinktervall_animation';
 // Sorte, Flags] - siehe src/c/coffee.h. Als JSON-Feld gemerkt, aus demselben
 // Grund wie das Soll.
 var COFFEE_KEY = 'drinktervall_coffee';
-var COFFEE_MILK = 1, COFFEE_SUGAR = 2, COFFEE_PLAIN = 1;
-// Eigene Getraenke, wie sie an die Uhr gehen: je Zeile "Name|kcal|mg".
+var COFFEE_MILK = 1, COFFEE_SUGAR = 2, COFFEE_ENERGY = 3;
+// Eigene Getraenke, wie sie an die Uhr gehen: je Zeile "Name|kcal|mg|Minute",
+// Minute -1 ohne Erinnerung.
 var CUSTOM_KEY = 'drinktervall_custom';
 
 // DIE UHR IST DIE EINE STELLE, AN DER DIE EINSTELLUNGEN GELTEN. Geaendert
@@ -73,8 +74,8 @@ function setPending(on) {
 }
 
 // Den Kaffeeplan aus den Feldern der Konfigseite bauen. Aus heisst ein
-// einzelnes Null-Byte; Milch zaehlt nur beim Kaffee, auch wenn der Schalter
-// einer anderen Sorte noch von frueher an ist.
+// einzelnes Null-Byte; Milch zaehlt nicht beim Energy-Drink, auch wenn sein
+// Schalter noch von frueher an ist.
 function coffeeBytes(dict) {
   var out = [0];
   if (!dict.COFFEE_ON || !truthy(dict.COFFEE_ON.value)) return out;
@@ -85,7 +86,7 @@ function coffeeBytes(dict) {
     var art = parseInt(dict['COFFEE_TYPE' + i] && dict['COFFEE_TYPE' + i].value, 10);
     if (!(zeit >= 0 && zeit < 1440) || !(art >= 0 && art <= 3)) continue;
     var flags = 0;
-    if (art === COFFEE_PLAIN && dict['COFFEE_MILK' + i] && truthy(dict['COFFEE_MILK' + i].value)) flags |= COFFEE_MILK;
+    if (art !== COFFEE_ENERGY && dict['COFFEE_MILK' + i] && truthy(dict['COFFEE_MILK' + i].value)) flags |= COFFEE_MILK;
     if (dict['COFFEE_SUGAR' + i] && truthy(dict['COFFEE_SUGAR' + i].value)) flags |= COFFEE_SUGAR;
     out.push(zeit & 0xFF, zeit >> 8, art, flags);
     out[0] += 1;
@@ -120,7 +121,10 @@ function customText(dict) {
     if (!name) continue;
     var kcal = Math.max(0, Math.min(2000, parseInt(dict['CUSTOM_KCAL' + i] && dict['CUSTOM_KCAL' + i].value, 10) || 0));
     var mg = Math.max(0, Math.min(1000, parseInt(dict['CUSTOM_MG' + i] && dict['CUSTOM_MG' + i].value, 10) || 0));
-    zeilen.push(name + '|' + kcal + '|' + mg);
+    var erinnern = dict['CUSTOM_REMIND' + i] && truthy(dict['CUSTOM_REMIND' + i].value);
+    var minute = parseInt(dict['CUSTOM_TIME' + i] && dict['CUSTOM_TIME' + i].value, 10);
+    if (!erinnern || !(minute >= 0 && minute < 1440)) minute = -1;
+    zeilen.push(name + '|' + kcal + '|' + mg + '|' + minute);
   }
   return zeilen.join('\n');
 }
@@ -134,6 +138,10 @@ function customToClay(text, clay) {
     clay['CUSTOM_NAME' + (i + 1)] = f[0] || '';
     clay['CUSTOM_KCAL' + (i + 1)] = f[1] || '0';
     clay['CUSTOM_MG' + (i + 1)] = f[2] || '0';
+    // Ohne viertes Feld (Uhr bis 1.16) oder mit -1: keine Erinnerung.
+    var minute = parseInt(f[3], 10);
+    clay['CUSTOM_REMIND' + (i + 1)] = minute >= 0;
+    if (minute >= 0) clay['CUSTOM_TIME' + (i + 1)] = String(minute);
   });
 }
 

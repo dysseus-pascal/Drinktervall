@@ -386,9 +386,9 @@ console.log('\nKaffeezeiten');
     COFFEE_TIME2: '840', COFFEE_TYPE2: '1', COFFEE_MILK2: true, COFFEE_SUGAR2: false,
     COFFEE_TIME3: '900', COFFEE_TYPE3: '3', COFFEE_MILK3: false, COFFEE_SUGAR3: true,
   }) });
-  // 07:15 Espresso mit Zucker (Milch zaehlt dort nicht), 14:00 Kaffee mit Milch.
+  // 07:15 Espresso mit Milch und Zucker (seit 1.17 hat jede Kaffeeart Milch), 14:00 Kaffee mit Milch.
   check('zwei Kaffees gehen als Bytes an die Uhr',
-        JSON.stringify(w.last().COFFEE) === JSON.stringify([2, 435 & 255, 435 >> 8, 0, 2, 840 & 255, 840 >> 8, 1, 1]),
+        JSON.stringify(w.last().COFFEE) === JSON.stringify([2, 435 & 255, 435 >> 8, 0, 3, 840 & 255, 840 >> 8, 1, 1]),
         JSON.stringify(w.last()));
   check('und werden gemerkt', w.store.drinktervall_coffee === JSON.stringify(w.last().COFFEE), w.store.drinktervall_coffee);
 }
@@ -417,7 +417,7 @@ console.log('\nEigene Getraenke');
     CUSTOM_N: '2', CUSTOM_NAME1: 'Smoothie', CUSTOM_KCAL1: '180', CUSTOM_MG1: '',
     CUSTOM_NAME2: 'Ma|te', CUSTOM_KCAL2: '20', CUSTOM_MG2: '80', CUSTOM_NAME3: 'Cola', CUSTOM_KCAL3: '140',
   }) });
-  check('zwei Getraenke als Zeilen, | im Namen ersetzt', w.last().CUSTOM === 'Smoothie|180|0\nMa te|20|80', JSON.stringify(w.last()));
+  check('zwei Getraenke als Zeilen, | im Namen ersetzt', w.last().CUSTOM === 'Smoothie|180|0|-1\nMa te|20|80|-1', JSON.stringify(w.last()));
 }
 {
   const w = world();
@@ -430,6 +430,21 @@ console.log('\nEigene Getraenke');
   const clay = JSON.parse(w.store['clay-settings'] || '{}');
   check('Getraenke der Uhr landen auf der Seite',
         clay.CUSTOM_N === '1' && clay.CUSTOM_NAME1 === 'Smoothie' && clay.CUSTOM_KCAL1 === '180', JSON.stringify(clay));
+}
+
+{
+  const w = world();
+  w.fire('webviewclosed', { response: JSON.stringify({
+    CUSTOM_N: '1', CUSTOM_NAME1: 'Proteinshake', CUSTOM_KCAL1: '120', CUSTOM_MG1: '0',
+    CUSTOM_REMIND1: true, CUSTOM_TIME1: '1020',
+    COFFEE_ON: true, COFFEE_N: '1', COFFEE_TIME1: '420', COFFEE_TYPE1: '3', COFFEE_MILK1: true, COFFEE_SUGAR1: false,
+  }) });
+  check('Erinnerungszeit faehrt mit', w.last().CUSTOM === 'Proteinshake|120|0|1020', JSON.stringify(w.last()));
+  check('Energy-Drink ohne Milch', JSON.stringify(w.last().COFFEE) === JSON.stringify([1, 420 & 255, 420 >> 8, 3, 0]), JSON.stringify(w.last().COFFEE));
+  const w2 = world();
+  w2.fire('appmessage', { payload: { CUSTOM: 'Proteinshake|120|0|1020\nSmoothie|180|0' } });
+  const clay = JSON.parse(w2.store['clay-settings'] || '{}');
+  check('Erinnerung der Uhr landet auf der Seite', clay.CUSTOM_REMIND1 === true && clay.CUSTOM_TIME1 === '1020' && clay.CUSTOM_REMIND2 === false, JSON.stringify(clay));
 }
 
 console.log('\nFehler: ' + fails);

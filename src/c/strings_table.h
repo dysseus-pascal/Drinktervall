@@ -67,7 +67,9 @@ STR(STR_GLANCE_FMT,      48, "%d of %d glasses, next %s", "%d von %d Gläsern, n
 STR(STR_COFFEE_TIME,     0,  "Coffee time!",    "Zeit für einen Kaffee!", "C'est l'heure du café !", "È l'ora del caffè!", "¡Hora del café!")
 STR(STR_ESPRESSO,        0,  "Espresso",        "Espresso", "Espresso", "Espresso", "Espresso")
 STR(STR_COFFEE,          0,  "Coffee",          "Kaffee", "Café", "Caffè", "Café")
-STR(STR_LATTE_MACCHIATO, 0,  "Latte macchiato", "Latte macchiato", "Latte macchiato", "Latte macchiato", "Latte macchiato")
+STR(STR_TEA,             0,  "Tea",             "Tee", "Thé", "Tè", "Té")
+// Erinnerung an ein eigenes Getraenk: %s ist sein Name.
+STR(STR_TIME_FOR_FMT,    0,  "Time for %s!",    "Zeit für %s!", "C'est l'heure : %s !", "È l'ora: %s!", "¡Hora de %s!")
 STR(STR_ENERGY_DRINK,    0,  "Energy drink",    "Energy-Drink", "Boisson énergisante", "Energy drink", "Bebida energética")
 STR(STR_MILK,            0,  "milk",            "Milch", "lait", "latte", "leche")
 STR(STR_SUGAR,           0,  "sugar",           "Zucker", "sucre", "zucchero", "azúcar")
