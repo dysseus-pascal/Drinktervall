@@ -19,6 +19,20 @@ static int32_t prv_day_key(time_t t) {
   return (lt->tm_year + 1900) * 10000 + (lt->tm_mon + 1) * 100 + lt->tm_mday;
 }
 
+// Der Tag, zu dem Zaehler und Tagesziel gehoeren (JJJJMMTT). Geschrieben wird
+// immer DIESER Tag, nicht der der Uhr - steht die Uhr kurz falsch, soll sie
+// keinen falschen Tag in den Speicher tragen.
+static int32_t s_day;
+
+// Ein Datum davor hat die Uhr nicht: nach einem Neustart steht sie kurz so,
+// bis das Telefon die Zeit stellt.
+#define DT_TAG_PLAUSIBEL 20250101
+
+// Tage grob aus JJJJMMTT, nur fuer "mehr als zwei Tage auseinander".
+static int32_t prv_grob(int32_t key) {
+  return (key / 10000) * 372 + ((key / 100) % 100) * 31 + key % 100;
+}
+
 static int prv_clamp_target(int n) {
   if (n < DT_GLASSES_MIN) return DT_GLASSES_MIN;
   if (n > DT_GLASSES_MAX) return DT_GLASSES_MAX;
@@ -28,7 +42,20 @@ static int prv_clamp_target(int n) {
 void schedule_init(void) {
   const int32_t today = prv_day_key(time(NULL));
   // Ein fehlender Schluessel liest als 0 und ist damit nie ein JJJJMMTT-Datum.
-  const bool same_day = persist_read_int(DT_PERSIST_DAY) == today;
+  const int32_t stored_day = persist_read_int(DT_PERSIST_DAY);
+  // NEU IST EIN TAG NUR NACH VORN. Nach einem Firmware-Update oder Neustart
+  // steht die Uhr kurz auf einer alten Zeit, bis das Telefon sie stellt.
+  // Frueher galt jeder andere Tag als neuer: die Glaeser waren weg, und der
+  // falsche Tag stand im Speicher (01.10.2026, wie bei SupCycle).
+  // Liegt der gemerkte Tag dagegen weit voraus und geht die Uhr plausibel,
+  // war der gemerkte Tag falsch - dann gilt heute, die Werte bleiben.
+  bool same_day = stored_day >= today && stored_day != 0;
+  s_day = same_day ? stored_day : today;
+  if (same_day && stored_day > today && today >= DT_TAG_PLAUSIBEL &&
+      prv_grob(stored_day) - prv_grob(today) > 2) {
+    s_day = today;
+    persist_write_int(DT_PERSIST_DAY, s_day);
+  }
   // Fehlt das Soll (Erstinstallation oder Stand vor 1.7.0), liest es als 0 und
   // prv_clamp_target zoege es auf DT_GLASSES_MIN - gewollt ist die
   // Voreinstellung.
@@ -50,7 +77,7 @@ void schedule_init(void) {
   if (s_count < 0) s_count = 0;
   if (s_count > s_goal) s_count = s_goal;
   if (!same_day) {
-    persist_write_int(DT_PERSIST_DAY, today);
+    persist_write_int(DT_PERSIST_DAY, s_day);
     persist_write_int(DT_PERSIST_COUNT, 0);
     persist_write_int(DT_PERSIST_GOAL, s_target);
   }
@@ -71,7 +98,7 @@ bool schedule_set_target(int target) {
   // das Ziel faellt nie unter den Zaehler.
   s_goal = s_target > s_count ? s_target : s_count;
   if (s_goal > DT_GOAL_MAX) s_goal = DT_GOAL_MAX;
-  persist_write_int(DT_PERSIST_DAY, prv_day_key(time(NULL)));
+  persist_write_int(DT_PERSIST_DAY, s_day);
   persist_write_int(DT_PERSIST_GOAL, s_goal);
   return true;
 }
@@ -107,7 +134,7 @@ void schedule_set_count(int count) {
   if (count < 0) count = 0;
   if (count > s_goal) count = s_goal;
   s_count = count;
-  persist_write_int(DT_PERSIST_DAY, prv_day_key(time(NULL)));
+  persist_write_int(DT_PERSIST_DAY, s_day);
   persist_write_int(DT_PERSIST_COUNT, s_count);
 }
 
@@ -118,7 +145,7 @@ int schedule_goal(void) {
 void schedule_raise_goal(void) {
   if (s_goal >= DT_GOAL_MAX) return;
   s_goal++;
-  persist_write_int(DT_PERSIST_DAY, prv_day_key(time(NULL)));
+  persist_write_int(DT_PERSIST_DAY, s_day);
   persist_write_int(DT_PERSIST_GOAL, s_goal);
 }
 
