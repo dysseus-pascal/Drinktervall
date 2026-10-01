@@ -97,7 +97,8 @@ Launcher zeigt "n von m Gläsern, nächste HH:MM".
 
 ## Einstellungen
 
-Die App-Einstellungen der Telefon-App (Clay) haben drei Knöpfe:
+Die App-Einstellungen der Telefon-App (Clay) haben drei Knöpfe, dazu die
+[Kaffeezeiten](#kaffeezeiten):
 
 | Knopf | Was er tut |
 |---|---|
@@ -144,6 +145,34 @@ klassische Companion-App.
 Grenzen und Voreinstellung stehen in `src/c/config.h` (`DT_GLASSES_MIN`,
 `DT_GLASSES_MAX`, `DT_GLASSES_DEFAULT`). `tools/pkjs_config_test.js` prüft den
 ganzen Weg auf der Telefonseite.
+
+### Kaffeezeiten
+
+Ganz unten auf der Seite steht ein Schalter **Kaffee-Erinnerungen**. Erst
+eingeschaltet erscheint die Frage, wie viele (1 bis 4), und dann je Kaffee eine
+Zeile mit Uhrzeit (Viertelstundenraster 5 bis 23 Uhr), Sorte und Zucker. Milch
+gibt es nur beim Kaffee: beim Espresso keine, beim Latte macchiato gehört sie
+zur Sorte.
+
+| Sorte | Nummer |
+|---|---|
+| Espresso | 0 |
+| Kaffee | 1 |
+| Latte macchiato | 2 |
+| Energy-Drink | 3 |
+
+Zur Uhrzeit erscheint eine Erinnerung wie beim Wasser, mit Tasse statt Glas:
+Haken = getrunken, Zz = in zehn Minuten nochmals, Zurück = diesmal nicht. Die
+festen Zeiten bekommen keinen Versatz; Wasser und Kaffee teilen sich die acht
+Wecker der App, es werden immer die nächsten acht Termine gestellt. Ein offenes
+"Später" überlebt das Neuplanen durch einen anderen Wecker.
+
+Ein getrunkener Kaffee geht wie ein Glas über eine Warteschlange im Persist ans
+Telefon: `COFFEE_AT` (Zeitpunkt) und `COFFEE_KIND` (Sorte in den unteren vier
+Bits, Milch `0x10`, Zucker `0x20`). Eine Companion-App rechnet daraus Koffein
+und kcal. Der Plan selbst geht als `COFFEE` hin und her: ein Byte Anzahl, dann
+je Kaffee Minute des Tages (2 Byte, little endian), Sorte, Flags (Milch 1,
+Zucker 2). Aus ist ein einzelnes Null-Byte.
 
 ## Zeitplan
 

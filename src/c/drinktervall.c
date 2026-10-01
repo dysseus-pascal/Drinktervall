@@ -3,6 +3,8 @@
 #include "schedule.h"
 #include "main_window.h"
 #include "reminder_window.h"
+#include "coffee_window.h"
+#include "coffee.h"
 #include "drink_window.h"
 #include "phone.h"
 #include "strings.h"
@@ -14,9 +16,19 @@
 
 static bool s_launched_by_wakeup;
 
+// Welche Erinnerung ein Wecker meint, steht in seinem Cookie: Kaffees tragen
+// SCHEDULE_COOKIE_COFFEE + Platz, alles darunter ist Wasser.
+static void prv_remind(int32_t cookie) {
+  if (cookie >= SCHEDULE_COOKIE_COFFEE) {
+    coffee_window_push((int)(cookie - SCHEDULE_COOKIE_COFFEE));
+  } else {
+    reminder_window_push();
+  }
+}
+
 static void prv_wakeup_handler(WakeupId id, int32_t cookie) {
-  reminder_window_push();
-  schedule_plan_wakeups(0);
+  prv_remind(cookie);
+  schedule_plan_wakeups(0, 0);
   phone_send_next();   // Timeline-Pins auf den neuen Stand bringen
 }
 
@@ -64,6 +76,7 @@ static void prv_init(void) {
   // Sprache der Uhr uebernehmen, bevor das erste Fenster Texte holt
   strings_refresh();
   schedule_init();
+  coffee_init();
   main_window_push();
 
   const AppLaunchReason reason = launch_reason();
@@ -71,7 +84,7 @@ static void prv_init(void) {
   int32_t cookie;
   if (reason == APP_LAUNCH_WAKEUP && wakeup_get_launch_event(&id, &cookie)) {
     s_launched_by_wakeup = true;
-    reminder_window_push();
+    prv_remind(cookie);
   } else if (reason == APP_LAUNCH_TIMELINE_ACTION && launch_get_args() == LAUNCH_CODE_DRUNK
              && schedule_count() < schedule_goal()) {
     // Aus einem Timeline-Pin: zaehlen, kurz zeigen, App wieder verlassen
@@ -83,7 +96,7 @@ static void prv_init(void) {
 
   wakeup_service_subscribe(prv_wakeup_handler);
   // Bei jedem Start neu planen: haelt die 8 Slots ueber Tagesgrenzen aktuell.
-  schedule_plan_wakeups(0);
+  schedule_plan_wakeups(0, 0);
   phone_init();
 }
 

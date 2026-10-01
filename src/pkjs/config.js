@@ -55,6 +55,15 @@ var TEXT = [
     everyHours: function (h) { return 'every ' + h + ' hours'; },
     everyMinutes: function (m) { return 'every ' + m + ' minutes'; },
     everyHm: function (h, m) { return 'every ' + h + ' h ' + m + ' min'; },
+    coffeeSection: 'Coffee',
+    coffeeOn: 'Coffee reminders',
+    coffeeCount: 'How many?',
+    coffeeSlot: 'Coffee',
+    coffeeTime: 'When',
+    coffeeType: 'What',
+    coffeeTypes: ['Espresso', 'Coffee', 'Latte macchiato', 'Energy drink'],
+    coffeeMilk: 'Milk',
+    coffeeSugar: 'Sugar',
     submit: 'Save'
   },
   {
@@ -86,6 +95,15 @@ var TEXT = [
     everyHours: function (h) { return 'alle ' + h + ' Stunden'; },
     everyMinutes: function (m) { return 'alle ' + m + ' Minuten'; },
     everyHm: function (h, m) { return 'alle ' + h + ' Std. ' + m + ' Min.'; },
+    coffeeSection: 'Kaffee',
+    coffeeOn: 'Kaffee-Erinnerungen',
+    coffeeCount: 'Wie viele?',
+    coffeeSlot: 'Kaffee',
+    coffeeTime: 'Wann',
+    coffeeType: 'Was',
+    coffeeTypes: ['Espresso', 'Kaffee', 'Latte macchiato', 'Energy-Drink'],
+    coffeeMilk: 'Milch',
+    coffeeSugar: 'Zucker',
     submit: 'Speichern'
   },
   {
@@ -116,6 +134,15 @@ var TEXT = [
     everyHours: function (h) { return 'toutes les ' + h + ' heures'; },
     everyMinutes: function (m) { return 'toutes les ' + m + ' minutes'; },
     everyHm: function (h, m) { return 'toutes les ' + h + ' h ' + m + ' min'; },
+    coffeeSection: 'Café',
+    coffeeOn: 'Rappels café',
+    coffeeCount: 'Combien\u00a0?',
+    coffeeSlot: 'Café',
+    coffeeTime: 'Quand',
+    coffeeType: 'Quoi',
+    coffeeTypes: ['Espresso', 'Café', 'Latte macchiato', 'Boisson énergisante'],
+    coffeeMilk: 'Lait',
+    coffeeSugar: 'Sucre',
     submit: 'Enregistrer'
   },
   {
@@ -146,6 +173,15 @@ var TEXT = [
     everyHours: function (h) { return 'ogni ' + h + ' ore'; },
     everyMinutes: function (m) { return 'ogni ' + m + ' minuti'; },
     everyHm: function (h, m) { return 'ogni ' + h + ' h ' + m + ' min'; },
+    coffeeSection: 'Caffè',
+    coffeeOn: 'Promemoria caffè',
+    coffeeCount: 'Quanti?',
+    coffeeSlot: 'Caffè',
+    coffeeTime: 'Quando',
+    coffeeType: 'Cosa',
+    coffeeTypes: ['Espresso', 'Caffè', 'Latte macchiato', 'Energy drink'],
+    coffeeMilk: 'Latte',
+    coffeeSugar: 'Zucchero',
     submit: 'Salva'
   },
   {
@@ -175,9 +211,58 @@ var TEXT = [
     everyHours: function (h) { return 'cada ' + h + ' horas'; },
     everyMinutes: function (m) { return 'cada ' + m + ' minutos'; },
     everyHm: function (h, m) { return 'cada ' + h + ' h ' + m + ' min'; },
+    coffeeSection: 'Café',
+    coffeeOn: 'Avisos de café',
+    coffeeCount: '¿Cuántos?',
+    coffeeSlot: 'Café',
+    coffeeTime: 'Cuándo',
+    coffeeType: 'Qué',
+    coffeeTypes: ['Espresso', 'Café', 'Latte macchiato', 'Bebida energética'],
+    coffeeMilk: 'Leche',
+    coffeeSugar: 'Azúcar',
     submit: 'Guardar'
   }
 ];
+
+// Kaffeezeiten: so viele Plaetze wie DT_COFFEE_MAX in src/c/config.h. Die
+// Sorten in derselben Reihenfolge wie CoffeeKind in src/c/coffee.h - die
+// Nummer geht an die Uhr und von dort an die Companion-App.
+var COFFEE_MAX = 4;
+var COFFEE_DEFAULT_TIMES = [420, 600, 840, 960];   // 07:00, 10:00, 14:00, 16:00
+var COFFEE_PLAIN = '1';                             // Kaffee: nur er hat Milch zur Wahl
+
+// Viertelstundenraster von 5 bis 23 Uhr: Kaffee hat feste Gewohnheiten, aber
+// nicht nur zur vollen und halben Stunde.
+function coffeeTimes() {
+  var out = [];
+  for (var m = 5 * 60; m < 23 * 60; m += 15) {
+    var h = Math.floor(m / 60), mm = m % 60;
+    out.push({ label: (h < 10 ? '0' : '') + h + ':' + (mm < 10 ? '0' : '') + mm, value: String(m) });
+  }
+  return out;
+}
+
+function coffeeSlot(t, n) {
+  return {
+    type: 'section',
+    // Die Kennung an der Ueberschrift, nicht an der Section: Clay verwirft
+    // die id einer Section (siehe custom unten).
+    items: [
+      { type: 'heading', id: 'cofhead' + n, defaultValue: t.coffeeSlot + ' ' + n },
+      {
+        type: 'select', messageKey: 'COFFEE_TIME' + n, label: t.coffeeTime,
+        defaultValue: String(COFFEE_DEFAULT_TIMES[n - 1]), options: coffeeTimes()
+      },
+      {
+        type: 'select', messageKey: 'COFFEE_TYPE' + n, label: t.coffeeType,
+        defaultValue: COFFEE_PLAIN,
+        options: t.coffeeTypes.map(function (name, i) { return { label: name, value: String(i) }; })
+      },
+      { type: 'toggle', messageKey: 'COFFEE_MILK' + n, label: t.coffeeMilk, defaultValue: false },
+      { type: 'toggle', messageKey: 'COFFEE_SUGAR' + n, label: t.coffeeSugar, defaultValue: false }
+    ]
+  };
+}
 
 // "8 Gläser · alle 90 Minuten" - der Abstand steht dabei, weil die blosse Zahl
 // nichts darueber sagt, wie oft es klopft.
@@ -250,6 +335,70 @@ module.exports = function (lang) {
         { type: 'text', defaultValue: t.quietNote }
       ]
     },
-    { type: 'submit', defaultValue: t.submit }
-  ];
+    {
+      type: 'section',
+      items: [
+        { type: 'heading', defaultValue: t.coffeeSection },
+        { type: 'toggle', messageKey: 'COFFEE_ON', label: t.coffeeOn, defaultValue: false },
+        {
+          type: 'select', messageKey: 'COFFEE_N', label: t.coffeeCount, defaultValue: '2',
+          options: [1, 2, 3, 4].map(function (n) { return { label: String(n), value: String(n) }; })
+        }
+      ]
+    }
+  ].concat([1, 2, 3, 4].map(function (n) { return coffeeSlot(t, n); }))
+   .concat([{ type: 'submit', defaultValue: t.submit }]);
+};
+
+module.exports.COFFEE_MAX = COFFEE_MAX;
+
+/**
+ * Laeuft IN DER KONFIGSEITE, nicht hier: Clay reicht diese Funktion in die
+ * Webansicht weiter. Sie darf deshalb nichts von aussen benutzen.
+ *
+ * Erst der Schalter, dann die Anzahl, dann so viele Kaffees - und Milch nur
+ * beim Kaffee: beim Espresso gibt es keine, beim Macchiato gehoert sie dazu.
+ */
+module.exports.custom = function () {
+  var clayConfig = this;
+  var MAX = 4;
+
+  // Clay legt Sections ohne id an; der Kasten wird ueber seine Ueberschrift
+  // gefunden und als Ganzes verborgen - sonst bliebe ein leerer grauer Rahmen.
+  function box(i) {
+    var head = clayConfig.getItemById('cofhead' + i);
+    if (!head || !head.$element || !head.$element[0]) return null;
+    var el = head.$element[0];
+    return el.closest ? el.closest('.section') : null;
+  }
+
+  function on(v) { return v === true || v === 1 || v === '1' || v === 'true'; }
+
+  function apply() {
+    var schalter = clayConfig.getItemByMessageKey('COFFEE_ON');
+    var aktiv = schalter ? on(schalter.get()) : false;
+    var anzahl = clayConfig.getItemByMessageKey('COFFEE_N');
+    if (anzahl) { if (aktiv) anzahl.show(); else anzahl.hide(); }
+    var n = anzahl ? parseInt(anzahl.get(), 10) : MAX;
+    if (!n || n < 1 || n > MAX) n = MAX;
+    for (var i = 1; i <= MAX; i++) {
+      var zeigen = aktiv && i <= n;
+      var b = box(i);
+      if (b) {
+        if (zeigen) b.classList.remove('hide'); else b.classList.add('hide');
+      }
+      var art = clayConfig.getItemByMessageKey('COFFEE_TYPE' + i);
+      var milch = clayConfig.getItemByMessageKey('COFFEE_MILK' + i);
+      if (milch) { if (art && art.get() === '1') milch.show(); else milch.hide(); }
+    }
+  }
+
+  clayConfig.on(clayConfig.EVENTS.AFTER_BUILD, function () {
+    apply();
+    var keys = ['COFFEE_ON', 'COFFEE_N', 'COFFEE_TYPE1', 'COFFEE_TYPE2', 'COFFEE_TYPE3', 'COFFEE_TYPE4'];
+    for (var k = 0; k < keys.length; k++) {
+      var it = clayConfig.getItemByMessageKey(keys[k]);
+      if (it) it.on('change', apply);
+    }
+  });
 };

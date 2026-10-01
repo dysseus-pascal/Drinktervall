@@ -1,7 +1,7 @@
 {
   "name": "drinktervall",
   "author": "dysseus-pascal",
-  "version": "1.13.0",
+  "version": "1.14.0",
   "license": "CC0-1.0",
   "keywords": [
     "pebble-app"
@@ -37,7 +37,28 @@
       "TARGET",
       "GLASS_ML",
       "DRANK_AT",
-      "ANIMATION"
+      "ANIMATION",
+      "COFFEE",
+      "COFFEE_AT",
+      "COFFEE_KIND",
+      "COFFEE_ON",
+      "COFFEE_N",
+      "COFFEE_TIME1",
+      "COFFEE_TYPE1",
+      "COFFEE_MILK1",
+      "COFFEE_SUGAR1",
+      "COFFEE_TIME2",
+      "COFFEE_TYPE2",
+      "COFFEE_MILK2",
+      "COFFEE_SUGAR2",
+      "COFFEE_TIME3",
+      "COFFEE_TYPE3",
+      "COFFEE_MILK3",
+      "COFFEE_SUGAR3",
+      "COFFEE_TIME4",
+      "COFFEE_TYPE4",
+      "COFFEE_MILK4",
+      "COFFEE_SUGAR4"
     ],
     "resources": {
       "media": [

@@ -1,9 +1,11 @@
 #include "schedule.h"
 #include "config.h"
+#include "coffee.h"
 
 #define MAX_WAKEUPS 8
 #define LEAD_S      30   // Wakeups muessen etwas in der Zukunft liegen
-// Cookie der "Spaeter"-Erinnerung; regulaere Slots tragen 0..schedule_target()-1
+// Cookie der "Spaeter"-Erinnerung; regulaere Slots tragen 0..schedule_target()-1,
+// Kaffees SCHEDULE_COOKIE_COFFEE + Platz (siehe schedule.h)
 #define COOKIE_SNOOZE 100
 
 static int s_count;
@@ -176,23 +178,85 @@ static bool prv_schedule(time_t t, int32_t cookie) {
   return false;
 }
 
-void schedule_plan_wakeups(time_t snooze_until) {
+// Ein geplanter Wecker: wann und wofuer.
+typedef struct {
+  time_t at;
+  int32_t cookie;
+} Termin;
+
+// Die naechsten Termine aus Wasser und Kaffee, nach Zeit geordnet. Bis drei
+// Tage voraus: mehr als acht Wecker kann die App ohnehin nicht stellen.
+#define TERMINE_MAX (3 * (DT_GLASSES_MAX + DT_COFFEE_MAX))
+
+static int prv_termine(time_t now, Termin *out) {
+  int n = 0;
+  const time_t midnight = schedule_midnight(now);
+  for (int day = 0; day < 3; day++) {
+    const time_t m = midnight + day * 86400;
+    for (int i = 0; i < s_target; i++) {
+      const time_t t = schedule_slot(m, i);
+      if (t > now + LEAD_S) out[n++] = (Termin){ t, i };
+    }
+    for (int k = 0; k < coffee_count(); k++) {
+      const time_t t = coffee_time(m, k);
+      if (t > now + LEAD_S) out[n++] = (Termin){ t, SCHEDULE_COOKIE_COFFEE + k };
+    }
+  }
+  // Einfuegesortierung: hoechstens sechzig Eintraege, und die Wasser-Slots
+  // jedes Tages liegen schon in Reihe.
+  for (int i = 1; i < n; i++) {
+    const Termin x = out[i];
+    int j = i - 1;
+    while (j >= 0 && out[j].at > x.at) {
+      out[j + 1] = out[j];
+      j--;
+    }
+    out[j + 1] = x;
+  }
+  return n;
+}
+
+// Ein "Spaeter" ueberlebt das Neuplanen. Jeder Wecker plant alles neu, und
+// mit Kaffee dazwischen kommt ein fremder Wecker oft vor dem eigenen Spaeter -
+// ohne diesen Vermerk waere das Spaeter dann still verloren.
+typedef struct __attribute__((packed)) {
+  uint32_t at;
+  int32_t cookie;
+} Spaeter;
+
+void schedule_plan_wakeups(time_t snooze_until, int32_t snooze_cookie) {
   time_t now = time(NULL);
   wakeup_cancel_all();
+  if (snooze_until > 0) {
+    const Spaeter sp = { (uint32_t)snooze_until, snooze_cookie };
+    persist_write_data(DT_PERSIST_SNOOZE, &sp, sizeof(sp));
+  } else if (persist_exists(DT_PERSIST_SNOOZE)) {
+    Spaeter sp;
+    if (persist_read_data(DT_PERSIST_SNOOZE, &sp, sizeof(sp)) == sizeof(sp) &&
+        (time_t)sp.at > now + LEAD_S) {
+      snooze_until = (time_t)sp.at;
+      snooze_cookie = sp.cookie;
+    } else {
+      persist_delete(DT_PERSIST_SNOOZE);
+    }
+  }
   int n = 0;
-  if (snooze_until > now + LEAD_S && prv_schedule(snooze_until, COOKIE_SNOOZE)) n++;
+  if (snooze_until > now + LEAD_S && prv_schedule(snooze_until, snooze_cookie)) n++;
 #ifdef DT_TEST_WAKEUP
   // Nur fuer Emulator-Tests: Erinnerung eine Minute nach dem Start.
   if (prv_schedule(now + 60, 0)) n++;
 #endif
-  time_t midnight = schedule_midnight(now);
-  for (int day = 0; day < 3 && n < MAX_WAKEUPS; day++) {
-    for (int i = 0; i < s_target && n < MAX_WAKEUPS; i++) {
-      time_t t = schedule_slot(midnight + day * 86400, i);
-      if (t <= now + LEAD_S) continue;
-      if (prv_schedule(t, i)) n++;
-    }
+  // Wasser und Kaffee teilen sich die acht Wecker der App: die naechsten acht
+  // Termine, gleich welcher Art. Beim naechsten Start geht es weiter.
+  static Termin termine[TERMINE_MAX];
+  const int anzahl = prv_termine(now, termine);
+  for (int i = 0; i < anzahl && n < MAX_WAKEUPS; i++) {
+    if (prv_schedule(termine[i].at, termine[i].cookie)) n++;
   }
+}
+
+int32_t schedule_snooze_cookie(void) {
+  return COOKIE_SNOOZE;
 }
 
 void schedule_format_time(time_t t, char *buf, size_t len) {

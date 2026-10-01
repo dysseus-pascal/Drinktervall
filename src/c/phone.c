@@ -4,14 +4,15 @@
 #include "schedule.h"
 #include "main_window.h"
 #include "strings.h"
+#include "coffee.h"
 
 // Status eines heutigen Slots (siehe src/pkjs/index.js)
 enum { SlotFuture = 0, SlotDrunk = 2, SlotMissed = 3 };
 
 // Ausgangspuffer: fuenf Zahlenfelder zu je 11 Byte, dazu die Slot-Daten mit
 // 7 Byte Kopf und 5 Byte je Glas, plus ein Byte fuer das Woerterbuch selbst.
-// Bei DT_GLASSES_MAX = 16 sind das 143 Byte; 256 laesst Luft fuer ein
-// weiteres Feld, ohne dass jemand nachrechnen muss.
+// Bei DT_GLASSES_MAX = 16 sind das 143 Byte; dazu der Kaffeeplan (7 + 17)
+// und ein Kaffee (2 x 11) - 192 Byte. 256 laesst noch Luft.
 #define OUTBOX_SIZE 256
 #define INBOX_SIZE  128
 
@@ -40,6 +41,19 @@ static Drink s_queue[QUEUE_MAX];
 static uint8_t s_queue_len;
 static bool s_queue_loaded;
 static bool s_carried;       // die letzte Nachricht trug s_queue[0]
+
+// Die Kaffees gehen denselben Weg in einer eigenen Schlange: ein Kaffee ist
+// kein Glas Wasser, und in einer Nachricht kann je eines von beiden mitfahren.
+#define COFFEE_QUEUE_MAX 8
+typedef struct __attribute__((packed)) {
+  uint32_t at;
+  uint8_t kind;
+  uint8_t flags;
+} Coffee;
+
+static Coffee s_coffees[COFFEE_QUEUE_MAX];
+static uint8_t s_coffees_len;
+static bool s_coffee_carried;
 static AppTimer *s_retry;
 static uint8_t s_attempts;
 // Eine Standmeldung ist faellig, auch ohne Glas: nach einer Aenderung der
@@ -51,9 +65,15 @@ static void prv_queue_load(void) {
   if (s_queue_loaded) return;
   s_queue_loaded = true;
   s_queue_len = 0;
-  if (!persist_exists(DT_PERSIST_QUEUE)) return;
-  const int n = persist_read_data(DT_PERSIST_QUEUE, s_queue, sizeof(s_queue));
-  if (n > 0) s_queue_len = (uint8_t)(n / sizeof(Drink));
+  s_coffees_len = 0;
+  if (persist_exists(DT_PERSIST_QUEUE)) {
+    const int n = persist_read_data(DT_PERSIST_QUEUE, s_queue, sizeof(s_queue));
+    if (n > 0) s_queue_len = (uint8_t)(n / sizeof(Drink));
+  }
+  if (persist_exists(DT_PERSIST_COFFEE_QUEUE)) {
+    const int n = persist_read_data(DT_PERSIST_COFFEE_QUEUE, s_coffees, sizeof(s_coffees));
+    if (n > 0) s_coffees_len = (uint8_t)(n / sizeof(Coffee));
+  }
 }
 
 static void prv_queue_save(void) {
@@ -62,6 +82,21 @@ static void prv_queue_save(void) {
   } else {
     persist_write_data(DT_PERSIST_QUEUE, s_queue, s_queue_len * sizeof(Drink));
   }
+  if (s_coffees_len == 0) {
+    persist_delete(DT_PERSIST_COFFEE_QUEUE);
+  } else {
+    persist_write_data(DT_PERSIST_COFFEE_QUEUE, s_coffees, s_coffees_len * sizeof(Coffee));
+  }
+}
+
+void phone_note_coffee(uint8_t kind, uint8_t flags) {
+  prv_queue_load();
+  if (s_coffees_len == COFFEE_QUEUE_MAX) {
+    memmove(&s_coffees[0], &s_coffees[1], (COFFEE_QUEUE_MAX - 1) * sizeof(Coffee));
+    s_coffees_len--;
+  }
+  s_coffees[s_coffees_len++] = (Coffee){ (uint32_t)time(NULL), kind, flags };
+  prv_queue_save();
 }
 
 void phone_note_drink(void) {
@@ -80,7 +115,7 @@ void phone_note_drink(void) {
 
 bool phone_pending(void) {
   prv_queue_load();
-  return s_queue_len > 0;
+  return s_queue_len > 0 || s_coffees_len > 0;
 }
 
 static void prv_retry_cb(void *data) {
@@ -105,7 +140,14 @@ static void prv_sent(DictionaryIterator *iter, void *context) {
     prv_queue_save();
     s_attempts = 0;
   }
+  if (s_coffee_carried && s_coffees_len > 0) {
+    memmove(&s_coffees[0], &s_coffees[1], (s_coffees_len - 1) * sizeof(Coffee));
+    s_coffees_len--;
+    prv_queue_save();
+    s_attempts = 0;
+  }
   s_carried = false;
+  s_coffee_carried = false;
   // Noch mehr in der Schlange: gleich das naechste.
   if (phone_pending() && !s_retry) s_retry = app_timer_register(150, prv_retry_cb, NULL);
 }
@@ -113,6 +155,7 @@ static void prv_sent(DictionaryIterator *iter, void *context) {
 static void prv_failed(DictionaryIterator *iter, AppMessageResult reason, void *context) {
   APP_LOG(APP_LOG_LEVEL_WARNING, "Nachricht nicht angekommen: %d", (int)reason);
   s_carried = false;
+  s_coffee_carried = false;
   prv_schedule_retry(1500);
 }
 
@@ -159,6 +202,17 @@ void phone_send_next(void) {
   // Ohne diese Zeilen zeigte jede Seite ihren eigenen, womoeglich alten Stand.
   dict_write_int32(out, MESSAGE_KEY_TARGET, schedule_target());
   dict_write_int32(out, MESSAGE_KEY_ANIMATION, schedule_animation() ? 1 : 0);
+  uint8_t plan[COFFEE_BYTES_MAX];
+  dict_write_data(out, MESSAGE_KEY_COFFEE, plan, (uint16_t)coffee_to_bytes(plan));
+
+  // Der aelteste unbestaetigte Kaffee, Sorte und Flags in einem Feld: die
+  // Sorte in den unteren vier Bits, Milch und Zucker darueber.
+  s_coffee_carried = false;
+  if (s_coffees_len > 0) {
+    dict_write_int32(out, MESSAGE_KEY_COFFEE_AT, (int32_t)s_coffees[0].at);
+    dict_write_int32(out, MESSAGE_KEY_COFFEE_KIND, s_coffees[0].kind | (s_coffees[0].flags << 4));
+    s_coffee_carried = true;
+  }
 
   // Das aelteste unbestaetigte Glas. Verbraucht ist es erst in prv_sent -
   // wenn das Telefon die Nachricht bestaetigt hat. GLASS_ML steht nur EINMAL
@@ -189,13 +243,20 @@ static void prv_inbox_received(DictionaryIterator *iter, void *context) {
   Tuple *anim = dict_find(iter, MESSAGE_KEY_ANIMATION);
   if (anim) { schedule_set_animation(anim->value->int32 != 0); einstellung = true; }
 
+  // Kaffeeplan. Neue Zeiten heissen neue Wecker.
+  Tuple *coffee = dict_find(iter, MESSAGE_KEY_COFFEE);
+  if (coffee && coffee->type == TUPLE_BYTE_ARRAY) {
+    einstellung = true;
+    if (coffee_from_bytes(coffee->value->data, coffee->length)) schedule_plan_wakeups(0, 0);
+  }
+
   Tuple *target = dict_find(iter, MESSAGE_KEY_TARGET);
   if (target) {
     einstellung = true;
     if (schedule_set_target(target->value->int32)) {
       // Der Plan hat sich verschoben: Wecker neu stellen und den Hauptscreen
       // nachziehen, der Pegel haengt am Tagesziel.
-      schedule_plan_wakeups(0);
+      schedule_plan_wakeups(0, 0);
       main_window_refresh();
     }
   }
@@ -215,5 +276,5 @@ void phone_init(void) {
   // Telefon antwortete -, gehen sie jetzt. Mit etwas Abstand, damit die
   // Verbindung erst steht.
   prv_queue_load();
-  if (s_queue_len > 0) s_retry = app_timer_register(1000, prv_retry_cb, NULL);
+  if (phone_pending()) s_retry = app_timer_register(1000, prv_retry_cb, NULL);
 }

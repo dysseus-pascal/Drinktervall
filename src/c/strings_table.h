@@ -61,3 +61,15 @@ STR(STR_DAILY_GOAL_MET,  24, "Daily goal reached", "Tagesziel erreicht", "Object
 
 // ---- App-Glance (Eintrag in der Anwendungsliste der Uhr) ------------------
 STR(STR_GLANCE_FMT,      48, "%d of %d glasses, next %s", "%d von %d Gläsern, nächste %s", "%d sur %d verres, prochain %s", "%d di %d bicchieri, prossimo %s", "%d de %d vasos, próximo %s")
+
+// ---- Kaffee ---------------------------------------------------------------
+// Die Sortennamen auch fuer coffee_describe: Name, Milch und Zucker muessen
+// zusammen in 40 Byte passen (coffee_window.c).
+STR(STR_COFFEE_TIME,     0,  "Coffee time!",    "Zeit für einen Kaffee!", "C'est l'heure du café !", "È l'ora del caffè!", "¡Hora del café!")
+STR(STR_ESPRESSO,        0,  "Espresso",        "Espresso", "Espresso", "Espresso", "Espresso")
+STR(STR_COFFEE,          0,  "Coffee",          "Kaffee", "Café", "Caffè", "Café")
+STR(STR_LATTE_MACCHIATO, 0,  "Latte macchiato", "Latte macchiato", "Latte macchiato", "Latte macchiato", "Latte macchiato")
+STR(STR_ENERGY_DRINK,    0,  "Energy drink",    "Energy-Drink", "Boisson énergisante", "Energy drink", "Bebida energética")
+STR(STR_MILK,            0,  "milk",            "Milch", "lait", "latte", "leche")
+STR(STR_SUGAR,           0,  "sugar",           "Zucker", "sucre", "zucchero", "azúcar")
+STR(STR_ENJOY,           0,  "Enjoy!",          "Wohl bekomm's!", "Bonne dégustation !", "Buona pausa!", "¡Que aproveche!")

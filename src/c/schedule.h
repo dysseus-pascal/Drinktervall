@@ -51,9 +51,17 @@ time_t schedule_slot(time_t midnight, int idx);
 // Naechste Erinnerung nach `now` (heute oder morgen). Rueckgabe: Slot-Index.
 int schedule_next(time_t now, time_t *when);
 
-// Alle Wakeups neu planen: optional zuerst ein Snooze-Wakeup, dann die
-// naechsten regulaeren Slots bis zum Limit von 8. `snooze_until` = 0 fuer keins.
-void schedule_plan_wakeups(time_t snooze_until);
+// Cookies der Wecker fuer Kaffees: SCHEDULE_COOKIE_COFFEE + Platz. Darunter
+// liegen die Glaeser (0..DT_GLASSES_MAX-1) und das "Spaeter" fuers Wasser.
+#define SCHEDULE_COOKIE_COFFEE 200
+
+// Alle Wakeups neu planen: optional zuerst ein Snooze-Wakeup mit `snooze_cookie`,
+// dann die naechsten Termine aus Wasser und Kaffee bis zum Limit von 8.
+// `snooze_until` = 0 fuer keins.
+void schedule_plan_wakeups(time_t snooze_until, int32_t snooze_cookie);
+
+// Cookie fuer "Spaeter" beim Wasser.
+int32_t schedule_snooze_cookie(void);
 
 // "HH:MM" gemaess Uhr-Einstellung der Watch.
 void schedule_format_time(time_t t, char *buf, size_t len);

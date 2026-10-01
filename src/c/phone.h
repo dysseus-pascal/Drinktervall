@@ -23,6 +23,11 @@ void phone_send_next(void);
 // trueg die Akte bei jedem Aufwachen ein weiteres Glas ein.
 void phone_note_drink(void);
 
-// Wartet noch ein Glas auf die Bestaetigung des Telefons? Das Trink-Fenster
+// Vermerken, dass gerade ein Kaffee getrunken wurde - Sorte und Milch/Zucker
+// wie in coffee.h. Derselbe Weg wie beim Glas: Schlange im Persist, verbraucht
+// erst mit der Bestaetigung. Die Companion-App rechnet daraus Koffein und kcal.
+void phone_note_coffee(uint8_t kind, uint8_t flags);
+
+// Wartet noch ein Glas oder ein Kaffee auf die Bestaetigung des Telefons? Das Trink-Fenster
 // haelt die App so lange offen, hoechstens ein paar Sekunden.
 bool phone_pending(void);

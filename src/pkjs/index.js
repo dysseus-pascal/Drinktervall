@@ -46,6 +46,11 @@ var GLASS_MIN = 100, GLASS_MAX = 1000;
 // Schalterart ein Boolean, ein String oder eine Zahl, und localStorage macht
 // aus allem ohnehin Text - 'false' waere dann wahr.
 var ANIM_KEY = 'drinktervall_animation';
+// Kaffeeplan, wie er an die Uhr geht: [Anzahl, je Kaffee Minute lo, hi,
+// Sorte, Flags] - siehe src/c/coffee.h. Als JSON-Feld gemerkt, aus demselben
+// Grund wie das Soll.
+var COFFEE_KEY = 'drinktervall_coffee';
+var COFFEE_MILK = 1, COFFEE_SUGAR = 2, COFFEE_PLAIN = 1;
 
 // DIE UHR IST DIE EINE STELLE, AN DER DIE EINSTELLUNGEN GELTEN. Geaendert
 // werden sie hier auf der Konfigseite ODER in Kiesel-Helper; beide schicken an
@@ -63,6 +68,50 @@ function pending() {
 }
 function setPending(on) {
   try { if (on) localStorage.setItem(PENDING_KEY, '1'); else localStorage.removeItem(PENDING_KEY); } catch (e) {}
+}
+
+// Den Kaffeeplan aus den Feldern der Konfigseite bauen. Aus heisst ein
+// einzelnes Null-Byte; Milch zaehlt nur beim Kaffee, auch wenn der Schalter
+// einer anderen Sorte noch von frueher an ist.
+function coffeeBytes(dict) {
+  var out = [0];
+  if (!dict.COFFEE_ON || !truthy(dict.COFFEE_ON.value)) return out;
+  var n = parseInt(dict.COFFEE_N && dict.COFFEE_N.value, 10);
+  if (!(n >= 1 && n <= clayConfig.COFFEE_MAX)) return out;
+  for (var i = 1; i <= n; i++) {
+    var zeit = parseInt(dict['COFFEE_TIME' + i] && dict['COFFEE_TIME' + i].value, 10);
+    var art = parseInt(dict['COFFEE_TYPE' + i] && dict['COFFEE_TYPE' + i].value, 10);
+    if (!(zeit >= 0 && zeit < 1440) || !(art >= 0 && art <= 3)) continue;
+    var flags = 0;
+    if (art === COFFEE_PLAIN && dict['COFFEE_MILK' + i] && truthy(dict['COFFEE_MILK' + i].value)) flags |= COFFEE_MILK;
+    if (dict['COFFEE_SUGAR' + i] && truthy(dict['COFFEE_SUGAR' + i].value)) flags |= COFFEE_SUGAR;
+    out.push(zeit & 0xFF, zeit >> 8, art, flags);
+    out[0] += 1;
+  }
+  return out;
+}
+
+// Der Plan der Uhr in die Felder der Konfigseite. Ist er aus, bleiben die
+// Felder stehen, wie sie waren - wer wieder einschaltet, findet seine Zeiten.
+function coffeeToClay(bytes, clay) {
+  var n = bytes && bytes.length ? bytes[0] : 0;
+  clay.COFFEE_ON = n > 0;
+  if (!n || bytes.length < 1 + n * 4) return;
+  clay.COFFEE_N = String(n);
+  for (var i = 0; i < n; i++) {
+    var b = 1 + i * 4;
+    clay['COFFEE_TIME' + (i + 1)] = String(bytes[b] | (bytes[b + 1] << 8));
+    clay['COFFEE_TYPE' + (i + 1)] = String(bytes[b + 2]);
+    clay['COFFEE_MILK' + (i + 1)] = (bytes[b + 3] & COFFEE_MILK) !== 0;
+    clay['COFFEE_SUGAR' + (i + 1)] = (bytes[b + 3] & COFFEE_SUGAR) !== 0;
+  }
+}
+
+function getCoffee() {
+  try {
+    var v = JSON.parse(localStorage.getItem(COFFEE_KEY));
+    return (v && v.length) ? v : null;
+  } catch (e) { return null; }
 }
 
 // Was die Konfigseite beim naechsten Oeffnen zeigt: Clay liest es aus
@@ -98,6 +147,11 @@ function adoptWatchSettings(p) {
     var on = parseInt(p.ANIMATION, 10) ? 1 : 0;
     try { localStorage.setItem(ANIM_KEY, String(on)); } catch (e) {}
     clay.ANIMATION = on === 1;
+  }
+  if (p.COFFEE !== undefined && p.COFFEE.length) {
+    var bytes = Array.prototype.slice.call(p.COFFEE);
+    try { localStorage.setItem(COFFEE_KEY, JSON.stringify(bytes)); } catch (e) {}
+    coffeeToClay(bytes, clay);
   }
   mergeClaySettings(clay);
 }
@@ -219,7 +273,7 @@ function truthy(v) {
 // und webviewclosed dieselbe benutzen.
 var s_clay = null;
 function getClay() {
-  if (!s_clay) s_clay = new Clay(clayConfig(getLang()), null, { autoHandleEvents: false });
+  if (!s_clay) s_clay = new Clay(clayConfig(getLang()), clayConfig.custom, { autoHandleEvents: false });
   return s_clay;
 }
 
@@ -411,6 +465,10 @@ Pebble.addEventListener('webviewclosed', function (e) {
       console.log('Konfig: ungueltiges Soll ' + dict.TARGET.value + ' - verworfen');
     }
   }
+  if (dict.COFFEE_ON !== undefined) {
+    msg.COFFEE = coffeeBytes(dict);
+    try { localStorage.setItem(COFFEE_KEY, JSON.stringify(msg.COFFEE)); } catch (err) {}
+  }
   if (!Object.keys(msg).length) return;
 
   // Bis die Uhr bestaetigt, gilt die Aenderung als unterwegs: kein Stand der
@@ -434,6 +492,8 @@ Pebble.addEventListener('ready', function () {
     if (glass !== null) msg.GLASS_ML = glass;
     var anim = getAnimation();
     if (anim !== null) msg.ANIMATION = anim;
+    var coffee = getCoffee();
+    if (coffee !== null) msg.COFFEE = coffee;
   }
   Pebble.sendAppMessage(msg,
     function () { if (mitWerten) setPending(false); },

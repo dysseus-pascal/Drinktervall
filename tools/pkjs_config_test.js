@@ -239,7 +239,8 @@ console.log('Glasgroesse');
         JSON.stringify(w.last()) + ' / ' + w.store.drinktervall_glass_ml);
 });
 {
-  const w = world({ drinktervall_glass_ml: '400', drinktervall_target: '12' });
+  // Seit 1.12 faehrt nur mit, was nie ankam - daher der Vermerk.
+  const w = world({ drinktervall_glass_ml: '400', drinktervall_target: '12', drinktervall_pending: '1' });
   w.fire('ready');
   check('beides faehrt beim Start mit',
         !!w.last() && w.last().GLASS_ML === 400 && w.last().TARGET === 12,
@@ -319,7 +320,7 @@ console.log('\nTrink-Animation');
         w.store.drinktervall_animation === '0', w.store.drinktervall_animation);
 }
 {
-  const w = world({ drinktervall_animation: '0' });
+  const w = world({ drinktervall_animation: '0', drinktervall_pending: '1' });
   w.fire('ready');
   check('Schalter faehrt beim naechsten Start mit',
         !!w.last() && w.last().ANIMATION === 0, JSON.stringify(w.last()));
@@ -364,6 +365,49 @@ console.log('\nSprache der Seite');
     check('Sprache ' + lang + ': Konfigseite in Sprache ' + want,
           JSON.stringify(wl.clays[0]) === JSON.stringify(cfg(want)), 'falsche Fassung');
   });
+}
+
+console.log('\nKaffeezeiten');
+{
+  const cfg = require(CFG);
+  const seite = cfg(1);
+  const keys = [];
+  seite.forEach((sec) => (sec.items || [sec]).forEach((i) => { if (i.messageKey) keys.push(i.messageKey); }));
+  const pkg = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'package.json'), 'utf8'));
+  const fehlend = keys.filter((k) => pkg.pebble.messageKeys.indexOf(k) < 0);
+  check('jedes Feld der Seite ist ein messageKey', fehlend.length === 0, fehlend.join(','));
+  check('custom-Funktion vorhanden', typeof cfg.custom === 'function', typeof cfg.custom);
+}
+{
+  const w = world();
+  w.fire('webviewclosed', { response: JSON.stringify({
+    COFFEE_ON: true, COFFEE_N: '2',
+    COFFEE_TIME1: '435', COFFEE_TYPE1: '0', COFFEE_MILK1: true, COFFEE_SUGAR1: true,
+    COFFEE_TIME2: '840', COFFEE_TYPE2: '1', COFFEE_MILK2: true, COFFEE_SUGAR2: false,
+    COFFEE_TIME3: '900', COFFEE_TYPE3: '3', COFFEE_MILK3: false, COFFEE_SUGAR3: true,
+  }) });
+  // 07:15 Espresso mit Zucker (Milch zaehlt dort nicht), 14:00 Kaffee mit Milch.
+  check('zwei Kaffees gehen als Bytes an die Uhr',
+        JSON.stringify(w.last().COFFEE) === JSON.stringify([2, 435 & 255, 435 >> 8, 0, 2, 840 & 255, 840 >> 8, 1, 1]),
+        JSON.stringify(w.last()));
+  check('und werden gemerkt', w.store.drinktervall_coffee === JSON.stringify(w.last().COFFEE), w.store.drinktervall_coffee);
+}
+{
+  const w = world();
+  w.fire('webviewclosed', { response: JSON.stringify({ COFFEE_ON: false, COFFEE_N: '3', COFFEE_TIME1: '435', COFFEE_TYPE1: '1' }) });
+  check('aus ist ein einzelnes Null-Byte', JSON.stringify(w.last().COFFEE) === '[0]', JSON.stringify(w.last()));
+}
+{
+  const w = world();
+  w.fire('appmessage', { payload: { TARGET: 8, COFFEE: [1, 600 & 255, 600 >> 8, 2, 2] } });
+  const clay = JSON.parse(w.store['clay-settings'] || '{}');
+  check('Plan der Uhr landet auf der Seite',
+        clay.COFFEE_ON === true && clay.COFFEE_N === '1' && clay.COFFEE_TIME1 === '600' &&
+        clay.COFFEE_TYPE1 === '2' && clay.COFFEE_SUGAR1 === true && clay.COFFEE_MILK1 === false,
+        JSON.stringify(clay));
+  const w2 = world({ drinktervall_coffee: '[1,88,2,1,1]', drinktervall_pending: '1' });
+  w2.fire('ready');
+  check('unzugestellter Plan faehrt beim Start mit', JSON.stringify(w2.last().COFFEE) === '[1,88,2,1,1]', JSON.stringify(w2.last()));
 }
 
 console.log('\nFehler: ' + fails);
