@@ -3,6 +3,18 @@
 
 typedef void (*GlassFxDone)(void);
 
+// Das Gefaess der Animation. Alle im selben Stil wie das Glas (Rahmen mit
+// weissem Saum, dasselbe Gesicht) und mit demselben Ablauf - nur was sich
+// leert, sieht anders aus.
+typedef enum {
+  VesselGlass = 0,      //< Wasser
+  VesselEspresso,       //< kleine Tasse auf Untertasse
+  VesselCoffee,         //< Becher mit Henkel, schwarz
+  VesselCoffeeMilk,     //< derselbe Becher, mit Milch heller
+  VesselLatte,          //< hohes Glas: Milch, Kaffee, Schaum, Trinkhalm
+  VesselCan,            //< Dose in Blau-Silber mit Sonne; wird beim Trinken zerdrueckt
+} Vessel;
+
 // Overlay fuer die Trink-Animation: ein volles Glas ploppt am `anchor` auf,
 // leert sich gleichmaessig (dabei wackelt es), schrumpft ins Zentrum und
 // zerplatzt in einem Strahlenkranz. Der genaue Ablauf steht am Kopf von
@@ -18,9 +30,15 @@ void glass_fx_deinit(void);
 // Animation, passiert nichts.
 void glass_fx_play(GPoint anchor, int16_t width, GlassFxDone done);
 
+// Dasselbe mit einem anderen Gefaess.
+void glass_fx_play_vessel(GPoint anchor, int16_t width, Vessel vessel, GlassFxDone done);
+
 // Stehendes Glas im selben Stil (Rahmen, Wasser bis `level_permille` in der
 // Farbe `water`, laechelndes Gesicht) an beliebiger Stelle zeichnen, z.B. in
 // der Seitenleiste. Die Wasserfarbe muss sich vom Untergrund abheben, sonst
 // wirkt das Glas leer. Unabhaengig vom Overlay-Layer.
 void glass_fx_draw_still(GContext *ctx, GPoint center, int16_t width, int32_t level_permille,
                          GColor water);
+
+// Ein stehendes Gefaess, voll und laechelnd - etwa im Kopf der Kaffee-Erinnerung.
+void glass_fx_draw_vessel_still(GContext *ctx, GPoint center, int16_t width, Vessel vessel);

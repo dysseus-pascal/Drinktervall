@@ -6,6 +6,8 @@
 #include "schedule.h"
 #include "phone.h"
 #include "strings.h"
+#include "glass_fx.h"
+#include "drink_window.h"
 
 // Aufgebaut wie die Wasser-Erinnerung (reminder_window.c), damit beide als
 // eine App erkennbar sind: Kopf mit Tasse und Uhrzeit, schwarze Linie, Karte,
@@ -29,19 +31,6 @@ static int s_idx;
 static bool s_done;
 static uint16_t s_waited_ms;
 
-// Eine Tasse aus Grundformen - eine eigene Bitmap je Plattform waere fuer
-// ein Symbol dieser Groesse zu viel.
-static void prv_draw_cup(GContext *ctx, GPoint mitte, int16_t w) {
-  const int16_t h = w * 3 / 4;
-  const GRect becher = GRect(mitte.x - w / 2, mitte.y - h / 2, w * 3 / 4, h);
-  graphics_context_set_fill_color(ctx, PBL_IF_COLOR_ELSE(GColorWindsorTan, GColorBlack));
-  graphics_fill_rect(ctx, becher, 4, GCornersBottom);
-  graphics_context_set_stroke_color(ctx, PBL_IF_COLOR_ELSE(GColorWindsorTan, GColorBlack));
-  graphics_context_set_stroke_width(ctx, 3);
-  graphics_draw_circle(ctx, GPoint(becher.origin.x + becher.size.w, mitte.y - h / 8), h / 4);
-  graphics_context_set_stroke_width(ctx, 1);
-}
-
 static void prv_update(Layer *layer, GContext *ctx) {
   const GRect b = layer_get_bounds(layer);
   const bool wide = b.size.w >= 150;
@@ -55,8 +44,11 @@ static void prv_update(Layer *layer, GContext *ctx) {
   graphics_draw_text(ctx, clock, fonts_get_system_font(FONT_KEY_GOTHIC_14),
                      GRect(0, PBL_IF_ROUND_ELSE(6, 0), b.size.w, 16),
                      GTextOverflowModeTrailingEllipsis, GTextAlignmentCenter, NULL);
+  // Das Gefaess wie in der Animation, klein und still - wie das Glas in der
+  // Wasser-Erinnerung.
   const int16_t cup_w = wide ? 36 : 28;
-  prv_draw_cup(ctx, GPoint(margin + cup_w / 2, head_h / 2 + 8), cup_w);
+  if (slot) glass_fx_draw_vessel_still(ctx, GPoint(margin + cup_w / 2, head_h / 2 + 8), cup_w,
+                                       coffee_vessel(slot));
   graphics_draw_text(ctx, clock,
                      fonts_get_system_font(wide ? FONT_KEY_LECO_26_BOLD_NUMBERS_AM_PM
                                                 : FONT_KEY_LECO_20_BOLD_NUMBERS),
@@ -121,6 +113,13 @@ static void prv_select(ClickRecognizerRef recognizer, void *context) {
   prv_cancel_vibes();
   drinktervall_buzz_short();
   phone_send_next();
+  // MIT ANIMATION wie beim Glas: das Gefaess leert sich, das Trink-Fenster
+  // wartet auf das Telefon und beendet die App. Ohne bleibt "Enjoy!" stehen.
+  if (slot && schedule_animation()) {
+    drink_window_push_vessel(true, coffee_vessel(slot));
+    window_stack_remove(s_window, false);
+    return;
+  }
   layer_mark_dirty(s_canvas);
   s_waited_ms = 0;
   s_close_timer = app_timer_register(DANKE_MS, prv_close, NULL);

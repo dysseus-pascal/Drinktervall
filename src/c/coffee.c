@@ -83,3 +83,12 @@ void coffee_describe(const CoffeeSlot *slot, char *buf, size_t len) {
     snprintf(buf + l, len - l, ", %s", S(STR_SUGAR));
   }
 }
+
+Vessel coffee_vessel(const CoffeeSlot *slot) {
+  switch (slot->kind) {
+    case CoffeeEspresso: return VesselEspresso;
+    case CoffeeLatteMacchiato: return VesselLatte;
+    case CoffeeEnergyDrink: return VesselCan;
+    default: return (slot->flags & COFFEE_MILK) ? VesselCoffeeMilk : VesselCoffee;
+  }
+}

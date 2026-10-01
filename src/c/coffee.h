@@ -1,5 +1,6 @@
 #pragma once
 #include <pebble.h>
+#include "glass_fx.h"
 
 // Kaffeezeiten: bis zu DT_COFFEE_MAX feste Uhrzeiten am Tag, je mit Sorte,
 // Milch und Zucker. Eingestellt auf der Konfigseite, auf der Uhr gemerkt.
@@ -42,3 +43,6 @@ bool coffee_from_bytes(const uint8_t *buf, int len);
 
 // "Espresso", "Coffee, milk, sugar" - fuer die Erinnerung.
 void coffee_describe(const CoffeeSlot *slot, char *buf, size_t len);
+
+// Das Gefaess der Animation zu diesem Kaffee: Kaffee mit Milch ist heller.
+Vessel coffee_vessel(const CoffeeSlot *slot);

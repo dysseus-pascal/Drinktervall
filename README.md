@@ -161,6 +161,12 @@ zur Sorte.
 | Latte macchiato | 2 |
 | Energy-Drink | 3 |
 
+Jede Sorte hat ihr eigenes Gefäss im Stil des Glases, im Kopf der Erinnerung
+und in der Trink-Animation (`glass_fx.c`, `Vessel`): Espressotasse auf
+Untertasse, Kaffeebecher (mit Milch heller), hohes Latte-macchiato-Glas mit
+Milch, Kaffee, Schaum und Trinkhalm, und eine Dose in Blau-Silber mit gelber
+Sonne. In eine Dose sieht man nicht hinein, sie wird beim Trinken zerdrückt.
+
 Zur Uhrzeit erscheint eine Erinnerung wie beim Wasser, mit Tasse statt Glas:
 Haken = getrunken, Zz = in zehn Minuten nochmals, Zurück = diesmal nicht. Die
 festen Zeiten bekommen keinen Versatz; Wasser und Kaffee teilen sich die acht

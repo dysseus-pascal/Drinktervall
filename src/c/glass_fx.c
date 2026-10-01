@@ -35,6 +35,18 @@ static int32_t s_p;         // Fortschritt 0..1000
 static GPoint s_anchor;     // Glasmitte
 static int16_t s_width;     // Glasbreite oben in Pixeln
 static GlassFxDone s_done;
+static Vessel s_vessel;
+
+// Farben der Getraenke. Auf Schwarz-Weiss bleibt nur Grau: dort traegt die
+// Form, nicht die Farbe.
+#define FX_ESPRESSO   PBL_IF_COLOR_ELSE(GColorBulgarianRose, GColorDarkGray)
+#define FX_COFFEE     PBL_IF_COLOR_ELSE(GColorWindsorTan, GColorDarkGray)
+#define FX_MILKCOFFEE PBL_IF_COLOR_ELSE(GColorRajah, GColorLightGray)
+#define FX_MILK       PBL_IF_COLOR_ELSE(GColorPastelYellow, GColorLightGray)
+#define FX_CAN_BLUE   PBL_IF_COLOR_ELSE(GColorDukeBlue, GColorDarkGray)
+#define FX_CAN_SILVER PBL_IF_COLOR_ELSE(GColorLightGray, GColorWhite)
+#define FX_SUN        PBL_IF_COLOR_ELSE(GColorYellow, GColorWhite)
+#define FX_RED        PBL_IF_COLOR_ELSE(GColorRed, GColorBlack)
 
 // Aktuelle Transformation und Strichstaerke; prv_set_metrics setzt beides.
 // Die Striche sind 5 % der Glasbreite breit (ungerade) wie bei der
@@ -88,9 +100,11 @@ typedef enum { FaceSmile, FaceGulp } Face;
 
 // Gesicht wie die Timeline-Sonne, leicht nach links versetzt (Seitenblick):
 // linkes Auge bei -15, rechtes bei +8, Mundknick bei -4.
-static void prv_face(GContext *ctx, Face face) {
-  const int32_t fy = -6;
-  const int32_t eyes[2] = { -15, 8 };
+// `dx`/`dy` verschieben das Gesicht: in der flachen Espressotasse sitzt es
+// tiefer, im schmalen Latte-Glas etwas weiter rechts.
+static void prv_face_at(GContext *ctx, Face face, int32_t dx, int32_t dy) {
+  const int32_t fy = -6 + dy;
+  const int32_t eyes[2] = { -15 + dx, 8 + dx };
   for (int i = 0; i < 2; i++) {
     const int32_t x = eyes[i];
     if (face == FaceGulp) {
@@ -103,7 +117,7 @@ static void prv_face(GContext *ctx, Face face) {
   }
   if (face == FaceGulp) {
     // offener Mund: gefuellter Kreis mit Rand, kein Saum noetig
-    const GPoint m = prv_gp(-4, fy + 9);
+    const GPoint m = prv_gp(-4 + dx, fy + 9);
     const int16_t r = (int16_t)(4 * s_g.k / 1000);
     graphics_context_set_fill_color(ctx, GColorWhite);
     graphics_fill_circle(ctx, m, r);
@@ -111,9 +125,162 @@ static void prv_face(GContext *ctx, Face face) {
     graphics_context_set_stroke_width(ctx, s_g.stroke);
     graphics_draw_circle(ctx, m, r);
   } else {
-    GPoint mouth[3] = { prv_gp(-15, fy + 7), prv_gp(-4, fy + 10), prv_gp(8, fy + 7) };
+    GPoint mouth[3] = { prv_gp(-15 + dx, fy + 7), prv_gp(-4 + dx, fy + 10), prv_gp(8 + dx, fy + 7) };
     prv_polyline(ctx, mouth, 3);
   }
+}
+
+static void prv_face(GContext *ctx, Face face) {
+  prv_face_at(ctx, face, 0, 0);
+}
+
+// --- Bausteine fuer die Gefaesse ---
+
+// Ein gefuelltes Vieleck in Basis-Einheiten.
+static void prv_fill(GContext *ctx, const int32_t (*pts)[2], int n, GColor color) {
+  GPoint p[10];
+  for (int i = 0; i < n && i < 10; i++) p[i] = prv_gp(pts[i][0], pts[i][1]);
+  const GPathInfo info = { .num_points = (uint32_t)n, .points = p };
+  GPath *path = gpath_create(&info);
+  if (!path) return;
+  graphics_context_set_fill_color(ctx, color);
+  gpath_draw_filled(ctx, path);
+  gpath_destroy(path);
+}
+
+// Der Rahmen eines geschlossenen Vielecks, mit Saum wie beim Glas.
+static void prv_outline(GContext *ctx, const int32_t (*pts)[2], int n) {
+  GPoint p[10];
+  for (int i = 0; i < n && i < 10; i++) p[i] = prv_gp(pts[i][0], pts[i][1]);
+  const GPathInfo info = { .num_points = (uint32_t)n, .points = p };
+  GPath *path = gpath_create(&info);
+  if (!path) return;
+  prv_pen(ctx, true);
+  gpath_draw_outline(ctx, path);
+  prv_pen(ctx, false);
+  gpath_draw_outline(ctx, path);
+  gpath_destroy(path);
+}
+
+static void prv_ring(GContext *ctx, int32_t x, int32_t y, int32_t r) {
+  const GPoint c = prv_gp(x, y);
+  const int16_t rr = (int16_t)(r * s_g.k / 1000);
+  prv_pen(ctx, true);
+  graphics_draw_circle(ctx, c, rr);
+  prv_pen(ctx, false);
+  graphics_draw_circle(ctx, c, rr);
+}
+
+// Halbe Breite eines Trapezes (oben `top` bei y0, unten `bot` bei y1) auf Hoehe y.
+static int32_t prv_hw(int32_t top, int32_t bot, int32_t y0, int32_t y1, int32_t y) {
+  return top + (bot - top) * (y - y0) / (y1 - y0);
+}
+
+// Eine Fuellung zwischen den Hoehen ya (unten) und yb (oben) in einem Trapez.
+static void prv_band(GContext *ctx, int32_t top, int32_t bot, int32_t y0, int32_t y1,
+                     int32_t ya, int32_t yb, GColor color) {
+  if (yb >= ya) return;
+  const int32_t a = prv_hw(top, bot, y0, y1, ya), b = prv_hw(top, bot, y0, y1, yb);
+  const int32_t pts[4][2] = { { -a, ya }, { a, ya }, { b, yb }, { -b, yb } };
+  prv_fill(ctx, pts, 4, color);
+}
+
+// Dampf ueber dem vollen Heissgetraenk: zwei Wellen.
+static void prv_steam(GContext *ctx, int32_t y) {
+  for (int i = 0; i < 2; i++) {
+    const int32_t x = i ? 8 : -10;
+    GPoint w[4] = { prv_gp(x, y), prv_gp(x + 4, y - 6), prv_gp(x - 2, y - 12), prv_gp(x + 2, y - 18) };
+    prv_polyline(ctx, w, 4);
+  }
+}
+
+// Espresso: kleine Tasse auf der Untertasse, das Gesicht tiefer.
+static void prv_draw_espresso(GContext *ctx, int32_t level, Face face, bool steam) {
+  const int32_t top = 24, bot = 17, y0 = -8, y1 = 24;
+  prv_ring(ctx, 28, 6, 8);                                     // Henkel
+  const int32_t cup[4][2] = { { -top, y0 }, { -bot, y1 }, { bot, y1 }, { top, y0 } };
+  prv_fill(ctx, cup, 4, GColorWhite);
+  const int32_t full = y0 + 4;
+  prv_band(ctx, top, bot, y0, y1, y1, y1 - (y1 - full) * level / 1000, FX_ESPRESSO);
+  prv_outline(ctx, cup, 4);
+  GPoint saucer[4] = { prv_gp(-40, 26), prv_gp(-33, 32), prv_gp(33, 32), prv_gp(40, 26) };
+  prv_polyline(ctx, saucer, 4);
+  if (steam) prv_steam(ctx, y0 - 6);
+  prv_face_at(ctx, face, 0, 12);
+}
+
+// Kaffee: Becher mit grossem Henkel.
+static void prv_draw_mug(GContext *ctx, int32_t level, Face face, GColor drink, bool steam) {
+  const int32_t top = 28, bot = 26, y0 = -30, y1 = 38;
+  prv_ring(ctx, 34, 2, 13);
+  const int32_t mug[4][2] = { { -top, y0 }, { -bot, y1 }, { bot, y1 }, { top, y0 } };
+  prv_fill(ctx, mug, 4, GColorWhite);
+  const int32_t full = y0 + 6;
+  prv_band(ctx, top, bot, y0, y1, y1, y1 - (y1 - full) * level / 1000, drink);
+  prv_outline(ctx, mug, 4);
+  if (steam) prv_steam(ctx, y0 - 6);
+  prv_face(ctx, face);
+}
+
+// Latte macchiato: hohes Glas mit drei Schichten - Milch unten, Kaffee in der
+// Mitte, Schaum oben - und einem Trinkhalm. Getrunken wird von oben.
+static void prv_draw_latte(GContext *ctx, int32_t level, Face face) {
+  const int32_t top = 21, bot = 17, y0 = -44, y1 = 44;
+  const int32_t glass[4][2] = { { -top, y0 }, { -bot, y1 }, { bot, y1 }, { top, y0 } };
+  prv_fill(ctx, glass, 4, GColorWhite);
+  const int32_t full = y0 + 4, h = y1 - full;
+  const int32_t pegel = y1 - h * level / 1000;
+  const int32_t milch = y1 - h * 45 / 100, kaffee = y1 - h * 70 / 100;
+  prv_band(ctx, top, bot, y0, y1, y1, pegel > milch ? pegel : milch, FX_MILK);
+  if (pegel < milch) prv_band(ctx, top, bot, y0, y1, milch, pegel > kaffee ? pegel : kaffee, FX_COFFEE);
+  // Der Schaum ist weiss wie das Glas - eine Linie trennt ihn vom Kaffee.
+  if (pegel < kaffee) {
+    const int32_t w = prv_hw(top, bot, y0, y1, kaffee);
+    graphics_context_set_stroke_color(ctx, GColorBlack);
+    graphics_context_set_stroke_width(ctx, 1);
+    graphics_draw_line(ctx, prv_gp(-w, kaffee), prv_gp(w, kaffee));
+  }
+  prv_line(ctx, prv_gp(13, -24), prv_gp(26, -62));           // Trinkhalm, rechts am Gesicht vorbei
+  prv_outline(ctx, glass, 4);
+  prv_face_at(ctx, face, 3, 6);
+}
+
+// Energy-Drink: eine Dose im Schachbrett aus Blau und Silber mit gelber Sonne
+// und zwei roten Zeichen - ein Hinweis, kein Logo. In eine Dose sieht man
+// nicht hinein: statt eines Pegels wird sie beim Trinken zerdrueckt.
+static void prv_draw_can(GContext *ctx, int32_t level, Face face) {
+  const int32_t hw = 24, y0 = -40, y1 = 40;
+  const int32_t waist = hw - 9 * (1000 - level) / 1000;
+  const int32_t cap_t[4][2] = { { -19, y0 - 6 }, { -hw, y0 }, { hw, y0 }, { 19, y0 - 6 } };
+  const int32_t cap_b[4][2] = { { -hw, y1 }, { -19, y1 + 6 }, { 19, y1 + 6 }, { hw, y1 } };
+  prv_fill(ctx, cap_t, 4, FX_CAN_SILVER);
+  prv_fill(ctx, cap_b, 4, FX_CAN_SILVER);
+  // Vier Felder, je zwischen Rand, Taille und Mitte.
+  const int32_t lo[4][2] = { { -hw, y0 }, { -waist, 0 }, { 0, 0 }, { 0, y0 } };
+  const int32_t ro[4][2] = { { 0, y0 }, { 0, 0 }, { waist, 0 }, { hw, y0 } };
+  const int32_t lu[4][2] = { { -waist, 0 }, { -hw, y1 }, { 0, y1 }, { 0, 0 } };
+  const int32_t ru[4][2] = { { 0, 0 }, { 0, y1 }, { hw, y1 }, { waist, 0 } };
+  prv_fill(ctx, lo, 4, FX_CAN_BLUE);
+  prv_fill(ctx, ro, 4, FX_CAN_SILVER);
+  prv_fill(ctx, lu, 4, FX_CAN_SILVER);
+  prv_fill(ctx, ru, 4, FX_CAN_BLUE);
+  // Die Sonne hinter dem Gesicht, darunter zwei rote Keile, die aufeinander zulaufen.
+  graphics_context_set_fill_color(ctx, FX_SUN);
+  graphics_fill_circle(ctx, prv_gp(-3, -4), (uint16_t)(15 * s_g.k / 1000));
+  const int32_t hl[3][2] = { { -21, 28 }, { -3, 16 }, { -7, 30 } };
+  const int32_t hr[3][2] = { { 19, 28 }, { 1, 16 }, { 5, 30 } };
+  prv_fill(ctx, hl, 3, FX_RED);
+  prv_fill(ctx, hr, 3, FX_RED);
+  const int32_t body[10][2] = { { -19, y0 - 6 }, { -hw, y0 }, { -waist, 0 }, { -hw, y1 },
+                                { -19, y1 + 6 }, { 19, y1 + 6 }, { hw, y1 }, { waist, 0 },
+                                { hw, y0 }, { 19, y0 - 6 } };
+  prv_outline(ctx, body, 10);
+  // Die Falze von Deckel und Boden.
+  graphics_context_set_stroke_color(ctx, GColorBlack);
+  graphics_context_set_stroke_width(ctx, 1);
+  graphics_draw_line(ctx, prv_gp(-hw, y0), prv_gp(hw, y0));
+  graphics_draw_line(ctx, prv_gp(-hw, y1), prv_gp(hw, y1));
+  prv_face(ctx, face);
 }
 
 static void prv_draw_glass(GContext *ctx, int32_t level, Face face, GColor water_color) {
@@ -146,6 +313,18 @@ static void prv_draw_glass(GContext *ctx, int32_t level, Face face, GColor water
   gpath_draw_outline(ctx, glass);
   gpath_destroy(glass);
   prv_face(ctx, face);
+}
+
+// Das Gefaess je nach Art; `steam` nur fuer das volle Heissgetraenk.
+static void prv_draw_vessel(GContext *ctx, int32_t level, Face face, GColor water, bool steam) {
+  switch (s_vessel) {
+    case VesselEspresso:   prv_draw_espresso(ctx, level, face, steam); break;
+    case VesselCoffee:     prv_draw_mug(ctx, level, face, FX_COFFEE, steam); break;
+    case VesselCoffeeMilk: prv_draw_mug(ctx, level, face, FX_MILKCOFFEE, steam); break;
+    case VesselLatte:      prv_draw_latte(ctx, level, face); break;
+    case VesselCan:        prv_draw_can(ctx, level, face); break;
+    default:               prv_draw_glass(ctx, level, face, water); break;
+  }
 }
 
 // Strahlenkranz: zwoelf Striche, die nach aussen laufen, abwechselnd lang
@@ -208,14 +387,14 @@ static void prv_draw(Layer *layer, GContext *ctx) {
   prv_set_metrics(c, s_width, scale);
 
   if (s_p < HOLD_END) {
-    prv_draw_glass(ctx, 1000, FaceSmile, DT_COLOR_FX_WATER);
+    prv_draw_vessel(ctx, 1000, FaceSmile, DT_COLOR_FX_WATER, s_p >= POP_END);
   } else if (s_p < DRINK_END) {
     // gleichmaessig leeren
     const int32_t t = (s_p - HOLD_END) * 1000 / (DRINK_END - HOLD_END);
-    prv_draw_glass(ctx, 1000 - t, FaceGulp, DT_COLOR_FX_WATER);
+    prv_draw_vessel(ctx, 1000 - t, FaceGulp, DT_COLOR_FX_WATER, false);
   } else if (s_p < SHRINK_END) {
     // leer, ab SMILE_END schrumpfend; das letzte Zwergenglas sparen wir uns
-    if (scale > 60) prv_draw_glass(ctx, 0, FaceSmile, DT_COLOR_FX_WATER);
+    if (scale > 60) prv_draw_vessel(ctx, 0, FaceSmile, DT_COLOR_FX_WATER, false);
   } else {
     prv_draw_burst(ctx, (s_p - SHRINK_END) * 1000 / (1000 - SHRINK_END));
   }
@@ -225,6 +404,14 @@ void glass_fx_draw_still(GContext *ctx, GPoint center, int16_t width, int32_t le
                          GColor water) {
   prv_set_metrics(center, width, 1000);
   prv_draw_glass(ctx, level_permille, FaceSmile, water);
+}
+
+void glass_fx_draw_vessel_still(GContext *ctx, GPoint center, int16_t width, Vessel vessel) {
+  const Vessel vorher = s_vessel;
+  s_vessel = vessel;
+  prv_set_metrics(center, width, 1000);
+  prv_draw_vessel(ctx, 1000, FaceSmile, DT_COLOR_FX_WATER, false);
+  s_vessel = vorher;
 }
 
 static void prv_update(Animation *animation, const AnimationProgress progress) {
@@ -262,7 +449,12 @@ void glass_fx_deinit(void) {
 }
 
 void glass_fx_play(GPoint anchor, int16_t width, GlassFxDone done) {
+  glass_fx_play_vessel(anchor, width, VesselGlass, done);
+}
+
+void glass_fx_play_vessel(GPoint anchor, int16_t width, Vessel vessel, GlassFxDone done) {
   if (!s_layer || s_anim) return;
+  s_vessel = vessel;
   s_anchor = anchor;
   s_width = width;
   s_done = done;

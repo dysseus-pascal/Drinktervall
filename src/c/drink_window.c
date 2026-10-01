@@ -16,6 +16,7 @@
 static Window *s_window;
 static AppTimer *s_close_timer;
 static bool s_quit_after;
+static Vessel s_vessel;
 
 // So lange haelt das Fenster die App hoechstens offen, bis das Telefon das
 // Glas bestaetigt hat. Danach geht sie trotzdem zu; das Glas bleibt in der
@@ -54,7 +55,7 @@ static void prv_load(Window *window) {
 
 static void prv_appear(Window *window) {
   const GRect b = layer_get_bounds(window_get_root_layer(window));
-  glass_fx_play(GPoint(b.size.w / 2, b.size.h / 2), b.size.w * 56 / 100, prv_done);
+  glass_fx_play_vessel(GPoint(b.size.w / 2, b.size.h / 2), b.size.w * 56 / 100, s_vessel, prv_done);
 }
 
 static void prv_unload(Window *window) {
@@ -68,7 +69,12 @@ static void prv_unload(Window *window) {
 }
 
 bool drink_window_push(bool quit_after) {
+  return drink_window_push_vessel(quit_after, VesselGlass);
+}
+
+bool drink_window_push_vessel(bool quit_after, Vessel vessel) {
   if (s_window) return true;
+  s_vessel = vessel;
   s_quit_after = quit_after;
   s_waited_ms = 0;
 

@@ -1,5 +1,6 @@
 #pragma once
 #include <pebble.h>
+#include "glass_fx.h"
 
 // Vollbild-Fenster fuer die Trink-Animation: das Glas gross in der Bildmitte,
 // sonst nichts. Es schliesst sich nach der Animation von selbst. `quit_after`
@@ -13,4 +14,7 @@
 // sonst hinter dem Fenster gestiegen waere. Ums Beenden kuemmert sich auch
 // dann diese Datei, damit es dafuer nur eine Stelle gibt.
 bool drink_window_push(bool quit_after);
+
+// Dasselbe mit einem anderen Gefaess - fuer die Kaffees.
+bool drink_window_push_vessel(bool quit_after, Vessel vessel);
 bool drink_window_is_open(void);
