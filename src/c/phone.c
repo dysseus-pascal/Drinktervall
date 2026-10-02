@@ -243,7 +243,7 @@ void phone_send_next(void) {
   dict_write_cstring(out, MESSAGE_KEY_CUSTOM, eigene);
 
   // Der aelteste unbestaetigte Kaffee, Sorte und Flags in einem Feld: die
-  // Sorte in den unteren vier Bits, Milch und Zucker darueber.
+  // Sorte in den unteren vier Bits, Milch, Zucker und koffeinfrei darueber.
   s_coffee_carried = false;
   if (s_coffees_len > 0) {
     dict_write_int32(out, MESSAGE_KEY_COFFEE_AT, (int32_t)s_coffees[0].at);

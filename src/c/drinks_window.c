@@ -73,10 +73,22 @@ static void prv_finish(const CoffeeSlot *slot) {
   if (schedule_animation()) drink_window_push_vessel(false, v);
 }
 
-// --- Zusaetze: Milch (nur Kaffee), Zucker, Eintragen ---
+// --- Zusaetze: koffeinfrei, Milch, Zucker, Eintragen ---
+
+// Die Haken der gewaehlten Sorte, in der Reihenfolge der Zeilen; danach kommt
+// "Eintragen". Was eine Sorte nicht kennt (der Energy-Drink weder Milch noch
+// koffeinfrei), fehlt ganz statt ausgegraut dazustehen.
+static int prv_extra_bits(uint8_t *bits) {
+  int n = 0;
+  if (coffee_decaf_possible(s_pick.kind)) bits[n++] = COFFEE_DECAF;
+  if (coffee_milk_possible(s_pick.kind)) bits[n++] = COFFEE_MILK;
+  bits[n++] = COFFEE_SUGAR;
+  return n;
+}
 
 static int prv_extra_rows(void) {
-  return coffee_milk_possible(s_pick.kind) ? 3 : 2;
+  uint8_t bits[3];
+  return prv_extra_bits(bits) + 1;
 }
 
 static uint16_t prv_extra_num(MenuLayer *m, uint16_t section, void *ctx) {
@@ -87,26 +99,33 @@ static int16_t prv_height(MenuLayer *m, MenuIndex *i, void *ctx) {
   return ROW_H;
 }
 
+static StringId prv_bit_text(uint8_t bit) {
+  switch (bit) {
+    case COFFEE_DECAF: return STR_DECAF_ROW;
+    case COFFEE_MILK: return STR_MILK_ROW;
+    default: return STR_SUGAR_ROW;
+  }
+}
+
 static void prv_extra_draw(GContext *ctx, const Layer *cell, MenuIndex *i, void *data) {
-  const int rows = prv_extra_rows();
+  uint8_t bits[3];
+  const int n = prv_extra_bits(bits);
   const Vessel v = coffee_vessel(&s_pick);
-  if (i->row == rows - 1) {
+  if (i->row >= n) {
     prv_row(ctx, cell, v, S(STR_LOG), -1);
     return;
   }
-  // Zuerst die Milch, wo es sie gibt, sonst gleich der Zucker.
-  const bool milk = rows == 3 && i->row == 0;
-  const uint8_t bit = milk ? COFFEE_MILK : COFFEE_SUGAR;
-  prv_row(ctx, cell, v, S(milk ? STR_MILK_ROW : STR_SUGAR_ROW), (s_pick.flags & bit) ? 1 : 0);
+  prv_row(ctx, cell, v, S(prv_bit_text(bits[i->row])), (s_pick.flags & bits[i->row]) ? 1 : 0);
 }
 
 static void prv_extra_select(MenuLayer *m, MenuIndex *i, void *ctx) {
-  const int rows = prv_extra_rows();
-  if (i->row == rows - 1) {
+  uint8_t bits[3];
+  const int n = prv_extra_bits(bits);
+  if (i->row >= n) {
     prv_log(&s_pick);
     return;
   }
-  s_pick.flags ^= (rows == 3 && i->row == 0) ? COFFEE_MILK : COFFEE_SUGAR;
+  s_pick.flags ^= bits[i->row];
   menu_layer_reload_data(m);
 }
 

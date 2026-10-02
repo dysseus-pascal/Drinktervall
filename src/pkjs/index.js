@@ -50,7 +50,7 @@ var ANIM_KEY = 'drinktervall_animation';
 // Sorte, Flags] - siehe src/c/coffee.h. Als JSON-Feld gemerkt, aus demselben
 // Grund wie das Soll.
 var COFFEE_KEY = 'drinktervall_coffee';
-var COFFEE_MILK = 1, COFFEE_SUGAR = 2, COFFEE_ENERGY = 3;
+var COFFEE_MILK = 1, COFFEE_SUGAR = 2, COFFEE_DECAF = 4, COFFEE_ENERGY = 3;
 // Eigene Getraenke, wie sie an die Uhr gehen: je Zeile "Name|kcal|mg|Minute",
 // Minute -1 ohne Erinnerung.
 var CUSTOM_KEY = 'drinktervall_custom';
@@ -74,8 +74,8 @@ function setPending(on) {
 }
 
 // Den Kaffeeplan aus den Feldern der Konfigseite bauen. Aus heisst ein
-// einzelnes Null-Byte; Milch zaehlt nicht beim Energy-Drink, auch wenn sein
-// Schalter noch von frueher an ist.
+// einzelnes Null-Byte; Milch und koffeinfrei zaehlen nicht beim Energy-Drink,
+// auch wenn sein Schalter noch von frueher an ist.
 function coffeeBytes(dict) {
   var out = [0];
   if (!dict.COFFEE_ON || !truthy(dict.COFFEE_ON.value)) return out;
@@ -88,6 +88,7 @@ function coffeeBytes(dict) {
     var flags = 0;
     if (art !== COFFEE_ENERGY && dict['COFFEE_MILK' + i] && truthy(dict['COFFEE_MILK' + i].value)) flags |= COFFEE_MILK;
     if (dict['COFFEE_SUGAR' + i] && truthy(dict['COFFEE_SUGAR' + i].value)) flags |= COFFEE_SUGAR;
+    if (art !== COFFEE_ENERGY && dict['COFFEE_DECAF' + i] && truthy(dict['COFFEE_DECAF' + i].value)) flags |= COFFEE_DECAF;
     out.push(zeit & 0xFF, zeit >> 8, art, flags);
     out[0] += 1;
   }
@@ -107,6 +108,7 @@ function coffeeToClay(bytes, clay) {
     clay['COFFEE_TYPE' + (i + 1)] = String(bytes[b + 2]);
     clay['COFFEE_MILK' + (i + 1)] = (bytes[b + 3] & COFFEE_MILK) !== 0;
     clay['COFFEE_SUGAR' + (i + 1)] = (bytes[b + 3] & COFFEE_SUGAR) !== 0;
+    clay['COFFEE_DECAF' + (i + 1)] = (bytes[b + 3] & COFFEE_DECAF) !== 0;
   }
 }
 

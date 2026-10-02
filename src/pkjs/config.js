@@ -64,6 +64,7 @@ var TEXT = [
     coffeeTypes: ['Espresso', 'Coffee', 'Tea', 'Energy drink'],
     coffeeMilk: 'Milk',
     coffeeSugar: 'Sugar',
+    coffeeDecaf: 'Decaf',
     customSection: 'Own drinks',
     customCount: 'How many?',
     customSlot: 'Drink',
@@ -113,6 +114,7 @@ var TEXT = [
     coffeeTypes: ['Espresso', 'Kaffee', 'Tee', 'Energy-Drink'],
     coffeeMilk: 'Milch',
     coffeeSugar: 'Zucker',
+    coffeeDecaf: 'Koffeinfrei',
     customSection: 'Eigene Getränke',
     customCount: 'Wie viele?',
     customSlot: 'Getränk',
@@ -161,6 +163,7 @@ var TEXT = [
     coffeeTypes: ['Espresso', 'Café', 'Thé', 'Boisson énergisante'],
     coffeeMilk: 'Lait',
     coffeeSugar: 'Sucre',
+    coffeeDecaf: 'Décaféiné',
     customSection: 'Boissons perso',
     customCount: 'Combien\u00a0?',
     customSlot: 'Boisson',
@@ -209,6 +212,7 @@ var TEXT = [
     coffeeTypes: ['Espresso', 'Caffè', 'Tè', 'Energy drink'],
     coffeeMilk: 'Latte',
     coffeeSugar: 'Zucchero',
+    coffeeDecaf: 'Decaffeinato',
     customSection: 'Bevande tue',
     customCount: 'Quante?',
     customSlot: 'Bevanda',
@@ -256,6 +260,7 @@ var TEXT = [
     coffeeTypes: ['Espresso', 'Café', 'Té', 'Bebida energética'],
     coffeeMilk: 'Leche',
     coffeeSugar: 'Azúcar',
+    coffeeDecaf: 'Descafeinado',
     customSection: 'Bebidas propias',
     customCount: '¿Cuántas?',
     customSlot: 'Bebida',
@@ -304,7 +309,8 @@ function coffeeSlot(t, n) {
         options: t.coffeeTypes.map(function (name, i) { return { label: name, value: String(i) }; })
       },
       { type: 'toggle', messageKey: 'COFFEE_MILK' + n, label: t.coffeeMilk, defaultValue: false },
-      { type: 'toggle', messageKey: 'COFFEE_SUGAR' + n, label: t.coffeeSugar, defaultValue: false }
+      { type: 'toggle', messageKey: 'COFFEE_SUGAR' + n, label: t.coffeeSugar, defaultValue: false },
+      { type: 'toggle', messageKey: 'COFFEE_DECAF' + n, label: t.coffeeDecaf, defaultValue: false }
     ]
   };
 }
@@ -488,8 +494,11 @@ module.exports.custom = function () {
       }
       var art = clayConfig.getItemByMessageKey('COFFEE_TYPE' + i);
       var milch = clayConfig.getItemByMessageKey('COFFEE_MILK' + i);
-      // Milch zu allem ausser dem Energy-Drink (Sorte 3).
-      if (milch) { if (art && art.get() !== '3') milch.show(); else milch.hide(); }
+      var koffeinfrei = clayConfig.getItemByMessageKey('COFFEE_DECAF' + i);
+      // Milch und koffeinfrei zu allem ausser dem Energy-Drink (Sorte 3).
+      var kaffeeart = art && art.get() !== '3';
+      if (milch) { if (kaffeeart) milch.show(); else milch.hide(); }
+      if (koffeinfrei) { if (kaffeeart) koffeinfrei.show(); else koffeinfrei.hide(); }
     }
   }
 

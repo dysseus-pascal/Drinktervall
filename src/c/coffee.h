@@ -24,6 +24,11 @@ typedef enum {
 
 #define COFFEE_MILK  0x01
 #define COFFEE_SUGAR 0x02
+// Entkoffeiniert: wird eingetragen wie die Sorte, zaehlt aber kein Koffein.
+// Ein eigenes Bit statt eigener Sorten, damit Kaffee und koffeinfreier
+// Kaffee dieselbe Animation und dieselben kcal behalten. Zusammen mit der
+// Sorte gehen die Flags in vier Bits ans Telefon - 0x08 ist das letzte freie.
+#define COFFEE_DECAF 0x04
 
 typedef struct {
   uint16_t minute;   //< Minute des Tages, 0..1439
@@ -47,11 +52,15 @@ int coffee_to_bytes(uint8_t *buf);
 // Rueckgabe: true, wenn sich der Plan dadurch geaendert hat.
 bool coffee_from_bytes(const uint8_t *buf, int len);
 
-// "Espresso", "Coffee, milk, sugar" - fuer die Erinnerung.
+// "Espresso", "Coffee, decaf, milk, sugar" - fuer die Erinnerung.
 void coffee_describe(const CoffeeSlot *slot, char *buf, size_t len);
 
 // Milch gibt es zu allem ausser dem Energy-Drink.
 bool coffee_milk_possible(uint8_t kind);
+
+// Entkoffeiniert gibt es Espresso, Kaffee und Tee - einen Energy-Drink ohne
+// Koffein nicht.
+bool coffee_decaf_possible(uint8_t kind);
 
 // Das Gefaess der Animation zu diesem Kaffee: mit Milch ist er heller.
 Vessel coffee_vessel(const CoffeeSlot *slot);

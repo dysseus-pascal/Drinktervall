@@ -16,7 +16,7 @@ static int prv_parse(const uint8_t *buf, int len, CoffeeSlot *out) {
     const uint8_t *b = buf + 1 + i * 4;
     out[i].minute = (uint16_t)(b[0] | (b[1] << 8));
     out[i].kind = b[2];
-    out[i].flags = b[3] & (COFFEE_MILK | COFFEE_SUGAR);
+    out[i].flags = b[3] & (COFFEE_MILK | COFFEE_SUGAR | COFFEE_DECAF);
     if (out[i].minute >= 24 * 60 || out[i].kind >= CoffeeKindCount) return -1;
   }
   return n;
@@ -163,6 +163,10 @@ void coffee_describe(const CoffeeSlot *slot, char *buf, size_t len) {
     STR_ESPRESSO, STR_COFFEE, STR_TEA, STR_ENERGY_DRINK,
   };
   snprintf(buf, len, "%s", S(names[slot->kind]));
+  if (coffee_decaf_possible(slot->kind) && (slot->flags & COFFEE_DECAF)) {
+    const size_t l = strlen(buf);
+    snprintf(buf + l, len - l, ", %s", S(STR_DECAF));
+  }
   // Milch zu allem ausser dem Energy-Drink.
   if (coffee_milk_possible(slot->kind) && (slot->flags & COFFEE_MILK)) {
     const size_t l = strlen(buf);
@@ -175,6 +179,10 @@ void coffee_describe(const CoffeeSlot *slot, char *buf, size_t len) {
 }
 
 bool coffee_milk_possible(uint8_t kind) {
+  return kind == CoffeeEspresso || kind == CoffeeCoffee || kind == CoffeeTea;
+}
+
+bool coffee_decaf_possible(uint8_t kind) {
   return kind == CoffeeEspresso || kind == CoffeeCoffee || kind == CoffeeTea;
 }
 

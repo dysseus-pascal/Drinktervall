@@ -410,6 +410,22 @@ console.log('\nKaffeezeiten');
   check('unzugestellter Plan faehrt beim Start mit', JSON.stringify(w2.last().COFFEE) === '[1,88,2,1,1]', JSON.stringify(w2.last()));
 }
 
+{
+  const w = world();
+  w.fire('webviewclosed', { response: JSON.stringify({
+    COFFEE_ON: true, COFFEE_N: '2',
+    COFFEE_TIME1: '1200', COFFEE_TYPE1: '1', COFFEE_MILK1: true, COFFEE_DECAF1: true,
+    COFFEE_TIME2: '960', COFFEE_TYPE2: '3', COFFEE_DECAF2: true,
+  }) });
+  check('koffeinfrei als Bit 4, nicht beim Energy-Drink',
+        JSON.stringify(w.last().COFFEE) === JSON.stringify([2, 1200 & 255, 1200 >> 8, 1, 5, 960 & 255, 960 >> 8, 3, 0]),
+        JSON.stringify(w.last().COFFEE));
+  const w2 = world();
+  w2.fire('appmessage', { payload: { COFFEE: [1, 600 & 255, 600 >> 8, 2, 4] } });
+  const clay = JSON.parse(w2.store['clay-settings'] || '{}');
+  check('koffeinfrei landet auf der Seite', clay.COFFEE_DECAF1 === true && clay.COFFEE_MILK1 === false, JSON.stringify(clay));
+}
+
 console.log('\nEigene Getraenke');
 {
   const w = world();

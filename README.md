@@ -53,8 +53,8 @@ Wasser, Mitte lang der Trinkplan, unten das Tagesziel höher. In der
 Seitenleiste steht oben ein Becher für die Getränkeauswahl.
 
 **Getränkeauswahl** - für alles ausserhalb des Plans. Oben die eigenen
-Getränke (ein Druck trägt ein), dann die vier Sorten. Nach einer Sorte folgen Milch (nur beim Kaffee) und
-Zucker zum Abhaken; die Auswahl steht schon auf "Eintragen". Danach läuft die
+Getränke (ein Druck trägt ein), dann die vier Sorten. Nach einer Sorte folgen Koffeinfrei, Milch und
+Zucker zum Abhaken (Koffeinfrei und Milch nicht beim Energy-Drink); die Auswahl steht schon auf "Eintragen". Danach läuft die
 Animation des Gefässes, und der Eintrag geht wie beim Kaffee ans Telefon.
 
 **Hauptscreen** - im Stil der Pebble-Timeline: weisser Grund, schwarze Schrift,
@@ -159,8 +159,9 @@ ganzen Weg auf der Telefonseite.
 
 Ganz unten auf der Seite steht ein Schalter **Kaffee-Erinnerungen**. Erst
 eingeschaltet erscheint die Frage, wie viele (1 bis 4), und dann je Kaffee eine
-Zeile mit Uhrzeit (Viertelstundenraster 5 bis 23 Uhr), Sorte, Milch und
-Zucker. Milch gibt es zu allem ausser dem Energy-Drink.
+Zeile mit Uhrzeit (Viertelstundenraster 5 bis 23 Uhr), Sorte, Milch, Zucker
+und Koffeinfrei. Milch und Koffeinfrei gibt es zu allem ausser dem Energy-Drink.
+Koffeinfrei wird eingetragen wie die Sorte, zählt aber kein Koffein.
 
 | Sorte | Nummer |
 |---|---|
@@ -182,10 +183,10 @@ Wecker der App, es werden immer die nächsten acht Termine gestellt. Ein offenes
 
 Ein getrunkener Kaffee geht wie ein Glas über eine Warteschlange im Persist ans
 Telefon: `COFFEE_AT` (Zeitpunkt) und `COFFEE_KIND` (Sorte in den unteren vier
-Bits, Milch `0x10`, Zucker `0x20`). Eine Companion-App rechnet daraus Koffein
+Bits, Milch `0x10`, Zucker `0x20`, koffeinfrei `0x40`). Eine Companion-App rechnet daraus Koffein
 und kcal. Der Plan selbst geht als `COFFEE` hin und her: ein Byte Anzahl, dann
 je Kaffee Minute des Tages (2 Byte, little endian), Sorte, Flags (Milch 1,
-Zucker 2). Aus ist ein einzelnes Null-Byte.
+Zucker 2, koffeinfrei 4). Aus ist ein einzelnes Null-Byte.
 
 ### Eigene Getränke
 
