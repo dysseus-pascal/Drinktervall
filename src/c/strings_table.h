@@ -63,7 +63,8 @@ STR(STR_GLANCE_FMT,      48, "%d of %d glasses, next %s", "%d von %d Gläsern, n
 
 // ---- Kaffee ---------------------------------------------------------------
 // Die Sortennamen auch fuer coffee_describe: Name, koffeinfrei, Milch und
-// Zucker muessen zusammen in 40 Byte passen (coffee_window.c).
+// Zucker muessen zusammen in COFFEE_DESCRIBE_MAX Byte passen (coffee.h);
+// tools/strings_check.js rechnet das je Sprache nach.
 STR(STR_COFFEE_TIME,     0,  "Coffee time!",    "Zeit für einen Kaffee!", "C'est l'heure du café !", "È l'ora del caffè!", "¡Hora del café!")
 STR(STR_ESPRESSO,        0,  "Espresso",        "Espresso", "Espresso", "Espresso", "Espresso")
 STR(STR_COFFEE,          0,  "Coffee",          "Kaffee", "Café", "Caffè", "Café")
@@ -73,7 +74,8 @@ STR(STR_TIME_FOR_FMT,    0,  "Time for %s!",    "Zeit für %s!", "C'est l'heure 
 STR(STR_ENERGY_DRINK,    0,  "Energy drink",    "Energy-Drink", "Boisson énergisante", "Energy drink", "Bebida energética")
 STR(STR_MILK,            0,  "milk",            "Milch", "lait", "latte", "leche")
 STR(STR_SUGAR,           0,  "sugar",           "Zucker", "sucre", "zucchero", "azúcar")
-// Darum kurz: "deca" statt "décaféiné".
+// Franzoesisch "déca" wie der Haken in der Getraenkeauswahl und der Schalter
+// auf der Konfigseite (siehe STR_DECAF_ROW).
 STR(STR_DECAF,           0,  "decaf",           "koffeinfrei", "déca", "deca", "descafeinado")
 STR(STR_ENJOY,           0,  "Enjoy!",          "Wohl bekomm's!", "Bonne dégustation !", "Buona pausa!", "¡Que aproveche!")
 
@@ -82,5 +84,8 @@ STR(STR_MY_DRINKS,       0,  "Your drinks",     "Deine Getränke", "Vos boissons
 STR(STR_DRINKS,          0,  "Drinks",          "Getränke", "Boissons", "Bevande", "Bebidas")
 STR(STR_MILK_ROW,        0,  "Milk",            "Milch", "Lait", "Latte", "Leche")
 STR(STR_SUGAR_ROW,       0,  "Sugar",           "Zucker", "Sucre", "Zucchero", "Azúcar")
+// Die Zeile hat auf flint (144 px) neben Gefaess und Kaestchen nur 64 px:
+// "Déca" passt, "Décaféiné" endete als "Décaféi...". Die Konfigseite
+// (src/pkjs/config.js, coffeeDecaf) traegt dasselbe Wort.
 STR(STR_DECAF_ROW,       0,  "Decaf",           "Koffeinfrei", "Déca", "Decaffeinato", "Descafeinado")
 STR(STR_LOG,             0,  "Log it",          "Eintragen", "Noter", "Registra", "Registrar")

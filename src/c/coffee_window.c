@@ -89,7 +89,7 @@ static void prv_update(Layer *layer, GContext *ctx) {
                      GTextAlignmentLeft, NULL);
   y += title_size.h + 4;
   if (da && !s_eigen) {
-    char sub[40];
+    char sub[COFFEE_DESCRIBE_MAX];
     coffee_describe(coffee_slot(s_idx), sub, sizeof(sub));
     graphics_draw_text(ctx, sub, fonts_get_system_font(wide ? FONT_KEY_GOTHIC_18 : FONT_KEY_GOTHIC_14),
                        GRect(margin, y, text_w, 44), GTextOverflowModeWordWrap,

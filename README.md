@@ -159,8 +159,9 @@ ganzen Weg auf der Telefonseite.
 
 Ganz unten auf der Seite steht ein Schalter **Kaffee-Erinnerungen**. Erst
 eingeschaltet erscheint die Frage, wie viele (1 bis 4), und dann je Kaffee eine
-Zeile mit Uhrzeit (Viertelstundenraster 5 bis 23 Uhr), Sorte, Milch, Zucker
-und Koffeinfrei. Milch und Koffeinfrei gibt es zu allem ausser dem Energy-Drink.
+Zeile mit Uhrzeit (Viertelstundenraster 5 bis 23 Uhr), Sorte, Koffeinfrei,
+Milch und Zucker - dieselbe Reihenfolge wie die Haken auf der Uhr. Koffeinfrei
+und Milch gibt es zu allem ausser dem Energy-Drink.
 Koffeinfrei wird eingetragen wie die Sorte, zählt aber kein Koffein.
 
 | Sorte | Nummer |

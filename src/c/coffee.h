@@ -4,7 +4,8 @@
 #include "config.h"
 
 // Kaffeezeiten: bis zu DT_COFFEE_MAX feste Uhrzeiten am Tag, je mit Sorte,
-// Milch und Zucker. Eingestellt auf der Konfigseite, auf der Uhr gemerkt.
+// koffeinfrei, Milch und Zucker. Eingestellt auf der Konfigseite, auf der Uhr
+// gemerkt.
 // Ohne Eintrag ist die Funktion aus - die App verhaelt sich dann wie zuvor.
 
 // DIE NUMMERN SIND FEST: sie gehen als COFFEE_KIND ans Telefon, und die
@@ -33,7 +34,7 @@ typedef enum {
 typedef struct {
   uint16_t minute;   //< Minute des Tages, 0..1439
   uint8_t kind;      //< CoffeeKind
-  uint8_t flags;     //< COFFEE_MILK | COFFEE_SUGAR
+  uint8_t flags;     //< COFFEE_DECAF | COFFEE_MILK | COFFEE_SUGAR
 } CoffeeSlot;
 
 void coffee_init(void);
@@ -52,7 +53,11 @@ int coffee_to_bytes(uint8_t *buf);
 // Rueckgabe: true, wenn sich der Plan dadurch geaendert hat.
 bool coffee_from_bytes(const uint8_t *buf, int len);
 
-// "Espresso", "Coffee, decaf, milk, sugar" - fuer die Erinnerung.
+// "Espresso", "Coffee, decaf, milk, sugar" - fuer die Erinnerung. Der Puffer
+// soll COFFEE_DESCRIBE_MAX Byte haben: so viel braucht die laengste Sorte mit
+// allen drei Zusaetzen in jeder Sprache. tools/strings_check.js liest die
+// Zahl hier heraus und prueft das gegen strings_table.h.
+#define COFFEE_DESCRIBE_MAX 64
 void coffee_describe(const CoffeeSlot *slot, char *buf, size_t len);
 
 // Milch gibt es zu allem ausser dem Energy-Drink.

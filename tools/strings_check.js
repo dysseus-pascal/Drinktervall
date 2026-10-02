@@ -13,6 +13,9 @@
 //   4. Formatplatzhalter, die zwischen den Sprachen nicht uebereinstimmen -
 //      ein fehlendes %s in einer Spalte gibt Muell aus statt eines Ortsnamens
 //   5. Schluessel, die in src/c nirgends benutzt werden (tote Texte)
+//   6. die laengste Erinnerungszeile aus coffee_describe ("Sorte, koffeinfrei,
+//      Milch, Zucker") gegen ihren Puffer COFFEE_DESCRIBE_MAX aus coffee.h -
+//      die Teile stehen einzeln in der Tabelle, die Summe sieht sonst keiner
 //
 // Exitcode 0 = in Ordnung. Was nur auffaellt, aber nicht bricht, steht als
 // HINWEIS da.
@@ -140,6 +143,77 @@ for (const r of rows) {
   if (uses === 0) {
     console.log('HINWEIS ' + r.id + ': wird in ' + srcDir + ' nirgends benutzt');
     notes++;
+  }
+}
+
+// 6
+// coffee_describe (coffee.c) haengt an den Sortennamen jeden Zusatz mit ", "
+// an. Gelesen wird aus dem C-Code selbst: die Sorten aus dem Feld names[] in
+// coffee_describe, die Zusaetze aus den S(STR_...)-Aufrufen dort, die
+// Puffergroesse aus #define COFFEE_DESCRIBE_MAX in coffee.h. Geprueft wird je
+// Sprache die laengste Sorte mit ALLEN Zusaetzen - bewusst ohne Ruecksicht
+// darauf, welche Sorte welchen Zusatz kennt (coffee_milk_possible,
+// coffee_decaf_possible): so bleibt die Pruefung richtig, wenn eine Sorte
+// einen Zusatz dazubekommt. Dazu muss jeder Aufrufer einen Puffer dieser
+// Groesse uebergeben; ein char-Feld mit fester Zahl faellt hier auf.
+{
+  const SEP = ', ';
+  const read = (f) => { try { return fs.readFileSync(path.join(srcDir, f), 'utf8'); } catch (e) { return ''; } };
+  const header = read('coffee.h');
+  const maxMatch = /#define\s+COFFEE_DESCRIBE_MAX\s+(\d+)/.exec(header);
+  const body = (/void\s+coffee_describe\s*\([^)]*\)\s*\{([\s\S]*?)\n\}/.exec(read('coffee.c')) || [])[1] || '';
+  const namesMatch = /names\s*\[[^\]]*\]\s*=\s*\{([^}]*)\}/.exec(body);
+  const kinds = namesMatch ? namesMatch[1].split(',').map((x) => x.trim()).filter(Boolean) : [];
+  const extras = (body.match(/\bS\(\s*(STR_\w+)\s*\)/g) || []).map((x) => /STR_\w+/.exec(x)[0]);
+  const byId = new Map(rows.map((r) => [r.id, r]));
+  const unknown = kinds.concat(extras).filter((id) => !byId.has(id));
+  if (!maxMatch || !kinds.length || !extras.length || unknown.length) {
+    console.log('FEHLER coffee_describe: Pruefung 6 findet ' +
+                (!maxMatch ? 'COFFEE_DESCRIBE_MAX in coffee.h nicht' :
+                 !kinds.length ? 'die Sorten (names[]) in coffee.c nicht' :
+                 !extras.length ? 'die Zusaetze (S(STR_...)) in coffee.c nicht' :
+                 'unbekannte Schluessel ' + unknown.join(', ')));
+    errors++;
+  } else {
+    const max = parseInt(maxMatch[1], 10);
+    const worst = LANGS.map((lang, li) => {
+      const text = (id) => byId.get(id).cols[li] || byId.get(id).cols[0];
+      const name = kinds.map(text).reduce((a, b) => (Buffer.byteLength(b) > Buffer.byteLength(a) ? b : a));
+      const line = [name].concat(extras.map(text)).join(SEP);
+      return { lang, line, bytes: Buffer.byteLength(line, 'utf8') + 1 };
+    });
+    console.log('coffee_describe, Puffer ' + max + ' Byte, laengste Zeile mit Null: ' +
+                worst.map((w) => w.lang + ' ' + w.bytes).join(', '));
+    for (const w of worst) {
+      if (w.bytes > max) {
+        console.log('FEHLER coffee_describe [' + w.lang + ']: ' + w.bytes + ' Byte > Puffer ' +
+                    max + '  ' + JSON.stringify(w.line));
+        errors++;
+      }
+    }
+    // Die Aufrufer: coffee_describe(..., buf, sizeof(buf)) mit char buf[N].
+    const need = Math.max.apply(null, worst.map((w) => w.bytes));
+    for (const f of fs.readdirSync(srcDir)) {
+      if (!f.endsWith('.c')) continue;
+      const src = read(f);
+      const calls = /coffee_describe\s*\([^;]*?,\s*(\w+)\s*,\s*sizeof\s*\(\s*(\w+)\s*\)\s*\)/g;
+      let m;
+      while ((m = calls.exec(src))) {
+        const decl = new RegExp('char\\s+' + m[1] + '\\s*\\[\\s*(\\w+)\\s*\\]').exec(src);
+        if (m[1] !== m[2] || !decl) {
+          console.log('HINWEIS ' + f + ': Puffer von coffee_describe nicht erkannt (' + m[0] + ')');
+          notes++;
+          continue;
+        }
+        // Mit der Konstante ist die Groesse oben schon geprueft.
+        if (decl[1] === 'COFFEE_DESCRIBE_MAX') continue;
+        if (!(parseInt(decl[1], 10) >= need)) {
+          console.log('FEHLER ' + f + ': char ' + m[1] + '[' + decl[1] + '] fuer coffee_describe, ' +
+                      'gebraucht ' + need + ' Byte - COFFEE_DESCRIBE_MAX nehmen');
+          errors++;
+        }
+      }
+    }
   }
 }
 

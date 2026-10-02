@@ -163,7 +163,9 @@ var TEXT = [
     coffeeTypes: ['Espresso', 'Café', 'Thé', 'Boisson énergisante'],
     coffeeMilk: 'Lait',
     coffeeSugar: 'Sucre',
-    coffeeDecaf: 'Décaféiné',
+    // Wie der Haken auf der Uhr (STR_DECAF_ROW): "Décaféiné" passt dort
+    // auf flint nicht in die Zeile und endete als "Décaféi…".
+    coffeeDecaf: 'Déca',
     customSection: 'Boissons perso',
     customCount: 'Combien\u00a0?',
     customSlot: 'Boisson',
@@ -279,7 +281,7 @@ var TEXT = [
 // Nummer geht an die Uhr und von dort an die Companion-App.
 var COFFEE_MAX = 4;
 var COFFEE_DEFAULT_TIMES = [420, 600, 840, 960];   // 07:00, 10:00, 14:00, 16:00
-var COFFEE_ENERGY = '3';                            // Milch zu allem ausser dem Energy-Drink
+var COFFEE_ENERGY = '3';                            // Milch und koffeinfrei zu allem ausser dem Energy-Drink
 
 // Viertelstundenraster von 5 bis 23 Uhr: Kaffee hat feste Gewohnheiten, aber
 // nicht nur zur vollen und halben Stunde.
@@ -308,9 +310,14 @@ function coffeeSlot(t, n) {
         defaultValue: '1',
         options: t.coffeeTypes.map(function (name, i) { return { label: name, value: String(i) }; })
       },
+      // Die Schalter in der Reihenfolge der Haken auf der Uhr (prv_extra_bits
+      // in src/c/drinks_window.c) und der Erinnerung (coffee_describe):
+      // koffeinfrei, Milch, Zucker. Clay merkt sich jeden Wert unter seinem
+      // messageKey, nicht unter seinem Platz - gespeicherte Seiten lesen sich
+      // nach dem Umstellen (1.18.0 hatte Milch, Zucker, koffeinfrei) gleich.
+      { type: 'toggle', messageKey: 'COFFEE_DECAF' + n, label: t.coffeeDecaf, defaultValue: false },
       { type: 'toggle', messageKey: 'COFFEE_MILK' + n, label: t.coffeeMilk, defaultValue: false },
-      { type: 'toggle', messageKey: 'COFFEE_SUGAR' + n, label: t.coffeeSugar, defaultValue: false },
-      { type: 'toggle', messageKey: 'COFFEE_DECAF' + n, label: t.coffeeDecaf, defaultValue: false }
+      { type: 'toggle', messageKey: 'COFFEE_SUGAR' + n, label: t.coffeeSugar, defaultValue: false }
     ]
   };
 }
@@ -443,8 +450,8 @@ module.exports.CUSTOM_MAX = CUSTOM_MAX;
  * Laeuft IN DER KONFIGSEITE, nicht hier: Clay reicht diese Funktion in die
  * Webansicht weiter. Sie darf deshalb nichts von aussen benutzen.
  *
- * Erst der Schalter, dann die Anzahl, dann so viele Kaffees - und Milch nur
- * beim Kaffee: beim Espresso gibt es keine, beim Macchiato gehoert sie dazu.
+ * Erst der Schalter, dann die Anzahl, dann so viele Kaffees - und
+ * koffeinfrei und Milch nur, wo es sie gibt: zu allem ausser dem Energy-Drink.
  */
 module.exports.custom = function () {
   var clayConfig = this;

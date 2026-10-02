@@ -426,6 +426,96 @@ console.log('\nKaffeezeiten');
   check('koffeinfrei landet auf der Seite', clay.COFFEE_DECAF1 === true && clay.COFFEE_MILK1 === false, JSON.stringify(clay));
 }
 
+// Die Haken der Uhr je Schalter der Seite, je Sprache (en, de, fr, it, es) -
+// gelesen aus strings_table.h, damit Seite und Uhr nicht auseinanderlaufen.
+function uhrHaken() {
+  const tabelle = fs.readFileSync(path.join(__dirname, '..', 'src', 'c', 'strings_table.h'), 'utf8');
+  const zeile = (id) => {
+    const l = tabelle.split('\n').find((x) => x.trim().startsWith('STR(' + id + ','));
+    return l ? (l.match(/"((?:[^"\\]|\\.)*)"/g) || []).map((q) => q.slice(1, -1)) : [];
+  };
+  return { COFFEE_DECAF: zeile('STR_DECAF_ROW'), COFFEE_MILK: zeile('STR_MILK_ROW'), COFFEE_SUGAR: zeile('STR_SUGAR_ROW') };
+}
+
+// Was Clay mit einer gespeicherten Seite macht (clay-config.js): jedes Feld
+// mit messageKey bekommt seinen Wert aus dem Speicher, sonst die Vorgabe -
+// und beim Schliessen schickt es alle Felder nach messageKey zurueck.
+function clayRunde(items, gemerkt) {
+  const antwort = {};
+  items.forEach((i) => {
+    if (!i.messageKey) return;
+    antwort[i.messageKey] = gemerkt[i.messageKey] !== undefined ? gemerkt[i.messageKey] : i.defaultValue;
+  });
+  return antwort;
+}
+
+{
+  // Die Schalter je Kaffee stehen wie die Haken auf der Uhr (prv_extra_bits in
+  // src/c/drinks_window.c): koffeinfrei, Milch, Zucker - und heissen wie die
+  // Zeilen dort (STR_DECAF_ROW, STR_MILK_ROW, STR_SUGAR_ROW). 1.18.0 hatte
+  // auf der Seite Milch, Zucker, koffeinfrei und franzoesisch "Décaféiné"
+  // gegen "Déca" auf der Uhr.
+  const cfg = require(CFG);
+  const uhr = uhrHaken();
+  check('Zeilen der Uhr in strings_table.h gefunden',
+        Object.keys(uhr).every((k) => uhr[k].length === 5), JSON.stringify(uhr));
+  ['en', 'de', 'fr', 'it', 'es'].forEach(function (sprache, lang) {
+    for (let n = 1; n <= cfg.COFFEE_MAX; n++) {
+      const sec = cfg(lang).find((x) => (x.items || []).some((i) => i.messageKey === 'COFFEE_TIME' + n));
+      const schalter = sec ? sec.items.filter((i) => i.type === 'toggle') : [];
+      const keys = schalter.map((i) => i.messageKey).join(',');
+      const soll = ['COFFEE_DECAF' + n, 'COFFEE_MILK' + n, 'COFFEE_SUGAR' + n].join(',');
+      if (keys !== soll) { check(sprache + ' Kaffee ' + n + ': koffeinfrei, Milch, Zucker wie auf der Uhr', false, keys); continue; }
+      if (n > 1) continue;
+      check(sprache + ': Schalter in der Reihenfolge der Uhr', true, keys);
+      const falsch = schalter.filter((i) => i.label !== uhr[i.messageKey.replace(/\d+$/, '')][lang]);
+      check(sprache + ': Schalter heissen wie die Haken auf der Uhr', falsch.length === 0,
+            falsch.map((i) => i.messageKey + '="' + i.label + '" Uhr="' + uhr[i.messageKey.replace(/\d+$/, '')][lang] + '"').join(', '));
+    }
+  });
+}
+{
+  // Eine unter 1.18.0 gespeicherte Seite (dort Milch, Zucker, koffeinfrei)
+  // geht durch die heutige config.js so, wie Clay sie wieder aufbaut: Jeder
+  // gemerkte Haken muss an einem Schalter landen, der so heisst wie der Haken
+  // auf der Uhr, und beim Schliessen dasselbe Soll ergeben. Vertauschte oder
+  // umbenannte messageKeys fallen hier auf; die blosse Reihenfolge darf es
+  // nicht - die prueft der Block davor.
+  const cfg = require(CFG);
+  const uhr = uhrHaken();
+  const gemerkt = {
+    COFFEE_ON: true, COFFEE_N: '1', COFFEE_TIME1: '480', COFFEE_TYPE1: '0',
+    COFFEE_MILK1: true, COFFEE_SUGAR1: false, COFFEE_DECAF1: true,
+  };
+  const bedeutung = (key) => uhr[key.replace(/\d+$/, '')];
+  ['en', 'de', 'fr', 'it', 'es'].forEach(function (sprache, lang) {
+    const items = [].concat.apply([], cfg(lang).map((x) => x.items || []));
+    const fehlt = Object.keys(gemerkt).filter((k) => !items.some((i) => i.messageKey === k));
+    check(sprache + ': jeder gemerkte Wert von 1.18.0 hat noch sein Feld', fehlt.length === 0, fehlt.join(','));
+    const an = items.filter((i) => i.type === 'toggle' && /^COFFEE_(DECAF|MILK|SUGAR)1$/.test(i.messageKey) && gemerkt[i.messageKey] === true);
+    const falsch = an.filter((i) => i.label !== bedeutung(i.messageKey)[lang]);
+    check(sprache + ': gemerkte Haken stehen am gleichnamigen Schalter', an.length === 2 && falsch.length === 0,
+          an.map((i) => i.messageKey + '="' + i.label + '"').join(', '));
+    const w = world({ 'clay-settings': JSON.stringify(gemerkt) });
+    w.fire('webviewclosed', { response: JSON.stringify(clayRunde(items, gemerkt)) });
+    check(sprache + ': gespeicherte Seite von 1.18.0 ergibt Espresso koffeinfrei mit Milch',
+          JSON.stringify(w.last().COFFEE) === JSON.stringify([1, 480 & 255, 480 >> 8, 0, 5]),
+          JSON.stringify(w.last().COFFEE));
+  });
+  // Andersherum: alle drei Haken der Uhr kommen auf die Seite und stehen dort
+  // am Schalter mit dem Namen des Hakens. Ohne eigene Aenderung unterwegs -
+  // sonst gilt die Uhr nicht.
+  const w2 = world({ 'clay-settings': JSON.stringify({ COFFEE_ON: true, COFFEE_N: '1', COFFEE_MILK1: true }) });
+  w2.fire('appmessage', { payload: { COFFEE: [1, 480 & 255, 480 >> 8, 0, 7] } });
+  const clay = JSON.parse(w2.store['clay-settings'] || '{}');
+  const items = [].concat.apply([], cfg(1).map((x) => x.items || []));
+  const seite = clayRunde(items, clay);
+  const schalter = items.filter((i) => i.type === 'toggle' && /^COFFEE_(DECAF|MILK|SUGAR)1$/.test(i.messageKey));
+  check('und alle drei Haken der Uhr landen am gleichnamigen Schalter',
+        schalter.length === 3 && schalter.every((i) => seite[i.messageKey] === true && i.label === bedeutung(i.messageKey)[1]),
+        JSON.stringify(clay));
+}
+
 console.log('\nEigene Getraenke');
 {
   const w = world();
