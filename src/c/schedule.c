@@ -142,6 +142,10 @@ int schedule_goal(void) {
   return s_goal;
 }
 
+int32_t schedule_day(void) {
+  return s_day;
+}
+
 void schedule_raise_goal(void) {
   if (s_goal >= DT_GOAL_MAX) return;
   s_goal++;

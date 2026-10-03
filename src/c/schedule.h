@@ -25,6 +25,10 @@ void schedule_set_count(int count);
 int schedule_goal(void);
 void schedule_raise_goal(void);
 
+// Der Tag (JJJJMMTT), zu dem Zaehler und Tagesziel gehoeren. Meist heute -
+// nach einem Neustart mit falscher Uhrzeit aber der zuletzt gemerkte.
+int32_t schedule_day(void);
+
 // Abstand zweier Erinnerungen in Minuten, aus Tagesfenster und Soll.
 int schedule_interval_min(void);
 

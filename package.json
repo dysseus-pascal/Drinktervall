@@ -1,7 +1,7 @@
 {
   "name": "drinktervall",
   "author": "dysseus-pascal",
-  "version": "1.18.1",
+  "version": "1.19.0",
   "license": "CC0-1.0",
   "keywords": [
     "pebble-app"
@@ -82,7 +82,8 @@
       "COFFEE_DECAF1",
       "COFFEE_DECAF2",
       "COFFEE_DECAF3",
-      "COFFEE_DECAF4"
+      "COFFEE_DECAF4",
+      "GOAL_DAY"
     ],
     "resources": {
       "media": [

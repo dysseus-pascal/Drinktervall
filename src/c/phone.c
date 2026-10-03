@@ -14,8 +14,11 @@ enum { SlotFuture = 0, SlotDrunk = 2, SlotMissed = 3 };
 // Bei DT_GLASSES_MAX = 16 sind das 143 Byte; dazu der Kaffeeplan (7 + 17)
 // und ein Kaffee (2 x 11) - 192 Byte; die eigenen Getraenke (bis 90 Zeichen)
 // und ein eigenes Getraenk unterwegs (Name, kcal, Koffein) bringen es auf
-// rund 340. Eingehend steht der ganze Plan samt eigener Getraenke drin.
-#define OUTBOX_SIZE 384
+// rund 340, im schlimmsten Fall (16 Glaeser, drei lange Namen, Glas und
+// eigenes Getraenk unterwegs) knapp 380. Mit dem Tag zum Ziel (11) waere 384
+// zu knapp: was nicht mehr passt, faellt still aus der Nachricht - zuletzt
+// geschrieben wird das Glas. Also 448.
+#define OUTBOX_SIZE 448
 #define INBOX_SIZE  256
 
 // --- Die Glaeser, die noch zum Telefon muessen ---
@@ -207,6 +210,10 @@ void phone_send_next(void) {
   time_t next;
   const int idx = schedule_next(now, &next);
   dict_write_int32(out, MESSAGE_KEY_GLASSES, schedule_goal());
+  // Der Tag zum Ziel: das erhoehte Ziel gilt nur fuer ihn. Ohne ihn nahm das
+  // Telefon den Tag der Ankunft - eine Meldung von 23:59, die nach
+  // Mitternacht ankam, hob dann das Ziel des neuen Tages an.
+  dict_write_int32(out, MESSAGE_KEY_GOAL_DAY, schedule_day());
   dict_write_int32(out, MESSAGE_KEY_COUNT, count);
   dict_write_int32(out, MESSAGE_KEY_NEXT_TIME, (int32_t)next);
   dict_write_int32(out, MESSAGE_KEY_NEXT_INDEX, idx);

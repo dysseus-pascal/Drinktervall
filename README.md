@@ -336,6 +336,7 @@ Ohne Uhr laufen zwei Prüfungen:
 ```sh
 node tools/pkjs_config_test.js            # Konfigseite und Weg des Solls zur Uhr
 node tools/strings_check.js src/c/strings_table.h   # Übersetzungen und Pufferlängen
+sh tools/schedule_host_test.sh            # Tag zum Tagesziel (Rechner-C, pebble.h als Attrappe)
 ```
 
 Das fertige Paket liegt nach dem Build unter `build/drinktervall.pbw`, eine Kopie
@@ -413,3 +414,17 @@ Telefon das Glas hat. Was dann noch in der Schlange steht, geht beim nächsten
 Start. Kiesel-Helper trägt ein Glas je Zeitpunkt nur einmal ein — doppelt
 geschickt ist harmlos.
 
+## Der Tag zum Ziel
+
+Jede Standmeldung trägt neben dem Tagesziel (`GLASSES`) seinen Tag
+(`GOAL_DAY`, JJJJMMTT). Das per Taste erhöhte Ziel gilt nur für diesen Tag;
+ohne ihn musste das Telefon den Tag der Ankunft nehmen, und eine Meldung von
+23:59, die erst nach Mitternacht ankam, hob das Ziel des neuen Tages an. Es
+ist der Tag, zu dem Zähler und Ziel im Persist gehören — steht die Uhr nach
+einem Neustart kurz zu früh, bleibt es der gemerkte.
+
+Der Schlüssel steht am **Ende** der `messageKeys` (10056); eine ältere
+Telefonseite überliest ihn. Der Postausgang wuchs dafür von 384 auf 448 Byte:
+im ungünstigsten Fall (16 Gläser, drei lange eigene Getränke, Glas und eigenes
+Getränk unterwegs) waren es schon knapp 380, und was nicht mehr passt, fällt
+still aus der Nachricht — zuletzt geschrieben wird das Glas.
