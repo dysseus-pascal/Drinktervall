@@ -89,4 +89,21 @@ const CustomDrink *custom_drink(int idx);
 // 1.16) gibt es keine Erinnerung.
 // Rueckgabe von from: true, wenn sich etwas geaendert hat.
 bool custom_from_string(const char *text);
-void custom_to_string(char *buf, size_t len);
+// So viel braucht der Text hoechstens: je Getraenk Name (DT_CUSTOM_NAME - 1
+// Byte), drei Trenner, kcal und Koffein als uint16 (je bis 5 Ziffern), die
+// Minute (-1 bis 1439, bis 4 Zeichen) und ein Zeilenumbruch bzw. die
+// abschliessende Null. Bei drei Getraenken 99 Byte.
+// BIS 1.19 WAREN ES 84: drei lange Namen mit vierstelligen Werten und
+// Erinnerung brauchen 92 Zeichen plus Null, und snprintf schnitt alles nach
+// Zeichen 83 still ab. Im Emulator nachgestellt: vom dritten Getraenk kam nur
+// "Matcha Latte 15|2000|" an, Koffein und Erinnerung fehlten - das Telefon
+// uebernahm das in die Konfigseite (Koffein 0, Erinnerung aus) und schickte
+// es beim naechsten Speichern zurueck (Audit M9).
+// (Nur tools/phone_host_test.sh setzt ihn von aussen kleiner, um den Fall
+// "passt nicht" zu pruefen - mit gueltigen Werten tritt er nie ein.)
+#ifndef CUSTOM_TEXT_MAX
+#define CUSTOM_TEXT_MAX (DT_CUSTOM_MAX * ((DT_CUSTOM_NAME - 1) + 3 + 5 + 5 + 4 + 1))
+#endif
+// Rueckgabe: true, wenn der ganze Text in `buf` passte. Bei false ist er
+// abgeschnitten und darf nicht hinaus - das Telefon uebernaehme ihn.
+bool custom_to_string(char *buf, size_t len);

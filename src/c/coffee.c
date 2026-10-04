@@ -83,7 +83,13 @@ bool custom_from_string(const char *text) {
     const char *c = b ? memchr(b + 1, '|', ende - b - 1) : NULL;
     if (a && b && a > p) {
       size_t l = (size_t)(a - p);
-      if (l > DT_CUSTOM_NAME - 1) l = DT_CUSTOM_NAME - 1;
+      if (l > DT_CUSTOM_NAME - 1) {
+        l = DT_CUSTOM_NAME - 1;
+        // NIE MITTEN IM ZEICHEN: Folgebytes (10xxxxxx) gehoeren zum Zeichen
+        // davor, das dann ganz wegfaellt. Ein halbes "ü" stuende sonst als
+        // kaputtes UTF-8 auf der Uhr und in der Gesundheitsakte.
+        while (l > 0 && ((uint8_t)p[l] & 0xC0) == 0x80) l--;
+      }
       memcpy(neu[n].name, p, l);
       neu[n].kcal = (uint16_t)atoi(a + 1);
       neu[n].mg = (uint16_t)atoi(b + 1);
@@ -102,13 +108,16 @@ bool custom_from_string(const char *text) {
   return true;
 }
 
-void custom_to_string(char *buf, size_t len) {
+bool custom_to_string(char *buf, size_t len) {
+  if (len == 0) return false;
   buf[0] = 0;
   for (int i = 0; i < s_custom_count; i++) {
     const size_t l = strlen(buf);
-    snprintf(buf + l, len - l, "%s%s|%d|%d|%d", i ? "\n" : "", s_custom[i].name,
-             (int)s_custom[i].kcal, (int)s_custom[i].mg, (int)s_custom[i].minute);
+    const int n = snprintf(buf + l, len - l, "%s%s|%d|%d|%d", i ? "\n" : "", s_custom[i].name,
+                           (int)s_custom[i].kcal, (int)s_custom[i].mg, (int)s_custom[i].minute);
+    if (n < 0 || (size_t)n >= len - l) return false;
   }
+  return true;
 }
 
 void coffee_init(void) {

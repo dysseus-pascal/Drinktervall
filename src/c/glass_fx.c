@@ -37,14 +37,39 @@ static int16_t s_width;     // Glasbreite oben in Pixeln
 static GlassFxDone s_done;
 static Vessel s_vessel;
 
-// Farben der Getraenke. Auf Schwarz-Weiss bleibt nur Grau: dort traegt die
-// Form, nicht die Farbe.
+// Farben der Getraenke. MIT MILCH IST JEDES HELLER UND KEINES GLEICH - und
+// zwar so, wie das Display es zeigt, nicht wie die Palette heisst. Das
+// Farbdisplay ist blass: `pebble screenshot` rechnet die 64 Farben deshalb
+// in das um, was man auf der Uhr sieht (pebble_tool, _correct_colours).
+// Dort lagen bis 1.19 Tee (#FFAA00) und Tee mit Milch (#FFAA55) bei
+// (241,170,134) gegen (241,173,147) - gleich. Tee mit Milch hatte ausserdem
+// die Farbe von Kaffee mit Milch und Espresso mit Milch die von Kaffee
+// (Audit M12). Jetzt, Palette -> auf der Uhr:
+//   Espresso  #550000 ( 74, 22, 27)  ->  mit Milch #555500 ( 86, 78, 54)
+//   Kaffee    #AA5500 (157, 91, 77)  ->  mit Milch #AAAA55 (174,163,130)
+//   Tee       #FFAA00 (241,170,134)  ->  mit Milch #FFFF55 (255,241,181)
+// Die Namen taeuschen: "ArmyGreen", "Brass" und "Icterine" sind auf dem
+// Display ein milchiges Dunkelbraun, Beige und Creme. UND JEDES HEBT SICH VOM
+// WEISSEN INNERN DES GEFAESSES AB, in das es fliesst: das blasse
+// "PastelYellow" (#FFFFAA) lag nur Delta E 18 von Weiss und war als Pegel
+// kaum zu sehen. Jetzt ist jedes mit Milch 17 bis 21 L* heller, kein Paar
+// der sechs liegt naeher als Delta E 26, keines naeher als 31 am Weiss
+// (CIELAB; tools/farben_check.sh rechnet es nach).
+//
+// AUF SCHWARZ-WEISS (flint) TRAEGT MILCH EIN EIGENES, LICHTERES RASTER
+// (prv_raster). Eine Farbe allein reicht dort nicht: die Firmware rundet jede
+// Fuellfarbe zuerst auf Schwarz, Dunkelgrau, Hellgrau oder Weiss
+// (graphics_context_set_fill_color -> gcolor_get_grayscale), und Dunkel- wie
+// Hellgrau werden dasselbe Schachbrett (graphics_private.c, grays[]). Das
+// lichtere Viertel-Raster derselben Tabelle ist ueber eine Fuellfarbe nicht zu
+// erreichen - im Emulator nachgeprueft: eine helle Farbe (Icterine) ergab
+// auf flint eine leere Tasse. tools/glas_host_test.c prueft das Raster.
 #define FX_ESPRESSO   PBL_IF_COLOR_ELSE(GColorBulgarianRose, GColorDarkGray)
 #define FX_COFFEE     PBL_IF_COLOR_ELSE(GColorWindsorTan, GColorDarkGray)
-#define FX_MILKCOFFEE PBL_IF_COLOR_ELSE(GColorRajah, GColorLightGray)
-#define FX_ESPRESSO_MILK PBL_IF_COLOR_ELSE(GColorWindsorTan, GColorDarkGray)
-#define FX_TEA        PBL_IF_COLOR_ELSE(GColorChromeYellow, GColorLightGray)
-#define FX_TEA_MILK   PBL_IF_COLOR_ELSE(GColorRajah, GColorLightGray)
+#define FX_MILKCOFFEE PBL_IF_COLOR_ELSE(GColorBrass, GColorLightGray)
+#define FX_ESPRESSO_MILK PBL_IF_COLOR_ELSE(GColorArmyGreen, GColorLightGray)
+#define FX_TEA        PBL_IF_COLOR_ELSE(GColorChromeYellow, GColorDarkGray)
+#define FX_TEA_MILK   PBL_IF_COLOR_ELSE(GColorIcterine, GColorLightGray)
 #define FX_CAN_BLUE   PBL_IF_COLOR_ELSE(GColorDukeBlue, GColorDarkGray)
 #define FX_CAN_SILVER PBL_IF_COLOR_ELSE(GColorLightGray, GColorWhite)
 #define FX_SUN        PBL_IF_COLOR_ELSE(GColorYellow, GColorWhite)
@@ -179,10 +204,40 @@ static int32_t prv_hw(int32_t top, int32_t bot, int32_t y0, int32_t y1, int32_t 
   return top + (bot - top) * (y - y0) / (y1 - y0);
 }
 
+#ifndef PBL_COLOR
+// Ein lichtes Raster: jedes zweite Pixel jeder zweiten Zeile, also ein
+// Viertel schwarz statt der Haelfte im Grau-Schachbrett. So ist Milch auf
+// Schwarz-Weiss heller, ohne Farbe. Gezeichnet Zeile fuer Zeile im Trapez.
+static void prv_raster(GContext *ctx, int32_t top, int32_t bot, int32_t y0, int32_t y1,
+                       int32_t ya, int32_t yb) {
+  const GPoint unten = prv_gp(0, ya), oben = prv_gp(0, yb);
+  graphics_context_set_stroke_color(ctx, GColorBlack);
+  for (int16_t py = oben.y; py <= unten.y; py++) {
+    if (py % 2) continue;
+    // Pixelzeile zurueck in Basis-Einheiten, um die halbe Breite zu finden.
+    const int32_t y = (int32_t)(py - s_g.c.y) * 1000 / s_g.k;
+    const int32_t hw = prv_hw(top, bot, y0, y1, y);
+    const int16_t links = prv_gp(-hw, y).x + 1, rechts = prv_gp(hw, y).x - 1;
+    for (int16_t px = links; px <= rechts; px++) {
+      if (!(px % 2)) graphics_draw_pixel(ctx, GPoint(px, py));
+    }
+  }
+}
+#endif
+
 // Eine Fuellung zwischen den Hoehen ya (unten) und yb (oben) in einem Trapez.
+// `milch` zaehlt nur auf Schwarz-Weiss: dort wird aus dem Grau ein Raster.
 static void prv_band(GContext *ctx, int32_t top, int32_t bot, int32_t y0, int32_t y1,
-                     int32_t ya, int32_t yb, GColor color) {
+                     int32_t ya, int32_t yb, GColor color, bool milch) {
   if (yb >= ya) return;
+#ifndef PBL_COLOR
+  if (milch) {
+    prv_raster(ctx, top, bot, y0, y1, ya, yb);
+    return;
+  }
+#else
+  (void)milch;
+#endif
   const int32_t a = prv_hw(top, bot, y0, y1, ya), b = prv_hw(top, bot, y0, y1, yb);
   const int32_t pts[4][2] = { { -a, ya }, { a, ya }, { b, yb }, { -b, yb } };
   prv_fill(ctx, pts, 4, color);
@@ -198,13 +253,13 @@ static void prv_steam(GContext *ctx, int32_t y) {
 }
 
 // Espresso: kleine Tasse auf der Untertasse, das Gesicht tiefer.
-static void prv_draw_espresso(GContext *ctx, int32_t level, Face face, bool steam, GColor drink) {
+static void prv_draw_espresso(GContext *ctx, int32_t level, Face face, bool steam, GColor drink, bool milch) {
   const int32_t top = 24, bot = 17, y0 = -8, y1 = 24;
   prv_ring(ctx, 28, 6, 8);                                     // Henkel
   const int32_t cup[4][2] = { { -top, y0 }, { -bot, y1 }, { bot, y1 }, { top, y0 } };
   prv_fill(ctx, cup, 4, GColorWhite);
   const int32_t full = y0 + 4;
-  prv_band(ctx, top, bot, y0, y1, y1, y1 - (y1 - full) * level / 1000, drink);
+  prv_band(ctx, top, bot, y0, y1, y1, y1 - (y1 - full) * level / 1000, drink, milch);
   prv_outline(ctx, cup, 4);
   GPoint saucer[4] = { prv_gp(-40, 26), prv_gp(-33, 32), prv_gp(33, 32), prv_gp(40, 26) };
   prv_polyline(ctx, saucer, 4);
@@ -213,13 +268,13 @@ static void prv_draw_espresso(GContext *ctx, int32_t level, Face face, bool stea
 }
 
 // Kaffee: Becher mit grossem Henkel.
-static void prv_draw_mug(GContext *ctx, int32_t level, Face face, GColor drink, bool steam) {
+static void prv_draw_mug(GContext *ctx, int32_t level, Face face, GColor drink, bool milch, bool steam) {
   const int32_t top = 28, bot = 26, y0 = -30, y1 = 38;
   prv_ring(ctx, 34, 2, 13);
   const int32_t mug[4][2] = { { -top, y0 }, { -bot, y1 }, { bot, y1 }, { top, y0 } };
   prv_fill(ctx, mug, 4, GColorWhite);
   const int32_t full = y0 + 6;
-  prv_band(ctx, top, bot, y0, y1, y1, y1 - (y1 - full) * level / 1000, drink);
+  prv_band(ctx, top, bot, y0, y1, y1, y1 - (y1 - full) * level / 1000, drink, milch);
   prv_outline(ctx, mug, 4);
   if (steam) prv_steam(ctx, y0 - 6);
   prv_face(ctx, face);
@@ -227,13 +282,13 @@ static void prv_draw_mug(GContext *ctx, int32_t level, Face face, GColor drink, 
 
 // Tee: eine breite, niedrige Tasse, ueber den Rand haengt die Schnur des
 // Beutels mit seinem Etikett - so unterscheidet sie sich vom Kaffeebecher.
-static void prv_draw_tea(GContext *ctx, int32_t level, Face face, GColor drink, bool steam) {
+static void prv_draw_tea(GContext *ctx, int32_t level, Face face, GColor drink, bool milch, bool steam) {
   const int32_t top = 34, bot = 24, y0 = -16, y1 = 30;
   prv_ring(ctx, 38, 2, 10);
   const int32_t tasse[4][2] = { { -top, y0 }, { -bot, y1 }, { bot, y1 }, { top, y0 } };
   prv_fill(ctx, tasse, 4, GColorWhite);
   const int32_t full = y0 + 5;
-  prv_band(ctx, top, bot, y0, y1, y1, y1 - (y1 - full) * level / 1000, drink);
+  prv_band(ctx, top, bot, y0, y1, y1, y1 - (y1 - full) * level / 1000, drink, milch);
   prv_outline(ctx, tasse, 4);
   // Schnur aus der Tasse ueber den Rand, das Etikett aussen daran.
   GPoint schnur[3] = { prv_gp(14, 6), prv_gp(22, y0 - 4), prv_gp(30, y0 + 8) };
@@ -318,12 +373,12 @@ static void prv_draw_glass(GContext *ctx, int32_t level, Face face, GColor water
 // Das Gefaess je nach Art; `steam` nur fuer das volle Heissgetraenk.
 static void prv_draw_vessel(GContext *ctx, int32_t level, Face face, GColor water, bool steam) {
   switch (s_vessel) {
-    case VesselEspresso:   prv_draw_espresso(ctx, level, face, steam, FX_ESPRESSO); break;
-    case VesselEspressoMilk: prv_draw_espresso(ctx, level, face, steam, FX_ESPRESSO_MILK); break;
-    case VesselCoffee:     prv_draw_mug(ctx, level, face, FX_COFFEE, steam); break;
-    case VesselCoffeeMilk: prv_draw_mug(ctx, level, face, FX_MILKCOFFEE, steam); break;
-    case VesselTea:        prv_draw_tea(ctx, level, face, FX_TEA, steam); break;
-    case VesselTeaMilk:    prv_draw_tea(ctx, level, face, FX_TEA_MILK, steam); break;
+    case VesselEspresso:   prv_draw_espresso(ctx, level, face, steam, FX_ESPRESSO, false); break;
+    case VesselEspressoMilk: prv_draw_espresso(ctx, level, face, steam, FX_ESPRESSO_MILK, true); break;
+    case VesselCoffee:     prv_draw_mug(ctx, level, face, FX_COFFEE, false, steam); break;
+    case VesselCoffeeMilk: prv_draw_mug(ctx, level, face, FX_MILKCOFFEE, true, steam); break;
+    case VesselTea:        prv_draw_tea(ctx, level, face, FX_TEA, false, steam); break;
+    case VesselTeaMilk:    prv_draw_tea(ctx, level, face, FX_TEA_MILK, true, steam); break;
     case VesselCan:        prv_draw_can(ctx, level, face); break;
     case VesselCustom:
       // Das Wasserglas mit einem Trinkhalm - fuer alles, was keine eigene Form hat.

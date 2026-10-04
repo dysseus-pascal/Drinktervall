@@ -14,6 +14,9 @@
 //   - Die Seite ist zweisprachig, und die Sprache kennt nur die UHR. Sie kommt
 //     per AppMessage und muss gemerkt werden, sonst steht die Seite auf
 //     Englisch, waehrend die Uhr deutsch beschriftet ist.
+//   - Fragt die Uhr nach der Zeit (UHRZEIT), antwortet die Telefonseite mit
+//     ihrer eigenen, in Sekunden. Ohne Antwort bleiben die Glaeser eines
+//     vorausgeeilten Tages am echten Folgetag stehen (Audit M10).
 //
 // Exitcode 0 = alles wie zugesagt.
 'use strict';
@@ -551,6 +554,73 @@ console.log('\nEigene Getraenke');
   w2.fire('appmessage', { payload: { CUSTOM: 'Proteinshake|120|0|1020\nSmoothie|180|0' } });
   const clay = JSON.parse(w2.store['clay-settings'] || '{}');
   check('Erinnerung der Uhr landet auf der Seite', clay.CUSTOM_REMIND1 === true && clay.CUSTOM_TIME1 === '1020' && clay.CUSTOM_REMIND2 === false, JSON.stringify(clay));
+}
+
+console.log('\nNamen: hoechstens 15 Byte UTF-8, nie mitten im Zeichen');
+{
+  // [eingegeben, was an die Uhr geht] - von Hand an der letzten ganzen
+  // Zeichengrenze vor 15 Byte gekuerzt; geprueft wird zusaetzlich die
+  // Bytelaenge aus Buffer, nicht aus index.js.
+  const faelle = [
+    ['Äpfelsäure Öl Üb', 'Äpfelsäure Ö'],       // 15 Byte genau
+    ['abcdefghijklmnä', 'abcdefghijklmn'],     // ä haette Byte 15 und 16
+    ['abcdefghijklm€', 'abcdefghijklm'],       // Euro: 3 Byte
+    ['abcdefghijkl😀', 'abcdefghijkl'],         // Emoji: 4 Byte, faellt ganz
+    ['abcdefghijk😀x', 'abcdefghijk😀'],        // Emoji passt genau
+    ['Proteinshake 15', 'Proteinshake 15'],    // 15 ASCII bleiben
+  ];
+  faelle.forEach(([ein, aus]) => {
+    const w = world();
+    w.fire('webviewclosed', { response: JSON.stringify({ CUSTOM_N: '1', CUSTOM_NAME1: ein, CUSTOM_KCAL1: '10' }) });
+    const name = (w.last().CUSTOM || '').split('|')[0];
+    check('"' + ein + '" -> "' + aus + '" (' + Buffer.byteLength(aus, 'utf8') + ' Byte)',
+          name === aus && Buffer.byteLength(name, 'utf8') <= 15, JSON.stringify(name));
+  });
+}
+
+console.log('\nRundlauf des groessten Falls (M9)');
+{
+  // Drei lange Namen, Werte an der Grenze der Seite, Erinnerung 22:00: so
+  // schickt die Seite es, so kommt es von der Uhr zurueck - und so steht es
+  // danach auf der Seite. Bis 1.19 kam die dritte Zeile abgeschnitten zurueck
+  // (die Uhr hatte 84 Byte; der Uhr-Teil steht in tools/phone_host_test.c).
+  const w = world();
+  w.fire('webviewclosed', { response: JSON.stringify({
+    CUSTOM_N: '3',
+    CUSTOM_NAME1: 'Proteinshake 15', CUSTOM_KCAL1: '2000', CUSTOM_MG1: '1000', CUSTOM_REMIND1: true, CUSTOM_TIME1: '1320',
+    CUSTOM_NAME2: 'Kokoswasser 150', CUSTOM_KCAL2: '2000', CUSTOM_MG2: '1000', CUSTOM_REMIND2: true, CUSTOM_TIME2: '1320',
+    CUSTOM_NAME3: 'Matcha Latte 15', CUSTOM_KCAL3: '2000', CUSTOM_MG3: '1000', CUSTOM_REMIND3: true, CUSTOM_TIME3: '1320',
+  }) });
+  const text = w.last().CUSTOM;
+  check('92 Zeichen gehen hinaus (mit der Null 93 Byte auf der Uhr)', text.length === 92, text.length);
+  const w2 = world();
+  w2.fire('appmessage', { payload: { CUSTOM: text } });
+  const clay = JSON.parse(w2.store['clay-settings'] || '{}');
+  check('dritte Erinnerung bleibt 22:00', clay.CUSTOM_REMIND3 === true && clay.CUSTOM_TIME3 === '1320', JSON.stringify(clay));
+}
+
+console.log('\nDie Frage nach der Zeit (M10)');
+{
+  // Steht die Uhr hinter ihrem gemerkten Tag, traegt ihre Standmeldung
+  // UHRZEIT. Nur die Telefonseite kennt die richtige Zeit (src/c/schedule.c).
+  // Die Antwort traegt NUR die Zeit, in SEKUNDEN - die Uhr vergleicht sie mit
+  // time() und gibt bei mehr als 300 s Abweichung nichts auf sie.
+  const w = world();
+  const vor = Math.floor(Date.now() / 1000);
+  w.fire('appmessage', { payload: { NEXT_TIME: 1791014400, NEXT_INDEX: 0, GLASSES: 8, COUNT: 2,
+                                    GOAL_DAY: 20261004, LANG: 0, UHRZEIT: 1791014400 } });
+  const nach = Math.floor(Date.now() / 1000);
+  const antwort = w.sent.filter((d) => d.UHRZEIT !== undefined);
+  check('genau eine Antwort mit UHRZEIT', antwort.length === 1, antwort.length);
+  const a = antwort[0] || {};
+  check('sie traegt nur die Zeit', Object.keys(a).join(',') === 'UHRZEIT', Object.keys(a).join(','));
+  check('die Zeit des Telefons in Sekunden, nicht die der Uhr', a.UHRZEIT >= vor && a.UHRZEIT <= nach,
+        a.UHRZEIT + ' nicht in ' + vor + '..' + nach);
+
+  const w2 = world();
+  w2.fire('appmessage', { payload: { NEXT_TIME: 1791014400, NEXT_INDEX: 0, GLASSES: 8, COUNT: 2,
+                                     GOAL_DAY: 20261004, LANG: 0 } });
+  check('ohne Frage: keine Zeit', w2.sent.every((d) => d.UHRZEIT === undefined), JSON.stringify(w2.sent));
 }
 
 console.log('\nFehler: ' + fails);

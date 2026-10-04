@@ -19,17 +19,29 @@ Italienisch und Spanisch, Englisch als Rückfall) - siehe Abschnitt [Sprachen](#
 |---|---|---|---|---|
 | ![Start](screenshots/emery/01-start.png) | ![Hauptscreen](screenshots/emery/02-hauptscreen.png) | ![Trinkplan](screenshots/emery/03-trinkplan.png) | ![Trinken](screenshots/emery/04-trinken.png) | ![Erinnerung](screenshots/emery/05-erinnerung.png) |
 
+| Getränke | Tee, Milch | Tee mit Milch trinken |
+|---|---|---|
+| ![Getränke](screenshots/emery/08-getraenke.png) | ![Tee mit Milch](screenshots/emery/09-tee-milch.png) | ![Tee mit Milch trinken](screenshots/emery/10-tee-milch-trinken.png) |
+
 **Flint** (144 × 168, schwarz/weiss)
 
 | Start | Drei Gläser | Trinkplan | Trinken | Erinnerung |
 |---|---|---|---|---|
 | ![Start](screenshots/flint/01-start.png) | ![Hauptscreen](screenshots/flint/02-hauptscreen.png) | ![Trinkplan](screenshots/flint/03-trinkplan.png) | ![Trinken](screenshots/flint/04-trinken.png) | ![Erinnerung](screenshots/flint/05-erinnerung.png) |
 
+| Getränke | Tee, Milch | Tee mit Milch trinken |
+|---|---|---|
+| ![Getränke](screenshots/flint/08-getraenke.png) | ![Tee mit Milch](screenshots/flint/09-tee-milch.png) | ![Tee mit Milch trinken](screenshots/flint/10-tee-milch-trinken.png) |
+
 **Gabbro** (260 × 260, rund)
 
 | Start | Drei Gläser | Trinkplan | Trinken | Erinnerung |
 |---|---|---|---|---|
 | ![Start](screenshots/gabbro/01-start.png) | ![Hauptscreen](screenshots/gabbro/02-hauptscreen.png) | ![Trinkplan](screenshots/gabbro/03-trinkplan.png) | ![Trinken](screenshots/gabbro/04-trinken.png) | ![Erinnerung](screenshots/gabbro/05-erinnerung.png) |
+
+| Getränke | Tee, Milch | Tee mit Milch trinken |
+|---|---|---|
+| ![Getränke](screenshots/gabbro/08-getraenke.png) | ![Tee mit Milch](screenshots/gabbro/09-tee-milch.png) | ![Tee mit Milch trinken](screenshots/gabbro/10-tee-milch-trinken.png) |
 
 **Eigenes Pin-Symbol geht zurzeit nicht.** Die App bringt ihr Glas als
 Timeline-Ressource mit (`tools/make_glass_icon.py` zeichnet es leer und voll in
@@ -43,8 +55,11 @@ zeichnet, eine Flagge. Nachzulesen in `RemoteTimelineEmulator.kt` und
 Deshalb stehen in `src/pkjs/index.js` vorerst System-Symbole; die Ressourcen
 bleiben liegen, ein Namenswechsel plus erhöhtes `LOOK_VERSION` genügt später.
 
-Erzeugt mit `tools/screenshots.sh <plattform> <projektordner>` (Emulator; Trinken und
-Erinnerung stammen aus einem Testbuild mit Zeitlupe und Wakeup nach 60 s).
+Erzeugt mit `sh tools/screenshots.sh <plattform>` im Emulator, um 14:10 (die Zeit
+setzt `tools/emu_treiber.py`). Die Bilder sind wie bei `pebble screenshot` auf
+das Display umgerechnet. Trinken, Erinnerung und Tee mit Milch trinken stammen
+aus einem Testbuild mit Zeitlupe und Wakeup nach 60 s. Der Emulator meldet
+`en_US`, darum ist die Oberfläche englisch (deutsch siehe [Sprachen](#sprachen)).
 
 ## Bedienung
 
@@ -67,17 +82,18 @@ unten gibt es bewusst nicht: ein getrunkenes Glas lässt sich nicht
 zurücknehmen. Das Tagesziel beginnt beim eingestellten Soll und lässt sich mit
 der unteren Taste für den laufenden Tag erhöhen.
 
-| Taste  | Aktion                          |
-|--------|---------------------------------|
-| Oben   | Trinkplan des Tages: Liste wie eine kleine Timeline, Zeit in LECO,
-|        | Seitenleiste dunkel für vergangene und hell für kommende Slots,
-|        | weisse Pfeilkerbe am gewählten Eintrag |
-| Mitte  | Glas getrunken: ein Vollbild-Fenster zeigt ein Glas mit Gesicht,
-|        | das aufploppt, sich leert, ins Zentrum schrumpft und in einem
-|        | Strahlenkranz zerplatzt; danach steigen Zähler und Pegel. Vom
-|        | Hauptscreen aus bleibt die App danach offen |
-| Unten  | Tagesziel um ein Glas erhöhen (nur heute, morgen wieder das Soll), damit
-|        | sich über das Ziel hinaus weiter loggen lässt |
+| Taste       | Aktion                          |
+|-------------|---------------------------------|
+| Oben        | Getränkeauswahl (siehe oben) |
+| Mitte kurz  | Glas getrunken: ein Vollbild-Fenster zeigt ein Glas mit Gesicht,
+|             | das aufploppt, sich leert, ins Zentrum schrumpft und in einem
+|             | Strahlenkranz zerplatzt; danach steigen Zähler und Pegel. Vom
+|             | Hauptscreen aus bleibt die App danach offen |
+| Mitte lang  | Trinkplan des Tages: Liste wie eine kleine Timeline, Zeit in LECO,
+|             | Seitenleiste dunkel für vergangene und hell für kommende Slots,
+|             | weisse Pfeilkerbe am gewählten Eintrag |
+| Unten       | Tagesziel um ein Glas erhöhen (nur heute, morgen wieder das Soll), damit
+|             | sich über das Ziel hinaus weiter loggen lässt |
 
 **Erinnerung** - wie ein Pin-Detail der Timeline, aber ganz in Weiss: oben das
 Glas aus der Trink-Animation und die Uhrzeit in LECO, darunter die schwarze
@@ -101,8 +117,9 @@ Uhr, und zwei Schalter für dieselbe Sache wären einer zu viel.
 | Zurück | Schliessen ohne zu zählen, das Glas gilt als verpasst; nach einem
 |        | Wakeup-Start beendet sich die App, sonst zurück zum Hauptscreen |
 
-Der Zähler wird um Mitternacht automatisch auf 0 gesetzt. Die App-Glance im
-Launcher zeigt "n von m Gläsern, nächste HH:MM".
+Der Zähler wird um Mitternacht automatisch auf 0 gesetzt, auch wenn die App
+gerade offen ist (siehe [Der Tag von Zähler und Ziel](#der-tag-von-zähler-und-ziel)).
+Die App-Glance im Launcher zeigt "n von m Gläsern, nächste HH:MM".
 
 ## Einstellungen
 
@@ -173,8 +190,33 @@ Koffeinfrei wird eingetragen wie die Sorte, zählt aber kein Koffein.
 
 Jede Sorte hat ihr eigenes Gefäss im Stil des Glases, im Kopf der Erinnerung
 und in der Trink-Animation (`glass_fx.c`, `Vessel`): Espressotasse auf
-Untertasse, Kaffeebecher, breite Teetasse mit Beutelschnur und Etikett (alle
-mit Milch heller), und eine Dose in Blau-Silber mit gelber Sonne. In eine Dose sieht man nicht hinein, sie wird beim Trinken zerdrückt.
+Untertasse, Kaffeebecher, breite Teetasse mit Beutelschnur und Etikett, und
+eine Dose in Blau-Silber mit gelber Sonne. In eine Dose sieht man nicht hinein,
+sie wird beim Trinken zerdrückt.
+
+**Mit Milch ist das Gefäss heller** — auf der Uhr, nicht nur in der Palette.
+Das Farbdisplay ist blass; `pebble screenshot` rechnet die 64 Farben in das um,
+was man sieht. Bis 1.19 waren Tee und Tee mit Milch dort gleich, und Tee mit
+Milch sah aus wie Kaffee mit Milch. Jetzt:
+
+| Getränk | ohne Milch | mit Milch |
+|---|---|---|
+| Espresso | `#550000`, auf der Uhr dunkles Rotbraun | `#555500`, milchiges Dunkelbraun |
+| Kaffee | `#AA5500`, Braun | `#AAAA55`, Beige |
+| Tee | `#FFAA00`, Pfirsich | `#FFFF55`, Creme |
+
+Mit Milch ist jedes um 17 bis 21 L* heller, keine zwei der sechs liegen
+näher als ΔE 26, und keine liegt näher als ΔE 31 am Weiss der Tasse, in die
+sie fliesst (`sh tools/farben_check.sh` rechnet das aus der Tabelle des
+pebble-Werkzeugs nach).
+
+Auf Flint (schwarz/weiss) rundet die Uhr jede Füllfarbe auf vier Graustufen,
+und Dunkel- wie Hellgrau werden dasselbe Schachbrett, zur Hälfte schwarz. Milch
+trägt dort darum ein eigenes, lichteres Punktraster: ein Viertel schwarz
+(`sh tools/glas_host_test.sh` prüft es, `farben_check.sh` die Graustufe ohne
+Milch). In der Getränkeauswahl ist das Gefäss nur 22 Pixel breit; beim
+Espresso ist die Füllung dort ein gutes Dutzend Pixel gross, das Raster ist zu
+sehen, der Unterschied aber klein.
 
 Zur Uhrzeit erscheint eine Erinnerung wie beim Wasser, mit Tasse statt Glas:
 Haken = getrunken, Zz = in zehn Minuten nochmals, Zurück = diesmal nicht. Die
@@ -192,7 +234,8 @@ Zucker 2, koffeinfrei 4). Aus ist ein einzelnes Null-Byte.
 ### Eigene Getränke
 
 Darunter lassen sich bis zu drei eigene Getränke anlegen: Name (bis 15
-Zeichen), kcal, Koffein in mg und auf Wunsch eine Erinnerungszeit. Mit Zeit
+Byte: ein Umlaut zählt doppelt, ein Emoji vierfach; gekürzt wird nur an
+Zeichengrenzen), kcal, Koffein in mg und auf Wunsch eine Erinnerungszeit. Mit Zeit
 erinnert die Uhr täglich wie beim Kaffee ("Time for Proteinshake!"), sonst
 steht das Getränk nur in der Getränkeauswahl. Ihre Animation ist das Glas, hellgrün und mit Trinkhalm.
 
@@ -295,9 +338,9 @@ Platzhalter zur C-Aufrufstelle passt - ein Format aus einer Tabelle ist auch
 für den Compiler unsichtbar.
 
 **Zum Testen:** Der Emulator meldet `en_US`, ein normaler Lauf zeigt also die
-englische Oberfläche. Für die deutsche Seite übersteuert man `strings_refresh()`
-vorübergehend in der WSL-Kopie mit `prv_pick_language("de_DE")` und lässt die
-Windows-Quelle unangetastet.
+englische Oberfläche. Für die deutsche Seite übersteuert `tools/screenshots.sh`
+`strings_refresh()` in einer Kopie mit `prv_pick_language("de_DE")`; die
+Quelle bleibt unangetastet.
 
 Kosten: **+459 Byte** auf flint (9 821 -> 10 280 Byte Abdruck), keine neue
 Ressource.
@@ -308,39 +351,50 @@ Ressource.
 LEVEL_DARK DukeBlue `#0000AA` (Wasser), Schrift OxfordBlue bzw. Weiss.
 Listen-Hervorhebung PRIMARY BlueMoon `#0055FF`; Erinnerungs-Screen und
 Trink-Animation weiss (FX_BG) mit hellblauem Wasser (FX_WATER PictonBlue). Der Hex-Wert von PRIMARY ist in `src/pkjs/index.js`
-(`PIN_COLOR`) von Hand kopiert. Auf Flint (Schwarz/Weiss) ist der Pegel des Hauptscreens schwarz, das Wasser in der Trink-Animation grau gerastert.
+(`PIN_COLOR`) von Hand kopiert. Auf Flint (Schwarz/Weiss) ist der Pegel des
+Hauptscreens zur Hälfte schwarz gerastert, mit schwarzer Wasserlinie; die
+Schrift darüber steht auf Weiss, sonst ginge sie im Raster unter. Das Wasser
+in der Trink-Animation ist ebenso gerastert.
 
 ## Bauen
 
-Pebble waf verträgt keine Pfade mit Leerzeichen, deshalb wird in WSL unter
-`~/drinktervall` gebaut:
+Im Repository, mit Clay für die Konfigseite
+([Clay](https://github.com/pebble-dev/clay), kommt per `npm install`;
+`node_modules/` gehört nicht ins Repository):
 
 ```sh
-tools/sync_drinktervall.sh <Quellordner>    # Quellen spiegeln + pebble build
+npm install --no-audit --no-fund     # einmal
+pebble build                         # Paket: build/<Ordnername>.pbw
 pebble install --emulator emery      # oder flint / gabbro
 pebble install --phone <IP>          # Developer Connection der Pebble-App
 ```
 
-Die Konfigseite braucht [Clay](https://github.com/pebble-dev/clay).
-`sync_drinktervall.sh` holt es beim ersten Lauf selbst per `npm install`;
-`node_modules/` gehört nicht ins Repository.
+Pebble waf verträgt keine Pfade mit Leerzeichen. Liegt die Quelle unter einem
+solchen Pfad, spiegelt `tools/sync_drinktervall.sh <Quellordner>` sie nach
+`~/drinktervall` und baut dort.
 
-Die Skripte liegen unter `tools/` (nach `~` kopieren oder direkt aufrufen):
-`sync_drinktervall.sh [<Quellordner>]` spiegelt und baut, `test_screens.sh <plattform>`
-macht Screenshots der Screens nach /tmp/drinktervall, `test_wakeup.sh` ist der
-Wakeup-Test (Testbuild mit Erinnerung 60 s nach dem Start; setzt
-`DT_TEST_WAKEUP` nur in der WSL-Kopie).
+Im Emulator, ohne die Quelle zu ändern (beide bauen ihre Prüfbauten in einer
+Kopie unter `$TMPDIR`; `pebble wipe` darin löscht die Daten aller Emulatoren
+dieser SDK):
 
-Ohne Uhr laufen zwei Prüfungen:
+```sh
+sh tools/screenshots.sh <plattform>   # die Bilder oben, um 14:10
+sh tools/test_wakeup.sh               # Erinnerung 60 s nach dem Start: Getrunken, dann Später
+```
+
+Ohne Uhr laufen diese Prüfungen:
 
 ```sh
 node tools/pkjs_config_test.js            # Konfigseite und Weg des Solls zur Uhr
 node tools/strings_check.js src/c/strings_table.h   # Übersetzungen und Pufferlängen
-sh tools/schedule_host_test.sh            # Tag zum Tagesziel (Rechner-C, pebble.h als Attrappe)
+sh tools/schedule_host_test.sh            # Tag von Zähler und Ziel (Rechner-C, pebble.h als Attrappe)
+sh tools/phone_host_test.sh               # Nachricht ans Telefon: grösster Fall, Schlange, Log, Namen, Frage nach der Zeit
+sh tools/farben_check.sh                  # Getränkefarben, wie Farb- und Schwarz-Weiss-Display sie zeigen
+sh tools/glas_host_test.sh                # Milch auf Schwarz-Weiss: lichteres Raster statt Grau (Grafik als Attrappe)
+node tools/catch_check.js                 # kein catch ohne Log in der Telefonseite
 ```
 
-Das fertige Paket liegt nach dem Build unter `build/drinktervall.pbw`, eine Kopie
-neben dieser README.
+Eine Kopie des fertigen Pakets liegt als `drinktervall.pbw` neben dieser README.
 
 ## Store-Symbole
 
@@ -381,21 +435,23 @@ es bis 1.6.2 nicht: es stammte aus einer Pebble-App ohne Lizenz. Ersetzt durch
 ein eigenes, das `tools/make_snooze_icon.js` erzeugt — damit die Widmung
 lückenlos gilt.
 
-## Einstellen auf der Konfigseite oder in Kiesel-Helper
+## Einstellen auf der Konfigseite
 
-Seit 1.12.0 lassen sich Soll, Glasgrösse und Animation an zwei Stellen
-ändern: wie bisher auf der Konfigseite in der Pebble-App, und in
-[Kiesel-Helper](https://github.com/dysseus-pascal/Kiesel-Helper). **Die Uhr
-ist die eine Stelle, an der sie gelten.** Beide schicken ihre Änderung an die
-Uhr, und die Uhr meldet mit jeder Standmeldung, was gilt (`TARGET`,
-`GLASS_ML`, `ANIMATION`). Die Telefonseite übernimmt das in die
-Konfigseite, Kiesel-Helper in seine Einstellungen.
+Soll, Glasgrösse und Animation stellt man auf der Konfigseite in der
+Pebble-App ein. **Die Uhr ist die eine Stelle, an der sie gelten.** Die
+Konfigseite schickt ihre Änderung an die Uhr, und die Uhr meldet mit jeder
+Standmeldung, was gilt (`TARGET`, `GLASS_ML`, `ANIMATION`). Die Telefonseite
+übernimmt das in die Konfigseite. Boulder liest dieselbe Meldung mit und
+ändert an den Einstellungen nichts.
 
-Bis 1.11 schickte die Telefonseite bei jedem Start ihren gespeicherten Stand
-an die Uhr. Eine Änderung aus Kiesel-Helper wäre damit beim nächsten Öffnen
-wieder überschrieben worden. Jetzt geht beim Start nur noch, was auf der
-Konfigseite gespeichert wurde, aber nie ankam — dafür steht ein Vermerk,
-bis die Uhr bestätigt.
+Von 1.12.0 an liessen sie sich auch in
+[Kiesel-Helper](https://github.com/dysseus-pascal/Kiesel-Helper) ändern.
+Kiesel-Helper ist seit dem 29.09.2026 archiviert, seine Aufgaben hat Boulder
+übernommen. Bis 1.11 schickte die Telefonseite bei jedem Start ihren
+gespeicherten Stand an die Uhr; eine Änderung aus Kiesel-Helper wäre damit
+beim nächsten Öffnen wieder überschrieben worden. Seither geht beim Start nur
+noch, was auf der Konfigseite gespeichert wurde, aber nie ankam — dafür steht
+ein Vermerk, bis die Uhr bestätigt.
 
 ## Kein Glas geht verloren
 
@@ -404,17 +460,25 @@ Telefon die Nachricht bestätigt hat, die es trug. Bis dahin gab es nur einen
 Vermerk im Speicher, der beim Schreiben der Nachricht verbraucht war — ob sie
 ankam oder nicht. War der Postausgang besetzt, antwortete das Telefon nicht
 rechtzeitig, oder ging die App nach der Animation zu, bevor die Nachricht
-draussen war, war das Glas auf der Uhr gezählt und für Kiesel-Helper verloren.
+draussen war, war das Glas auf der Uhr gezählt und für Kiesel-Helper (heute
+Boulder) verloren.
 Zwei Gläser vor einer erfolgreichen Nachricht wurden zu einem.
 
 Jetzt trägt jede Nachricht das älteste unbestätigte Glas; nach der Bestätigung
 geht das nächste. Scheitert eine, fasst die Uhr bis zu fünfmal nach. Nach dem
 Trinken hält das Trink-Fenster die App bis zu fünf Sekunden offen, bis das
 Telefon das Glas hat. Was dann noch in der Schlange steht, geht beim nächsten
-Start. Kiesel-Helper trägt ein Glas je Zeitpunkt nur einmal ein — doppelt
-geschickt ist harmlos.
+Start. Boulder (früher Kiesel-Helper) trägt ein Glas je Zeitpunkt nur einmal
+ein — doppelt geschickt ist harmlos.
 
-## Der Tag zum Ziel
+**Mitgeschickt ist ein Glas nur, wenn es in der Nachricht steht.** Bis 1.19
+prüfte die Uhr nicht, ob ein Feld in den Postausgang passte: ein Glas, das
+nicht mehr hineinging, galt trotzdem als mitgeschickt und fiel mit der
+Bestätigung aus der Schlange. Jetzt bleibt es stehen, die Uhr fasst in
+gezählten Anläufen nach, und was nicht passt oder gar nicht hinausgeht, steht
+im Log. Geprüft in `tools/phone_host_test.c`.
+
+## Der Tag von Zähler und Ziel
 
 Jede Standmeldung trägt neben dem Tagesziel (`GLASSES`) seinen Tag
 (`GOAL_DAY`, JJJJMMTT). Das per Taste erhöhte Ziel gilt nur für diesen Tag;
@@ -424,7 +488,57 @@ ist der Tag, zu dem Zähler und Ziel im Persist gehören — steht die Uhr nach
 einem Neustart kurz zu früh, bleibt es der gemerkte.
 
 Der Schlüssel steht am **Ende** der `messageKeys` (10056); eine ältere
-Telefonseite überliest ihn. Der Postausgang wuchs dafür von 384 auf 448 Byte:
-im ungünstigsten Fall (16 Gläser, drei lange eigene Getränke, Glas und eigenes
-Getränk unterwegs) waren es schon knapp 380, und was nicht mehr passt, fällt
-still aus der Nachricht — zuletzt geschrieben wird das Glas.
+Telefonseite überliest ihn.
+
+**Ein neuer Tag beginnt nur vorwärts**, und zwar auch, während die App offen
+ist (bis 1.19 nur beim Start: das erste Glas nach Mitternacht zählte zum
+alten Tag). Springt die Uhr zurück — nach einem Neustart steht sie kurz auf
+einer alten Zeit —, bleiben Gläser und Ziel stehen (seit 1.16.2), auch ein
+Glas, das man trinkt, während sie noch auf gestern steht. Liegt der gemerkte
+Tag mehr als zwei Tage voraus und geht die Uhr plausibel (ab 2025), war er
+falsch: dann gilt heute, die Werte bleiben. „Zwei Tage“ wird genau gezählt —
+bis 1.19 schätzte die Uhr jeden Monat zu 31 Tagen, und ein Rücksprung vom
+1. März auf den 28. Februar galt als vier Tage.
+
+**Stand die Uhr vor** und wurde zurückgestellt, sieht das für die Uhr genauso
+aus wie ein Neustart: Auch dann liegt sie hinter dem gemerkten Tag. Bis 1.19
+zählten die Gläser des echten Tages dann zum vorausgeeilten Tag und standen am
+echten Folgetag noch da. Welche Zeit falsch war, weiss nur das Telefon. In
+diesem Zustand trägt darum jede Standmeldung die Uhrzeit der Uhr (`UHRZEIT`,
+Schlüssel 10057), und die Telefonseite antwortet mit ihrer. Weichen beide
+höchstens 300 s ab und stehen auf demselben Tag, geht die Uhr richtig: Heute
+gilt, Gläser und Ziel bleiben, und am echten Folgetag beginnt ein neuer Tag.
+Sonst bleibt der gemerkte Tag. Was bleibt:
+
+- Antwortet das Telefon nicht (keine Verbindung, pkjs läuft nicht), bleibt es
+  beim Verhalten bis 1.19: Die Gläser stehen am echten Folgetag noch da.
+- Gefragt wird nur, während die App läuft und eine Standmeldung schickt: beim
+  Start, bei jeder Erinnerung, nach einem Glas oder einer Einstellung. Läuft
+  sie am berichtigten Tag nicht mehr — etwa weil die Uhr nach der letzten
+  Erinnerung gestellt wird und man die App an diesem Tag nicht mehr öffnet —,
+  fragt sie nie. Am echten Folgetag steht die Uhr dann wieder auf dem
+  gemerkten Tag, und die Gläser stehen noch da wie bis 1.19.
+- Springt die Uhr plausibel mehr als zwei Tage zurück, gilt der gemerkte Tag
+  ohne Rückfrage als falsch (seit 1.16.2). War es doch die Uhr, die so weit
+  zurückstand, ist das Stellen danach für sie ein neuer Tag.
+- Springt die Uhr vor, ist das für sie ein neuer Tag (wie bisher).
+
+Geprüft in `tools/schedule_host_test.c` (vorwärts, rückwärts, getrunken auf gestern,
+Monats- und Jahresenden, Vorlauf mit und ohne Telefon, 300/301 s,
+Mitternacht, Glas und Taste unten gleich nach Mitternacht),
+`tools/phone_host_test.c` (Frage, Antwort, berichtigter Tag in der
+Standmeldung) und `tools/pkjs_config_test.js` (Antwort der Telefonseite in
+Sekunden).
+
+**Der Postausgang** hat 448 Byte. Der grösste Fall — 16 Gläser, vier
+Kaffees im Plan, drei eigene Getränke mit 15-Byte-Namen, Höchstwerten und
+Erinnerung, dazu ein Glas und ein eigenes Getränk unterwegs — braucht 395
+Byte, mit der Frage nach der Zeit 406; `tools/phone_host_test.c` baut beides
+nach und zählt nach. Bis 1.19 hatte die Uhr für die eigenen Getränke aber nur
+84 Byte Text: drei lange Namen mit vierstelligen Werten und Erinnerung
+brauchen 92 Zeichen und die Null, und alles nach Zeichen 83 fiel still weg.
+Im Emulator nachgestellt (drei Getränke mit 15-Byte-Namen, 2000 kcal, 1000 mg,
+Erinnerung 22:00): vom dritten kam nur `Matcha Latte 15|2000|` an, die
+Konfigseite zeigte danach Koffein 0 und keine Erinnerung und hätte das beim
+nächsten Speichern zurückgeschickt. Jetzt hat der Text 99 Byte, und ein Text,
+der doch nicht ganz passt, geht gar nicht hinaus.

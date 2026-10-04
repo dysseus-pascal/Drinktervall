@@ -9,15 +9,20 @@
 // Status eines heutigen Slots (siehe src/pkjs/index.js)
 enum { SlotFuture = 0, SlotDrunk = 2, SlotMissed = 3 };
 
-// Ausgangspuffer: fuenf Zahlenfelder zu je 11 Byte, dazu die Slot-Daten mit
-// 7 Byte Kopf und 5 Byte je Glas, plus ein Byte fuer das Woerterbuch selbst.
-// Bei DT_GLASSES_MAX = 16 sind das 143 Byte; dazu der Kaffeeplan (7 + 17)
-// und ein Kaffee (2 x 11) - 192 Byte; die eigenen Getraenke (bis 90 Zeichen)
-// und ein eigenes Getraenk unterwegs (Name, kcal, Koffein) bringen es auf
-// rund 340, im schlimmsten Fall (16 Glaeser, drei lange Namen, Glas und
-// eigenes Getraenk unterwegs) knapp 380. Mit dem Tag zum Ziel (11) waere 384
-// zu knapp: was nicht mehr passt, faellt still aus der Nachricht - zuletzt
-// geschrieben wird das Glas. Also 448.
+// Ausgangspuffer. Ein Feld kostet 7 Byte Kopf plus Daten, eine Zahl also 11,
+// dazu ein Byte fuer das Woerterbuch selbst. Der groesste Fall, nachgezaehlt
+// in tools/phone_host_test.c:
+//   acht Zahlen (Ziel, Tag, Zaehler, naechste Zeit und Nummer, Sprache,
+//   Soll, Animation)                                                   88
+//   16 Slots zu 5 Byte                                                 87
+//   Kaffeeplan mit 4 Kaffees (1 + 16 Byte)                             24
+//   drei eigene Getraenke, voll (CUSTOM_TEXT_MAX = 99)                106
+//   ein eigenes Getraenk unterwegs: Zeit, Sorte, Name (16), kcal, mg   67
+//   ein Glas unterwegs: Zeit, Menge                                    22
+//   die Frage nach der Zeit (nur, wenn die Uhr zurueckliegt)           11
+// zusammen 406 Byte. 448 laesst Luft fuer ein weiteres Feld. Was trotzdem
+// nicht passt, steht im Log, und ein Glas oder Kaffee, das nicht mitkam,
+// bleibt in der Schlange (siehe phone_send_next).
 #define OUTBOX_SIZE 448
 #define INBOX_SIZE  256
 
@@ -34,8 +39,9 @@ enum { SlotFuture = 0, SlotDrunk = 2, SlotMissed = 3 };
 // Jetzt steht jedes Glas in der Schlange, bis das Telefon die Nachricht, die
 // es trug, bestaetigt hat. Jede Nachricht traegt das AELTESTE; nach der
 // Bestaetigung geht das naechste. Was beim Beenden noch drinsteht, geht beim
-// naechsten Start. Kiesel-Helper traegt ein Glas je Zeitpunkt nur einmal ein
-// - ein zweites Mal geschickt ist also harmlos, verloren ist es nicht mehr.
+// naechsten Start. Boulder (frueher Kiesel-Helper) traegt ein Glas je
+// Zeitpunkt nur einmal ein - ein zweites Mal geschickt ist also harmlos,
+// verloren ist es nicht mehr.
 #define QUEUE_MAX 12
 typedef struct __attribute__((packed)) {
   uint32_t at;
@@ -77,6 +83,9 @@ static uint8_t s_attempts;
 // Einstellungen soll das Telefon den neuen Stand hoeren, und ein besetzter
 // Postausgang darf das nicht verschlucken.
 static bool s_report_due;
+// Die letzte Nachricht sollte ein Glas oder einen Kaffee tragen, aber deren
+// Felder passten nicht hinein.
+static bool s_klemmt;
 
 static void prv_queue_load(void) {
   if (s_queue_loaded) return;
@@ -185,8 +194,13 @@ static void prv_sent(DictionaryIterator *iter, void *context) {
   }
   s_carried = false;
   s_coffee_carried = false;
-  // Noch mehr in der Schlange: gleich das naechste.
-  if (phone_pending() && !s_retry) s_retry = app_timer_register(150, prv_retry_cb, NULL);
+  // Noch mehr in der Schlange: gleich das naechste. Passte ein Glas oder
+  // Kaffee gar nicht hinein, nur die gezaehlten Anlaeufe - sonst ginge alle
+  // 150 ms dieselbe Nachricht hinaus, ohne dass sich etwas aendert.
+  if (phone_pending() && !s_retry) {
+    if (s_klemmt) prv_schedule_retry(1500);
+    else s_retry = app_timer_register(150, prv_retry_cb, NULL);
+  }
 }
 
 static void prv_failed(DictionaryIterator *iter, AppMessageResult reason, void *context) {
@@ -209,17 +223,28 @@ void phone_send_next(void) {
   const int slot_count = schedule_target();
   time_t next;
   const int idx = schedule_next(now, &next);
-  dict_write_int32(out, MESSAGE_KEY_GLASSES, schedule_goal());
+  // JEDE SCHREIBSTELLE MELDET, OB DAS FELD HINEINPASSTE (DICT_OK = 0). Bis
+  // 1.19 blieb das ungeprueft: ein Feld, das nicht mehr passte, fehlte still,
+  // und ein Glas galt trotzdem als mitgeschickt.
+  int fehler = dict_write_int32(out, MESSAGE_KEY_GLASSES, schedule_goal());
   // Der Tag zum Ziel: das erhoehte Ziel gilt nur fuer ihn. Ohne ihn nahm das
   // Telefon den Tag der Ankunft - eine Meldung von 23:59, die nach
   // Mitternacht ankam, hob dann das Ziel des neuen Tages an.
-  dict_write_int32(out, MESSAGE_KEY_GOAL_DAY, schedule_day());
-  dict_write_int32(out, MESSAGE_KEY_COUNT, count);
-  dict_write_int32(out, MESSAGE_KEY_NEXT_TIME, (int32_t)next);
-  dict_write_int32(out, MESSAGE_KEY_NEXT_INDEX, idx);
+  fehler |= dict_write_int32(out, MESSAGE_KEY_GOAL_DAY, schedule_day());
+  fehler |= dict_write_int32(out, MESSAGE_KEY_COUNT, count);
+  fehler |= dict_write_int32(out, MESSAGE_KEY_NEXT_TIME, (int32_t)next);
+  fehler |= dict_write_int32(out, MESSAGE_KEY_NEXT_INDEX, idx);
   // Sprache der Uhr: die Telefonseite baut die Pin-Texte und kann sie nicht
   // von sich aus erfahren (0 = Englisch, 1 = Deutsch).
-  dict_write_int32(out, MESSAGE_KEY_LANG, (int32_t)strings_language());
+  fehler |= dict_write_int32(out, MESSAGE_KEY_LANG, (int32_t)strings_language());
+  // DIE FRAGE NACH DER ZEIT. Steht die Uhr hinter dem gemerkten Tag, weiss
+  // nur das Telefon, ob sie jetzt falsch geht (Neustart) oder vorher falsch
+  // ging (Audit M10) - siehe schedule.c. Es antwortet mit seiner Zeit
+  // (prv_inbox_received). Nur in diesem Zustand: sonst kostete die Frage
+  // eine Nachricht je Start.
+  if (schedule_uhr_fraglich()) {
+    fehler |= dict_write_int32(out, MESSAGE_KEY_UHRZEIT, (int32_t)now);
+  }
 
   // Heutige Slots: je 4 Byte Zeit (little endian) + 1 Byte Status. Zukuenftige
   // Slots sind SlotFuture; von den vergangenen gelten die ersten `count` als
@@ -235,56 +260,87 @@ void phone_send_next(void) {
     slots[i * 5 + 3] = (uint8_t)((t >> 24) & 0xFF);
     slots[i * 5 + 4] = (time_t)t > now ? SlotFuture : (i < count ? SlotDrunk : SlotMissed);
   }
-  dict_write_data(out, MESSAGE_KEY_SLOTS, slots, (uint16_t)(slot_count * 5));
+  fehler |= dict_write_data(out, MESSAGE_KEY_SLOTS, slots, (uint16_t)(slot_count * 5));
 
   // DIE EINSTELLUNGEN DER UHR FAHREN IMMER MIT. Die Uhr ist die eine
-  // Stelle, an der sie gelten; die Konfigseite der Pebble-App und
-  // Kiesel-Helper aendern sie beide hier - und lesen hier ab, was gilt.
+  // Stelle, an der sie gelten; die Konfigseite der Pebble-App (frueher auch
+  // Kiesel-Helper) aendert sie hier, und Boulder liest hier ab, was gilt.
   // Ohne diese Zeilen zeigte jede Seite ihren eigenen, womoeglich alten Stand.
-  dict_write_int32(out, MESSAGE_KEY_TARGET, schedule_target());
-  dict_write_int32(out, MESSAGE_KEY_ANIMATION, schedule_animation() ? 1 : 0);
+  fehler |= dict_write_int32(out, MESSAGE_KEY_TARGET, schedule_target());
+  fehler |= dict_write_int32(out, MESSAGE_KEY_ANIMATION, schedule_animation() ? 1 : 0);
   uint8_t plan[COFFEE_BYTES_MAX];
-  dict_write_data(out, MESSAGE_KEY_COFFEE, plan, (uint16_t)coffee_to_bytes(plan));
-  char eigene[DT_CUSTOM_MAX * (DT_CUSTOM_NAME + 12)];
-  custom_to_string(eigene, sizeof(eigene));
-  dict_write_cstring(out, MESSAGE_KEY_CUSTOM, eigene);
+  fehler |= dict_write_data(out, MESSAGE_KEY_COFFEE, plan, (uint16_t)coffee_to_bytes(plan));
+  // Die eigenen Getraenke NUR GANZ: ein abgeschnittener Text kaeme auf der
+  // Konfigseite an und ginge beim Speichern verfaelscht zurueck (Audit M9).
+  // Fehlt das Feld, behaelt das Telefon, was es hat.
+  char eigene[CUSTOM_TEXT_MAX];
+  if (custom_to_string(eigene, sizeof(eigene))) {
+    fehler |= dict_write_cstring(out, MESSAGE_KEY_CUSTOM, eigene);
+  } else {
+    APP_LOG(APP_LOG_LEVEL_WARNING, "Eigene Getraenke passen nicht in %d Byte", (int)sizeof(eigene));
+  }
 
   // Der aelteste unbestaetigte Kaffee, Sorte und Flags in einem Feld: die
   // Sorte in den unteren vier Bits, Milch, Zucker und koffeinfrei darueber.
+  // MITGEFAHREN IST ER NUR, WENN ALLE SEINE FELDER HINEINPASSTEN - sonst
+  // naehme ihn die Bestaetigung aus der Schlange, ohne dass das Telefon ihn sah.
   s_coffee_carried = false;
   if (s_coffees_len > 0) {
-    dict_write_int32(out, MESSAGE_KEY_COFFEE_AT, (int32_t)s_coffees[0].at);
-    dict_write_int32(out, MESSAGE_KEY_COFFEE_KIND, s_coffees[0].kind | (s_coffees[0].flags << 4));
+    int kaffee = dict_write_int32(out, MESSAGE_KEY_COFFEE_AT, (int32_t)s_coffees[0].at);
+    kaffee |= dict_write_int32(out, MESSAGE_KEY_COFFEE_KIND, s_coffees[0].kind | (s_coffees[0].flags << 4));
     if (s_coffees[0].kind == COFFEE_KIND_CUSTOM) {
       char name[DT_CUSTOM_NAME];
       strncpy(name, s_coffees[0].name, DT_CUSTOM_NAME - 1);
       name[DT_CUSTOM_NAME - 1] = 0;
-      dict_write_cstring(out, MESSAGE_KEY_DRINK_NAME, name);
-      dict_write_int32(out, MESSAGE_KEY_DRINK_KCAL, s_coffees[0].kcal);
-      dict_write_int32(out, MESSAGE_KEY_DRINK_MG, s_coffees[0].mg);
+      kaffee |= dict_write_cstring(out, MESSAGE_KEY_DRINK_NAME, name);
+      kaffee |= dict_write_int32(out, MESSAGE_KEY_DRINK_KCAL, s_coffees[0].kcal);
+      kaffee |= dict_write_int32(out, MESSAGE_KEY_DRINK_MG, s_coffees[0].mg);
     }
-    s_coffee_carried = true;
+    s_coffee_carried = (kaffee == DICT_OK);
+    fehler |= kaffee;
   }
 
   // Das aelteste unbestaetigte Glas. Verbraucht ist es erst in prv_sent -
   // wenn das Telefon die Nachricht bestaetigt hat. GLASS_ML steht nur EINMAL
   // in der Nachricht: mit einem Glas dessen Menge, sonst die Glasgroesse.
+  // Auch das Glas faehrt nur mit, wenn beide Felder hineinpassten.
   s_carried = false;
   if (s_queue_len > 0) {
-    dict_write_int32(out, MESSAGE_KEY_DRANK_AT, (int32_t)s_queue[0].at);
-    dict_write_int32(out, MESSAGE_KEY_GLASS_ML, (int32_t)s_queue[0].ml);
-    s_carried = true;
+    int glas = dict_write_int32(out, MESSAGE_KEY_DRANK_AT, (int32_t)s_queue[0].at);
+    glas |= dict_write_int32(out, MESSAGE_KEY_GLASS_ML, (int32_t)s_queue[0].ml);
+    s_carried = (glas == DICT_OK);
+    fehler |= glas;
   } else {
-    dict_write_int32(out, MESSAGE_KEY_GLASS_ML, schedule_glass_ml());
+    fehler |= dict_write_int32(out, MESSAGE_KEY_GLASS_ML, schedule_glass_ml());
+  }
+  s_klemmt = (s_coffees_len > 0 && !s_coffee_carried) || (s_queue_len > 0 && !s_carried);
+  if (fehler != DICT_OK) {
+    APP_LOG(APP_LOG_LEVEL_WARNING, "Standmeldung unvollstaendig: %d", fehler);
   }
 
-  app_message_outbox_send();
+  const AppMessageResult gesendet = app_message_outbox_send();
+  if (gesendet != APP_MSG_OK) {
+    // Nicht abgeschickt: kein Rueckruf folgt. Glas und Kaffee bleiben in der
+    // Schlange, und es wird nachgefasst wie nach einem Fehlschlag.
+    APP_LOG(APP_LOG_LEVEL_WARNING, "Standmeldung nicht abgeschickt: %d", (int)gesendet);
+    s_carried = false;
+    s_coffee_carried = false;
+    prv_schedule_retry(1500);
+  }
 }
 
 static void prv_inbox_received(DictionaryIterator *iter, void *context) {
-  // Einstellungen - von der Konfigseite der Pebble-App oder von Kiesel-Helper,
-  // der Uhr ist das gleich. Danach geht der neue Stand an beide zurueck.
+  // Einstellungen - von der Konfigseite der Pebble-App (bis zu seiner
+  // Archivierung am 29.09.2026 auch von Kiesel-Helper). Danach geht der neue
+  // Stand zurueck ans Telefon.
   bool einstellung = false;
+
+  // Die Antwort auf die Frage nach der Zeit (phone_send_next). Bestaetigt sie
+  // die Uhr, geht der Stand mit dem berichtigten Tag (GOAL_DAY) hinaus - und
+  // fragt nicht mehr. Bestaetigt sie nicht, folgt keine Meldung: sonst
+  // fragte die Uhr endlos.
+  Tuple *uhr = dict_find(iter, MESSAGE_KEY_UHRZEIT);
+  const bool bestaetigt = uhr && schedule_uhr_bestaetigt((uint32_t)uhr->value->int32);
 
   // Glasgroesse. Aendert am Verhalten der Uhr nichts, sie geht mit jedem Glas
   // hinaus.
@@ -320,7 +376,7 @@ static void prv_inbox_received(DictionaryIterator *iter, void *context) {
     }
   }
 
-  if (einstellung || dict_find(iter, MESSAGE_KEY_REQUEST)) {
+  if (einstellung || bestaetigt || dict_find(iter, MESSAGE_KEY_REQUEST)) {
     s_report_due = true;
     phone_send_next();
   }

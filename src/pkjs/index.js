@@ -16,6 +16,14 @@
 var Clay = require('@rebble/clay');
 var clayConfig = require('./config');
 
+// KEIN CATCH OHNE LOG. Ein Fehler beim Telefonspeicher oder beim Lesen soll im
+// Log der Pebble-App stehen und nicht still verschwinden - sonst laesst sich
+// eine verlorene Einstellung hinterher nicht erklaeren. tools/catch_check.js
+// prueft, dass jeder catch ins Log meldet.
+function meldeFehler(wo, e) {
+  console.log('Fehler (' + wo + '): ' + e);
+}
+
 var API_URL = 'https://timeline-api.rebble.io/v1/user/pins/';
 var PIN_COLOR = '#0055FF';                // Hintergrund der Pins (Pebble BlueMoon)
 var STORE_KEY = 'drinktervall_pins_v2';   // id -> { sig, sentAt }, dazu legacyDeleted
@@ -56,10 +64,11 @@ var COFFEE_MILK = 1, COFFEE_SUGAR = 2, COFFEE_DECAF = 4, COFFEE_ENERGY = 3;
 var CUSTOM_KEY = 'drinktervall_custom';
 
 // DIE UHR IST DIE EINE STELLE, AN DER DIE EINSTELLUNGEN GELTEN. Geaendert
-// werden sie hier auf der Konfigseite ODER in Kiesel-Helper; beide schicken an
-// die Uhr, und die Uhr meldet mit jeder Standmeldung, was gilt. Diese Seite
+// werden sie hier auf der Konfigseite (bis zu seiner Archivierung am
+// 29.09.2026 auch in Kiesel-Helper); sie schickt an die Uhr, und die Uhr
+// meldet mit jeder Standmeldung, was gilt. Boulder liest nur mit. Diese Seite
 // uebernimmt das - sonst zeigte die Konfigseite einen alten Stand und schickte
-// ihn beim naechsten Start wieder hin, ueber eine Aenderung aus Kiesel-Helper.
+// ihn beim naechsten Start wieder hin, ueber eine Aenderung von anderswo.
 //
 // NUR WAS NICHT ANKAM, GEHT BEIM START NOCH EINMAL. Wurde auf der Konfigseite
 // gespeichert, waehrend die App auf der Uhr nicht lief, steht hier ein
@@ -67,10 +76,10 @@ var CUSTOM_KEY = 'drinktervall_custom';
 var PENDING_KEY = 'drinktervall_pending';
 
 function pending() {
-  try { return localStorage.getItem(PENDING_KEY) === '1'; } catch (e) { return false; }
+  try { return localStorage.getItem(PENDING_KEY) === '1'; } catch (e) { meldeFehler('Vermerk lesen', e); return false; }
 }
 function setPending(on) {
-  try { if (on) localStorage.setItem(PENDING_KEY, '1'); else localStorage.removeItem(PENDING_KEY); } catch (e) {}
+  try { if (on) localStorage.setItem(PENDING_KEY, '1'); else localStorage.removeItem(PENDING_KEY); } catch (e) { meldeFehler('Vermerk schreiben', e); }
 }
 
 // Den Kaffeeplan aus den Feldern der Konfigseite bauen. Aus heisst ein
@@ -112,14 +121,38 @@ function coffeeToClay(bytes, clay) {
   }
 }
 
+// Fuer einen Namen hat die Uhr 15 BYTE (DT_CUSTOM_NAME - 1 in src/c/config.h),
+// nicht 15 Zeichen.
+var CUSTOM_NAME_BYTES = 15;
+
+// Hoechstens `max` Byte UTF-8, gekuerzt nur an Zeichengrenzen. BIS 1.19 STAND
+// HIER slice(0, 15): das zaehlt Zeichen, ein "ü" sind aber 2 Byte, ein Emoji
+// 4 - die Uhr schnitt den Rest dann mitten im Zeichen ab, und kaputtes UTF-8
+// stand auf der Uhr und in der Gesundheitsakte. Ein Emoji steht in JavaScript
+// als ZWEI Ersatzzeichen und bleibt hier beisammen.
+function utf8Kuerzen(text, max) {
+  var s = String(text || ''), bytes = 0, ende = 0;
+  for (var i = 0; i < s.length; i++) {
+    var c = s.charCodeAt(i);
+    var d = i + 1 < s.length ? s.charCodeAt(i + 1) : 0;
+    var paar = c >= 0xd800 && c <= 0xdbff && d >= 0xdc00 && d <= 0xdfff;
+    var n = paar ? 4 : (c < 0x80 ? 1 : (c < 0x800 ? 2 : 3));
+    if (bytes + n > max) break;
+    bytes += n;
+    if (paar) i++;
+    ende = i + 1;
+  }
+  return s.slice(0, ende);
+}
+
 // Die eigenen Getraenke aus den Feldern. Ohne Namen zaehlt ein Getraenk
 // nicht; "|" und Zeilenumbruch im Namen wuerden die Zeile zerlegen.
 function customText(dict) {
   var n = parseInt(dict.CUSTOM_N && dict.CUSTOM_N.value, 10) || 0;
   var zeilen = [];
   for (var i = 1; i <= n && i <= clayConfig.CUSTOM_MAX; i++) {
-    var name = String((dict['CUSTOM_NAME' + i] && dict['CUSTOM_NAME' + i].value) || '')
-      .replace(/[|\n\r]/g, ' ').trim().slice(0, 15);
+    var name = utf8Kuerzen(String((dict['CUSTOM_NAME' + i] && dict['CUSTOM_NAME' + i].value) || '')
+      .replace(/[|\n\r]/g, ' ').trim(), CUSTOM_NAME_BYTES).trim();
     if (!name) continue;
     var kcal = Math.max(0, Math.min(2000, parseInt(dict['CUSTOM_KCAL' + i] && dict['CUSTOM_KCAL' + i].value, 10) || 0));
     var mg = Math.max(0, Math.min(1000, parseInt(dict['CUSTOM_MG' + i] && dict['CUSTOM_MG' + i].value, 10) || 0));
@@ -148,14 +181,14 @@ function customToClay(text, clay) {
 }
 
 function getCustom() {
-  try { var v = localStorage.getItem(CUSTOM_KEY); return v === null ? null : v; } catch (e) { return null; }
+  try { var v = localStorage.getItem(CUSTOM_KEY); return v === null ? null : v; } catch (e) { meldeFehler('Eigene Getraenke lesen', e); return null; }
 }
 
 function getCoffee() {
   try {
     var v = JSON.parse(localStorage.getItem(COFFEE_KEY));
     return (v && v.length) ? v : null;
-  } catch (e) { return null; }
+  } catch (e) { meldeFehler('Kaffeeplan lesen', e); return null; }
 }
 
 // Was die Konfigseite beim naechsten Oeffnen zeigt: Clay liest es aus
@@ -165,7 +198,7 @@ function mergeClaySettings(values) {
     var s = JSON.parse(localStorage.getItem('clay-settings') || '{}') || {};
     for (var k in values) { if (values.hasOwnProperty(k)) s[k] = values[k]; }
     localStorage.setItem('clay-settings', JSON.stringify(s));
-  } catch (e) {}
+  } catch (e) { meldeFehler('Konfigseite nachfuehren', e); }
 }
 
 // Den Stand der Uhr uebernehmen - ausser eine eigene Aenderung ist noch
@@ -176,29 +209,29 @@ function adoptWatchSettings(p) {
   if (p.TARGET !== undefined) {
     var n = parseInt(p.TARGET, 10);
     if (isFinite(n) && n >= TARGET_MIN && n <= TARGET_MAX) {
-      try { localStorage.setItem(TARGET_KEY, String(n)); } catch (e) {}
+      try { localStorage.setItem(TARGET_KEY, String(n)); } catch (e) { meldeFehler('Soll speichern', e); }
       clay.TARGET = String(n);
     }
   }
   if (p.GLASS_ML !== undefined && p.DRANK_AT === undefined) {
     var ml = parseInt(p.GLASS_ML, 10);
     if (isFinite(ml) && ml >= GLASS_MIN && ml <= GLASS_MAX) {
-      try { localStorage.setItem(GLASS_KEY, String(ml)); } catch (e) {}
+      try { localStorage.setItem(GLASS_KEY, String(ml)); } catch (e) { meldeFehler('Glasgroesse speichern', e); }
       clay.GLASS_ML = String(ml);
     }
   }
   if (p.ANIMATION !== undefined) {
     var on = parseInt(p.ANIMATION, 10) ? 1 : 0;
-    try { localStorage.setItem(ANIM_KEY, String(on)); } catch (e) {}
+    try { localStorage.setItem(ANIM_KEY, String(on)); } catch (e) { meldeFehler('Animation speichern', e); }
     clay.ANIMATION = on === 1;
   }
   if (p.COFFEE !== undefined && p.COFFEE.length) {
     var bytes = Array.prototype.slice.call(p.COFFEE);
-    try { localStorage.setItem(COFFEE_KEY, JSON.stringify(bytes)); } catch (e) {}
+    try { localStorage.setItem(COFFEE_KEY, JSON.stringify(bytes)); } catch (e) { meldeFehler('Kaffeeplan speichern', e); }
     coffeeToClay(bytes, clay);
   }
   if (p.CUSTOM !== undefined) {
-    try { localStorage.setItem(CUSTOM_KEY, String(p.CUSTOM)); } catch (e) {}
+    try { localStorage.setItem(CUSTOM_KEY, String(p.CUSTOM)); } catch (e) { meldeFehler('Eigene Getraenke speichern', e); }
     customToClay(p.CUSTOM, clay);
   }
   mergeClaySettings(clay);
@@ -326,10 +359,10 @@ function getClay() {
 }
 
 function loadStore() {
-  try { return JSON.parse(localStorage.getItem(STORE_KEY)) || {}; } catch (e) { return {}; }
+  try { return JSON.parse(localStorage.getItem(STORE_KEY)) || {}; } catch (e) { meldeFehler('Pins lesen', e); return {}; }
 }
 function saveStore(store) {
-  try { localStorage.setItem(STORE_KEY, JSON.stringify(store)); } catch (e) {}
+  try { localStorage.setItem(STORE_KEY, JSON.stringify(store)); } catch (e) { meldeFehler('Pins speichern', e); }
 }
 
 function buildPin(id, epoch, state, index, goal, lang) {
@@ -385,6 +418,7 @@ function insertViaLocal(pin, callback) {
       callback(true, 'lokal');
     }
   } catch (e) {
+    meldeFehler('Pin lokal', e);
     callback(false, 'lokal: ' + e);
   }
 }
@@ -427,7 +461,7 @@ function pushState(msg) {
   // Fehlt LANG, laeuft eine aeltere Uhrseite: dann Englisch.
   var lang = msg.LANG || 0;
   // Fuer die Konfigseite merken - die oeffnet spaeter und ohne die Uhr zu fragen.
-  try { localStorage.setItem(LANG_KEY, String(lang)); } catch (e) {}
+  try { localStorage.setItem(LANG_KEY, String(lang)); } catch (e) { meldeFehler('Sprache speichern', e); }
   var store = loadStore();
   Object.keys(store).forEach(function (id) {
     if (store[id] && store[id].sentAt && now - store[id].sentAt > FORGET_AFTER_MS) delete store[id];
@@ -474,6 +508,16 @@ function pushState(msg) {
 
 Pebble.addEventListener('appmessage', function (e) {
   var p = e.payload;
+  // DIE UHR FRAGT NACH DER ZEIT, wenn sie hinter ihrem gemerkten Tag steht:
+  // ob sie jetzt falsch geht (Neustart) oder vorher falsch ging, weiss nur das
+  // Telefon (src/c/schedule.c). Die Antwort traegt nur die Zeit; entscheiden
+  // tut die Uhr.
+  if (p.UHRZEIT !== undefined) {
+    var jetzt = Math.floor(Date.now() / 1000);
+    Pebble.sendAppMessage({ UHRZEIT: jetzt },
+      function () { console.log('Zeit an die Uhr: ' + jetzt + ' (Uhr: ' + p.UHRZEIT + ')'); },
+      function () { console.log('Zeit nicht zugestellt'); });
+  }
   adoptWatchSettings(p);
   if (!p.hasOwnProperty('NEXT_TIME')) return;
   pushState(p);
@@ -493,7 +537,7 @@ Pebble.addEventListener('webviewclosed', function (e) {
   if (dict.GLASS_ML !== undefined) {
     var ml = parseInt(dict.GLASS_ML.value, 10);
     if (isFinite(ml) && ml >= GLASS_MIN && ml <= GLASS_MAX) {
-      try { localStorage.setItem(GLASS_KEY, String(ml)); } catch (err) {}
+      try { localStorage.setItem(GLASS_KEY, String(ml)); } catch (err) { meldeFehler('Glasgroesse speichern', err); }
       msg.GLASS_ML = ml;
     } else {
       console.log('Konfig: ungueltige Glasgroesse ' + dict.GLASS_ML.value);
@@ -501,13 +545,13 @@ Pebble.addEventListener('webviewclosed', function (e) {
   }
   if (dict.ANIMATION !== undefined) {
     var on = truthy(dict.ANIMATION.value) ? 1 : 0;
-    try { localStorage.setItem(ANIM_KEY, String(on)); } catch (err) {}
+    try { localStorage.setItem(ANIM_KEY, String(on)); } catch (err) { meldeFehler('Animation speichern', err); }
     msg.ANIMATION = on;
   }
   if (dict.TARGET !== undefined) {
     var n = parseInt(dict.TARGET.value, 10);
     if (isFinite(n) && n >= TARGET_MIN && n <= TARGET_MAX) {
-      try { localStorage.setItem(TARGET_KEY, String(n)); } catch (err) {}
+      try { localStorage.setItem(TARGET_KEY, String(n)); } catch (err) { meldeFehler('Soll speichern', err); }
       msg.TARGET = n;
     } else {
       console.log('Konfig: ungueltiges Soll ' + dict.TARGET.value + ' - verworfen');
@@ -515,11 +559,11 @@ Pebble.addEventListener('webviewclosed', function (e) {
   }
   if (dict.CUSTOM_N !== undefined) {
     msg.CUSTOM = customText(dict);
-    try { localStorage.setItem(CUSTOM_KEY, msg.CUSTOM); } catch (err) {}
+    try { localStorage.setItem(CUSTOM_KEY, msg.CUSTOM); } catch (err) { meldeFehler('Eigene Getraenke speichern', err); }
   }
   if (dict.COFFEE_ON !== undefined) {
     msg.COFFEE = coffeeBytes(dict);
-    try { localStorage.setItem(COFFEE_KEY, JSON.stringify(msg.COFFEE)); } catch (err) {}
+    try { localStorage.setItem(COFFEE_KEY, JSON.stringify(msg.COFFEE)); } catch (err) { meldeFehler('Kaffeeplan speichern', err); }
   }
   if (!Object.keys(msg).length) return;
 
@@ -533,8 +577,7 @@ Pebble.addEventListener('webviewclosed', function (e) {
 
 Pebble.addEventListener('ready', function () {
   // Nur eine Aenderung, die nie ankam, faehrt bei der Anfrage mit. Sonst
-  // gilt, was die Uhr hat - womoeglich aus Kiesel-Helper -, und die Antwort
-  // auf die Anfrage bringt es hierher.
+  // gilt, was die Uhr hat, und die Antwort auf die Anfrage bringt es hierher.
   var msg = { REQUEST: 1 };
   var mitWerten = pending();
   if (mitWerten) {

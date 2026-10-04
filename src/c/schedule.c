@@ -28,9 +28,26 @@ static int32_t s_day;
 // bis das Telefon die Zeit stellt.
 #define DT_TAG_PLAUSIBEL 20250101
 
-// Tage grob aus JJJJMMTT, nur fuer "mehr als zwei Tage auseinander".
-static int32_t prv_grob(int32_t key) {
-  return (key / 10000) * 372 + ((key / 100) % 100) * 31 + key % 100;
+// So weit darf die Uhr vom Telefon abweichen, damit ihre Zeit als bestaetigt
+// gilt (siehe schedule_uhr_bestaetigt). Stellt das Telefon die Uhr, liegen
+// beide Sekunden auseinander; eine Uhr, die nach einem Neustart auf einer
+// alten Zeit steht, Minuten bis Stunden.
+#define DT_UHR_ABWEICHUNG_MAX 300
+
+// Tage seit 1970 aus JJJJMMTT - GENAU, nicht geschaetzt (days_from_civil nach
+// Howard Hinnant). Bis 1.19 stand hier eine Schaetzung mit 31 Tagen je Monat:
+// vom 1. Maerz auf den 28. Februar zurueck waren das 4 statt 1 Tag, und der
+// Zweig "mehr als zwei Tage zurueck" griff bei einem kurzen Ruecksprung -
+// nach dem Stellen der Uhr waren die Glaeser dann weg.
+static int32_t prv_tagnummer(int32_t key) {
+  int32_t y = key / 10000;
+  const int32_t m = (key / 100) % 100, d = key % 100;
+  if (m <= 2) y--;
+  const int32_t era = (y >= 0 ? y : y - 399) / 400;
+  const int32_t yoe = y - era * 400;
+  const int32_t doy = (153 * (m > 2 ? m - 3 : m + 9) + 2) / 5 + d - 1;
+  const int32_t doe = yoe * 365 + yoe / 4 - yoe / 100 + doy;
+  return era * 146097 + doe - 719468;
 }
 
 static int prv_clamp_target(int n) {
@@ -39,23 +56,61 @@ static int prv_clamp_target(int n) {
   return n;
 }
 
-void schedule_init(void) {
-  const int32_t today = prv_day_key(time(NULL));
-  // Ein fehlender Schluessel liest als 0 und ist damit nie ein JJJJMMTT-Datum.
-  const int32_t stored_day = persist_read_int(DT_PERSIST_DAY);
-  // NEU IST EIN TAG NUR NACH VORN. Nach einem Firmware-Update oder Neustart
-  // steht die Uhr kurz auf einer alten Zeit, bis das Telefon sie stellt.
-  // Frueher galt jeder andere Tag als neuer: die Glaeser waren weg, und der
-  // falsche Tag stand im Speicher (01.10.2026, wie bei SupCycle).
-  // Liegt der gemerkte Tag dagegen weit voraus und geht die Uhr plausibel,
-  // war der gemerkte Tag falsch - dann gilt heute, die Werte bleiben.
-  bool same_day = stored_day >= today && stored_day != 0;
-  s_day = same_day ? stored_day : today;
-  if (same_day && stored_day > today && today >= DT_TAG_PLAUSIBEL &&
-      prv_grob(stored_day) - prv_grob(today) > 2) {
-    s_day = today;
-    persist_write_int(DT_PERSIST_DAY, s_day);
+// Ein neuer Tag: Zaehler auf 0, Ziel zurueck auf das Soll.
+static void prv_neuer_tag(int32_t heute) {
+  s_day = heute;
+  s_count = 0;
+  s_goal = s_target;
+  persist_write_int(DT_PERSIST_DAY, s_day);
+  persist_write_int(DT_PERSIST_COUNT, 0);
+  persist_write_int(DT_PERSIST_GOAL, s_goal);
+}
+
+// NEU IST EIN TAG NUR NACH VORN - und das nicht nur beim Start. Bis 1.19
+// wurde der Tag nur in schedule_init geprueft: stand die App ueber
+// Mitternacht offen, zaehlte das erste Glas des neuen Tages zum alten.
+//
+// DIE UHR ALLEIN KANN NICHT ENTSCHEIDEN, WELCHE ZEIT FALSCH WAR. Steht sie
+// hinter dem gemerkten Tag, liegt sie entweder jetzt zurueck (Neustart, siehe
+// schedule_init) oder sie ging vorher vor und ist jetzt richtig (Audit M10:
+// dann zaehlten die Glaeser des echten Tages zum vorausgeeilten Tag und
+// standen am echten Folgetag noch da). Fuer die Uhr sehen beide Faelle gleich
+// aus. Darum fragt sie in diesem Zustand das Telefon nach seiner Zeit
+// (schedule_uhr_fraglich, phone.c) und gibt den gemerkten Tag erst auf, wenn
+// das Telefon ihre Zeit bestaetigt (schedule_uhr_bestaetigt).
+// NICHT bei einem Glas: wer trinkt, waehrend die Uhr nach einem Neustart auf
+// gestern steht, zoege den Tag sonst auf gestern - und das Stellen der Uhr
+// waere ein neuer Tag, alle Glaeser waeren weg.
+static void prv_tag_pruefen(void) {
+  const int32_t heute = prv_day_key(time(NULL));
+  if (heute > s_day) prv_neuer_tag(heute);
+}
+
+bool schedule_uhr_fraglich(void) {
+  const int32_t heute = prv_day_key(time(NULL));
+  return heute < s_day && heute >= DT_TAG_PLAUSIBEL;
+}
+
+bool schedule_uhr_bestaetigt(uint32_t telefon) {
+  const int32_t abweichung = (int32_t)(time(NULL) - (time_t)telefon);
+  if (abweichung > DT_UHR_ABWEICHUNG_MAX || abweichung < -DT_UHR_ABWEICHUNG_MAX) {
+    // Die Uhr steht (noch) falsch - genau der Neustartfall. Nichts aendern.
+    APP_LOG(APP_LOG_LEVEL_INFO, "Telefonzeit weicht %d s ab - Tag bleibt", (int)abweichung);
+    return false;
   }
+  const int32_t heute = prv_day_key(time(NULL));
+  // Kurz vor Mitternacht koennen Uhr und Telefon auf verschiedenen Tagen
+  // stehen, obwohl sie nur Sekunden trennen. Dann lieber nichts.
+  if (prv_day_key((time_t)telefon) != heute) return false;
+  if (!(heute < s_day && heute >= DT_TAG_PLAUSIBEL)) return false;
+  APP_LOG(APP_LOG_LEVEL_INFO, "Uhr vom Telefon bestaetigt: Tag %d statt %d, Glaeser bleiben",
+          (int)heute, (int)s_day);
+  s_day = heute;
+  persist_write_int(DT_PERSIST_DAY, s_day);
+  return true;
+}
+
+void schedule_init(void) {
   // Fehlt das Soll (Erstinstallation oder Stand vor 1.7.0), liest es als 0 und
   // prv_clamp_target zoege es auf DT_GLASSES_MIN - gewollt ist die
   // Voreinstellung.
@@ -70,16 +125,32 @@ void schedule_init(void) {
   // Eintrag als false und schaltete die Animation ungefragt ab.
   s_anim = persist_exists(DT_PERSIST_ANIM) ? persist_read_bool(DT_PERSIST_ANIM)
                                            : DT_ANIM_DEFAULT;
-  s_goal = same_day ? persist_read_int(DT_PERSIST_GOAL) : s_target;
-  s_count = same_day ? persist_read_int(DT_PERSIST_COUNT) : 0;
+
+  const int32_t today = prv_day_key(time(NULL));
+  // Ein fehlender Schluessel liest als 0 und ist damit nie ein JJJJMMTT-Datum.
+  const int32_t stored_day = persist_read_int(DT_PERSIST_DAY);
+  // NEU IST EIN TAG NUR NACH VORN. Nach einem Firmware-Update oder Neustart
+  // steht die Uhr kurz auf einer alten Zeit, bis das Telefon sie stellt.
+  // Frueher galt jeder andere Tag als neuer: die Glaeser waren weg, und der
+  // falsche Tag stand im Speicher (01.10.2026, wie bei SupCycle).
+  if (stored_day == 0 || today > stored_day) {
+    prv_neuer_tag(today);
+    return;
+  }
+  s_day = stored_day;
+  s_goal = persist_read_int(DT_PERSIST_GOAL);
+  s_count = persist_read_int(DT_PERSIST_COUNT);
   if (s_goal < s_target) s_goal = s_target;
   if (s_goal > DT_GOAL_MAX) s_goal = DT_GOAL_MAX;
   if (s_count < 0) s_count = 0;
   if (s_count > s_goal) s_count = s_goal;
-  if (!same_day) {
+  // Liegt der gemerkte Tag dagegen weit voraus und geht die Uhr plausibel,
+  // war der gemerkte Tag falsch (die Uhr stand einmal in der Zukunft) - dann
+  // gilt heute, die Werte bleiben.
+  if (stored_day > today && today >= DT_TAG_PLAUSIBEL &&
+      prv_tagnummer(stored_day) - prv_tagnummer(today) > 2) {
+    s_day = today;
     persist_write_int(DT_PERSIST_DAY, s_day);
-    persist_write_int(DT_PERSIST_COUNT, 0);
-    persist_write_int(DT_PERSIST_GOAL, s_target);
   }
 }
 
@@ -90,6 +161,8 @@ int schedule_target(void) {
 bool schedule_set_target(int target) {
   target = prv_clamp_target(target);
   if (target == s_target) return false;
+  // Erst ein neuer Tag, falls einer begonnen hat: das neue Ziel gilt heute.
+  prv_tag_pruefen();
   s_target = target;
   persist_write_int(DT_PERSIST_TARGET, s_target);
 
@@ -127,10 +200,12 @@ bool schedule_set_animation(bool on) {
 }
 
 int schedule_count(void) {
+  prv_tag_pruefen();
   return s_count;
 }
 
 void schedule_set_count(int count) {
+  prv_tag_pruefen();
   if (count < 0) count = 0;
   if (count > s_goal) count = s_goal;
   s_count = count;
@@ -139,14 +214,17 @@ void schedule_set_count(int count) {
 }
 
 int schedule_goal(void) {
+  prv_tag_pruefen();
   return s_goal;
 }
 
 int32_t schedule_day(void) {
+  prv_tag_pruefen();
   return s_day;
 }
 
 void schedule_raise_goal(void) {
+  prv_tag_pruefen();
   if (s_goal >= DT_GOAL_MAX) return;
   s_goal++;
   persist_write_int(DT_PERSIST_DAY, s_day);

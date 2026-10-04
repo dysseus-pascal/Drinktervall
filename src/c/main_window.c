@@ -39,6 +39,25 @@ static GRect prv_water_frame(GRect full) {
   return GRect(0, full.size.h - h, full.size.w - DT_SIDEBAR_W, h);
 }
 
+// Eine Zeile Text im Inhalt. AUF SCHWARZ-WEISS STEHT SIE AUF WEISS: dort ist
+// der Pegel ein Raster, zur Haelfte schwarz, und schwarze Schrift darauf war
+// nicht zu lesen - auf flint verschwand "3 done" schon beim dritten von acht
+// Glaesern zur Haelfte darin. Auf Farbe bleibt die Schrift auf dem hellblauen
+// Band lesbar und braucht keinen Grund.
+static void prv_schrift(GContext *ctx, const char *text, GFont font, GRect box,
+                        GTextAlignment ausrichtung) {
+#ifndef PBL_COLOR
+  const GSize g = graphics_text_layout_get_content_size(text, font, box,
+                                                         GTextOverflowModeTrailingEllipsis, ausrichtung);
+  int16_t x = box.origin.x;
+  if (ausrichtung == GTextAlignmentCenter) x += (box.size.w - g.w) / 2;
+  else if (ausrichtung == GTextAlignmentRight) x += box.size.w - g.w;
+  graphics_context_set_fill_color(ctx, DT_COLOR_BG);
+  graphics_fill_rect(ctx, GRect(x - 2, box.origin.y, g.w + 4, g.h + 4), 0, GCornerNone);
+#endif
+  graphics_draw_text(ctx, text, font, box, GTextOverflowModeTrailingEllipsis, ausrichtung, NULL);
+}
+
 static void prv_canvas_update(Layer *layer, GContext *ctx) {
   const GRect b = layer_get_bounds(layer);
   const bool wide = PBL_DISPLAY_WIDTH >= 180;    // emery/gabbro breit, flint schmal
@@ -50,9 +69,8 @@ static void prv_canvas_update(Layer *layer, GContext *ctx) {
   graphics_context_set_text_color(ctx, DT_COLOR_TEXT);
   char clock[10];
   clock_copy_time_string(clock, sizeof(clock));
-  graphics_draw_text(ctx, clock, fonts_get_system_font(FONT_KEY_GOTHIC_14),
-                     GRect(0, PBL_IF_ROUND_ELSE(10, 0), b.size.w - DT_SIDEBAR_W, 16),
-                     GTextOverflowModeTrailingEllipsis, GTextAlignmentCenter, NULL);
+  prv_schrift(ctx, clock, fonts_get_system_font(FONT_KEY_GOTHIC_14),
+              GRect(0, PBL_IF_ROUND_ELSE(10, 0), b.size.w - DT_SIDEBAR_W, 16), GTextAlignmentCenter);
 
   time_t now = time(NULL);
   time_t next;
@@ -61,16 +79,12 @@ static void prv_canvas_update(Layer *layer, GContext *ctx) {
   schedule_format_time(next, hhmm, sizeof(hhmm));
   const bool tomorrow = next >= schedule_midnight(now) + 86400;
   int16_t y = PBL_IF_ROUND_ELSE(46, 18);
-  graphics_draw_text(ctx, tomorrow ? S(STR_TOMORROW) : S(STR_NEXT_REMINDER),
-                     fonts_get_system_font(FONT_KEY_GOTHIC_14),
-                     GRect(margin, y, col_w, 16),
-                     GTextOverflowModeTrailingEllipsis, GTextAlignmentLeft, NULL);
+  prv_schrift(ctx, tomorrow ? S(STR_TOMORROW) : S(STR_NEXT_REMINDER),
+              fonts_get_system_font(FONT_KEY_GOTHIC_14), GRect(margin, y, col_w, 16), GTextAlignmentLeft);
   y += 14;
-  graphics_draw_text(ctx, hhmm,
-                     fonts_get_system_font(wide ? FONT_KEY_LECO_32_BOLD_NUMBERS
-                                                : FONT_KEY_LECO_26_BOLD_NUMBERS_AM_PM),
-                     GRect(margin, y, col_w, wide ? 38 : 32),
-                     GTextOverflowModeTrailingEllipsis, GTextAlignmentLeft, NULL);
+  prv_schrift(ctx, hhmm,
+              fonts_get_system_font(wide ? FONT_KEY_LECO_32_BOLD_NUMBERS : FONT_KEY_LECO_26_BOLD_NUMBERS_AM_PM),
+              GRect(margin, y, col_w, wide ? 38 : 32), GTextAlignmentLeft);
   y += wide ? 46 : 38;
 
   char title[20];
@@ -80,17 +94,14 @@ static void prv_canvas_update(Layer *layer, GContext *ctx) {
   } else {
     snprintf(title, sizeof(title), S(STR_GLASS_N_OF_M), count + 1, goal);
   }
-  graphics_draw_text(ctx, title,
-                     fonts_get_system_font(wide ? FONT_KEY_GOTHIC_24_BOLD : FONT_KEY_GOTHIC_18_BOLD),
-                     GRect(margin, y, col_w, wide ? 30 : 24),
-                     GTextOverflowModeTrailingEllipsis, GTextAlignmentLeft, NULL);
+  prv_schrift(ctx, title,
+              fonts_get_system_font(wide ? FONT_KEY_GOTHIC_24_BOLD : FONT_KEY_GOTHIC_18_BOLD),
+              GRect(margin, y, col_w, wide ? 30 : 24), GTextAlignmentLeft);
   y += wide ? 30 : 24;
   char sub[20];
   snprintf(sub, sizeof(sub), S(STR_N_DONE), count);
-  graphics_draw_text(ctx, sub,
-                     fonts_get_system_font(wide ? FONT_KEY_GOTHIC_18 : FONT_KEY_GOTHIC_14),
-                     GRect(margin, y, col_w, 22),
-                     GTextOverflowModeTrailingEllipsis, GTextAlignmentLeft, NULL);
+  prv_schrift(ctx, sub, fonts_get_system_font(wide ? FONT_KEY_GOTHIC_18 : FONT_KEY_GOTHIC_14),
+              GRect(margin, y, col_w, 22), GTextAlignmentLeft);
 
   // Seitenleiste: Glas-Symbol oben, Tasten-Hinweise auf Hoehe der Tasten
   const int16_t sx = b.size.w - DT_SIDEBAR_W;
