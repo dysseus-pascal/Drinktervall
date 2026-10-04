@@ -138,11 +138,12 @@ static void abschnitt_ziel(void) {
   pruefe("steht im Log", strstr(attrappe_log_text, "Wasser-Erinnerung 4 entfaellt") != NULL);
   ausklingen();
   // Gegenprobe: ein Glas unter dem Ziel kommt die Erinnerung.
+  const int fenster = attrappe_fenster_gezeigt(), vibes = attrappe_vibes_doppelt();
   vorbereiten(lokal(2026, 10, 3, 14, 0), true);
   schedule_set_count(schedule_goal() - 1);
   starten(APP_LAUNCH_WAKEUP, 0, 4, NULL);
   pruefe("Gegenprobe, ein Glas fehlt: Erinnerung mit Vibrieren",
-         attrappe_fenster_gezeigt() == 1 && attrappe_vibes_doppelt() == 1);
+         attrappe_fenster_gezeigt() == fenster + 1 && attrappe_vibes_doppelt() == vibes + 1);
 }
 
 static void ereignisse_kaffee(void) {

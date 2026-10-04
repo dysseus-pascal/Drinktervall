@@ -193,6 +193,16 @@ console.log('\nREST scheitert (M5): die Pins gehen lokal hinaus');
         w.fehler.length === 0 && Object.keys(JSON.parse(w.store.drinktervall_pins_v2 || '{}'))
           .filter((k) => k !== 'legacyDeleted').length === 0, w.fehler.join(' | ') + ' ' + w.store.drinktervall_pins_v2);
 }
+{
+  // Kein Weg klappt: die alten Pins werden trotzdem nur einmal versucht.
+  const w = world({ token: 'emulated-dummy-token', netz: 'fehler', lokal: false });
+  w.melde(meldung(8, 3));
+  w.melde(meldung(8, 4));
+  const legacy = w.rest.filter((x) => /aquatakt-next|drinktervall-next/.test(x));
+  check('Netzwerkfehler ohne lokale Schnittstelle: alte Pins einmal versucht, nicht bei jeder Meldung',
+        legacy.length === 2 && JSON.parse(w.store.drinktervall_pins_v2 || '{}').legacyDeleted === true,
+        legacy.join(','));
+}
 
 console.log('\nDer Tag im Launch-Code (N5)');
 {
