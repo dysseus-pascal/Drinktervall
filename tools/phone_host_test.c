@@ -20,6 +20,11 @@
 //     wenn seine Felder wirklich in der Nachricht standen.
 //   - Was nicht passt oder nicht hinausgeht, steht im Log.
 //   - Namen werden nie mitten in einem UTF-8-Zeichen gekuerzt.
+//   - FELDER IN ANDERER FORM (Audit N1): ein Text oder eine schmale Zahl vom
+//     Telefon darf nicht als int32 gelesen werden - bis 1.20 wurde aus beidem
+//     Soll 16.
+//   - NACH FUENF FEHLVERSUCHEN (Audit N3) versucht ein neuer Anlass es
+//     wieder - bis 1.20 wartete ein neues Glas bis zum naechsten Start.
 //
 // Exitcode 0 = alles wie zugesagt.
 #include <pebble.h>
@@ -298,6 +303,55 @@ static void abschnitt_namen(void) {
   }
 }
 
+static void abschnitt_feldform(void) {
+  printf("\nFelder in anderer Form (N1): Text und schmale Zahlen\n");
+  start(um(2026, 10, 3, 9, 0), true);
+  DictionaryIterator *ein = attrappe_eingang_beginn();
+  dict_write_cstring(ein, MESSAGE_KEY_TARGET, "12");
+  attrappe_eingang_zustellen();
+  pruefe("TARGET als Text \"12\": das Soll bleibt 8", schedule_target() == 8);
+  pruefe("TARGET als Text: steht im Log", im_log("in falscher Form"));
+  attrappe_ack();
+  ein = attrappe_eingang_beginn();
+  dict_write_uint8(ein, MESSAGE_KEY_TARGET, 6);
+  dict_write_int32(ein, MESSAGE_KEY_GLASS_ML, 500);
+  attrappe_eingang_zustellen();
+  pruefe("TARGET als ein Byte 6, GLASS_ML dahinter: Soll 6", schedule_target() == 6);
+  pruefe("und die Glasgroesse 500", schedule_glass_ml() == 500);
+  pruefe("die Meldung danach traegt Soll 6", zahl(MESSAGE_KEY_TARGET) == 6);
+  attrappe_ack();
+  ein = attrappe_eingang_beginn();
+  dict_write_int16(ein, MESSAGE_KEY_TARGET, 10);
+  dict_write_uint8(ein, MESSAGE_KEY_ANIMATION, 0);
+  attrappe_eingang_zustellen();
+  pruefe("TARGET als zwei Byte 10: Soll 10", schedule_target() == 10);
+  pruefe("ANIMATION als ein Byte 0: aus", !schedule_animation());
+}
+
+static void abschnitt_nach_ruhe(void) {
+  printf("\nNach fuenf Fehlversuchen (N3): ein neues Glas versucht es wieder\n");
+  start(um(2026, 10, 3, 9, 0), true);
+  phone_note_drink();
+  phone_send_next();
+  int runden = 0;
+  while (attrappe_unterwegs() && runden < 20) {
+    attrappe_nack(APP_MSG_SEND_TIMEOUT);
+    attrappe_zeitgeber_ablaufen();
+    runden++;
+  }
+  pruefe("erst 1 + 5 Sendungen, dann Ruhe", attrappe_gesendet() == 6 && attrappe_zeitgeber_offen() == 0);
+  phone_note_drink();
+  phone_send_next();
+  pruefe("neues Glas: es geht hinaus", attrappe_gesendet() == 7);
+  attrappe_nack(APP_MSG_SEND_TIMEOUT);
+  pruefe("wieder abgelehnt: es wird nachgefasst", attrappe_zeitgeber_offen() == 1);
+  attrappe_zeitgeber_ablaufen();
+  pruefe("nachgefasst, mit dem aeltesten Glas", attrappe_gesendet() == 8 && hat(MESSAGE_KEY_DRANK_AT));
+  attrappe_ack();
+  while (attrappe_zeitgeber_offen()) { attrappe_zeitgeber_ablaufen(); attrappe_ack(); }
+  pruefe("beide Glaeser sind beim Telefon", !phone_pending());
+}
+
 #ifdef TEXT_ZU_KLEIN
 // Zweiter Bau mit -DCUSTOM_TEXT_MAX=60 (phone_host_test.sh): der Text der
 // eigenen Getraenke passt nicht. Er darf dann NICHT abgeschnitten hinaus -
@@ -320,7 +374,7 @@ static void (*const ABSCHNITTE[])(void) = {
   abschnitt_tag, abschnitt_vorlauf, abschnitt_vorlauf_groesster_fall, abschnitt_groesster_fall,
   abschnitt_text_grenze,
   abschnitt_schlange, abschnitt_passt_nicht, abschnitt_kaffee_passt_nicht, abschnitt_nicht_abgeschickt,
-  abschnitt_namen,
+  abschnitt_namen, abschnitt_feldform, abschnitt_nach_ruhe,
 };
 #endif
 

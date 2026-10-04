@@ -77,7 +77,7 @@ static void prv_canvas_update(Layer *layer, GContext *ctx) {
   schedule_next(now, &next);
   char hhmm[8];
   schedule_format_time(next, hhmm, sizeof(hhmm));
-  const bool tomorrow = next >= schedule_midnight(now) + 86400;
+  const bool tomorrow = schedule_tag(next) != schedule_tag(now);
   int16_t y = PBL_IF_ROUND_ELSE(46, 18);
   prv_schrift(ctx, tomorrow ? S(STR_TOMORROW) : S(STR_NEXT_REMINDER),
               fonts_get_system_font(FONT_KEY_GOTHIC_14), GRect(margin, y, col_w, 16), GTextAlignmentLeft);
@@ -138,7 +138,9 @@ static void prv_water_update(Layer *layer, GContext *ctx) {
 }
 
 static void prv_anim_stopped(Animation *animation, bool finished, void *context) {
-  // Das SDK gibt beendete Animationen nicht selbst frei; auch nach
+  // Seit SDK 3 gibt die Firmware eine beendete Animation selbst frei
+  // (auto_destroy). Das Zerstoeren hier ist trotzdem erlaubt: im
+  // stopped-Handler wird es nur vorgemerkt und folgenlos. Auch nach
   // animation_unschedule landet man hier.
   property_animation_destroy((PropertyAnimation *)animation);
   s_anim = NULL;

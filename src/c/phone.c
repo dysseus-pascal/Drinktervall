@@ -164,15 +164,18 @@ bool phone_pending(void) {
   return s_queue_len > 0 || s_coffees_len > 0;
 }
 
+static void prv_senden(void);
+
 static void prv_retry_cb(void *data) {
   s_retry = NULL;
-  if (phone_pending() || s_report_due) phone_send_next();
+  if (phone_pending() || s_report_due) prv_senden();
 }
 
 static void prv_schedule_retry(uint32_t ms) {
   if (s_retry || (!phone_pending() && !s_report_due)) return;
-  // Ein paar Anlaeufe in kurzem Abstand, dann Ruhe - beim naechsten Start,
-  // Wecker oder Glas geht es ohnehin wieder los.
+  // Ein paar Anlaeufe in kurzem Abstand, dann Ruhe - bis zum naechsten
+  // Anlass von aussen (phone_send_next: Start, Wecker, Glas, Kaffee, das
+  // Telefon), der wieder fuenf Anlaeufe bekommt.
   if (s_attempts >= 5) return;
   s_attempts++;
   s_retry = app_timer_register(ms, prv_retry_cb, NULL);
@@ -210,7 +213,16 @@ static void prv_failed(DictionaryIterator *iter, AppMessageResult reason, void *
   prv_schedule_retry(1500);
 }
 
+// EIN NEUER ANLASS ZAEHLT NEU. Bis 1.20 galten die fuenf Anlaeufe fuer die
+// ganze Sitzung: war das Telefon einmal kurz weg, ging bis zum naechsten
+// Start nichts mehr hinaus - auch kein neues Glas (Audit N3). Nur das
+// Nachfassen selbst (prv_retry_cb, prv_sent) zaehlt weiter.
 void phone_send_next(void) {
+  s_attempts = 0;
+  prv_senden();
+}
+
+static void prv_senden(void) {
   prv_queue_load();
   DictionaryIterator *out;
   if (app_message_outbox_begin(&out) != APP_MSG_OK) {
@@ -251,9 +263,9 @@ void phone_send_next(void) {
   // getrunken, der Rest als verpasst. Es sind so viele, wie das Soll vorsieht -
   // das Telefon liest die Anzahl aus der Laenge.
   uint8_t slots[DT_GLASSES_MAX * 5];
-  const time_t midnight = schedule_midnight(now);
+  const time_t tag = schedule_tag(now);
   for (int i = 0; i < slot_count; i++) {
-    const uint32_t t = (uint32_t)schedule_slot(midnight, i);
+    const uint32_t t = (uint32_t)schedule_slot(tag, i);
     slots[i * 5 + 0] = (uint8_t)(t & 0xFF);
     slots[i * 5 + 1] = (uint8_t)((t >> 8) & 0xFF);
     slots[i * 5 + 2] = (uint8_t)((t >> 16) & 0xFF);
@@ -329,6 +341,27 @@ void phone_send_next(void) {
   }
 }
 
+// Eine Zahl aus einem Tupel, gleich wie breit sie ankam: 1, 2 oder 4 Byte,
+// mit oder ohne Vorzeichen - die Breite waehlt die Bibliothek des Telefons,
+// nicht diese App. Bis 1.20 las die Uhr jedes Feld als int32: ein Text "12"
+// wurde zu Unsinn, ein Ein-Byte-Feld las ins naechste Tupel hinein - beides
+// endete als Soll 16 (Audit N1). Passt die Form nicht, gilt das Feld als
+// nicht geschickt; der Wert bleibt, wie er war.
+static bool prv_zahl(const Tuple *t, int32_t *aus) {
+  if (!t) return false;
+  if (t->type == TUPLE_INT && (t->length == 1 || t->length == 2 || t->length == 4)) {
+    *aus = t->length == 1 ? t->value->int8 : t->length == 2 ? t->value->int16 : t->value->int32;
+    return true;
+  }
+  if (t->type == TUPLE_UINT && (t->length == 1 || t->length == 2 || t->length == 4)) {
+    *aus = t->length == 1 ? t->value->uint8 : t->length == 2 ? t->value->uint16 : (int32_t)t->value->uint32;
+    return true;
+  }
+  APP_LOG(APP_LOG_LEVEL_WARNING, "Feld %u in falscher Form (Typ %d, %d Byte) - nicht uebernommen",
+          (unsigned)t->key, (int)t->type, (int)t->length);
+  return false;
+}
+
 static void prv_inbox_received(DictionaryIterator *iter, void *context) {
   // Einstellungen - von der Konfigseite der Pebble-App (bis zu seiner
   // Archivierung am 29.09.2026 auch von Kiesel-Helper). Danach geht der neue
@@ -339,17 +372,22 @@ static void prv_inbox_received(DictionaryIterator *iter, void *context) {
   // die Uhr, geht der Stand mit dem berichtigten Tag (GOAL_DAY) hinaus - und
   // fragt nicht mehr. Bestaetigt sie nicht, folgt keine Meldung: sonst
   // fragte die Uhr endlos.
-  Tuple *uhr = dict_find(iter, MESSAGE_KEY_UHRZEIT);
-  const bool bestaetigt = uhr && schedule_uhr_bestaetigt((uint32_t)uhr->value->int32);
+  int32_t wert;
+  const bool bestaetigt = prv_zahl(dict_find(iter, MESSAGE_KEY_UHRZEIT), &wert) &&
+                          schedule_uhr_bestaetigt((uint32_t)wert);
 
   // Glasgroesse. Aendert am Verhalten der Uhr nichts, sie geht mit jedem Glas
   // hinaus.
-  Tuple *glass = dict_find(iter, MESSAGE_KEY_GLASS_ML);
-  if (glass) { schedule_set_glass_ml(glass->value->int32); einstellung = true; }
+  if (prv_zahl(dict_find(iter, MESSAGE_KEY_GLASS_ML), &wert)) {
+    schedule_set_glass_ml(wert);
+    einstellung = true;
+  }
 
   // Trink-Animation an oder aus. Aendert nichts am Zaehlen und nichts am Plan.
-  Tuple *anim = dict_find(iter, MESSAGE_KEY_ANIMATION);
-  if (anim) { schedule_set_animation(anim->value->int32 != 0); einstellung = true; }
+  if (prv_zahl(dict_find(iter, MESSAGE_KEY_ANIMATION), &wert)) {
+    schedule_set_animation(wert != 0);
+    einstellung = true;
+  }
 
   // Kaffeeplan. Neue Zeiten heissen neue Wecker.
   Tuple *coffee = dict_find(iter, MESSAGE_KEY_COFFEE);
@@ -365,10 +403,9 @@ static void prv_inbox_received(DictionaryIterator *iter, void *context) {
     if (custom_from_string(custom->value->cstring)) schedule_plan_wakeups(0, 0);
   }
 
-  Tuple *target = dict_find(iter, MESSAGE_KEY_TARGET);
-  if (target) {
+  if (prv_zahl(dict_find(iter, MESSAGE_KEY_TARGET), &wert)) {
     einstellung = true;
-    if (schedule_set_target(target->value->int32)) {
+    if (schedule_set_target(wert)) {
       // Der Plan hat sich verschoben: Wecker neu stellen und den Hauptscreen
       // nachziehen, der Pegel haengt am Tagesziel.
       schedule_plan_wakeups(0, 0);

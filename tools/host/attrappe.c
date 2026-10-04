@@ -60,6 +60,14 @@ DictionaryResult dict_write_cstring(DictionaryIterator *iter, uint32_t key, cons
 DictionaryResult dict_write_int32(DictionaryIterator *iter, uint32_t key, int32_t value) {
   return prv_tupel(iter, key, TUPLE_INT, &value, 4);
 }
+// Schmale Zahlen schreibt die Uhr-App selbst nie - das Telefon aber kann
+// sie schicken (die Bibliothek waehlt die Breite).
+DictionaryResult dict_write_uint8(DictionaryIterator *iter, uint32_t key, uint8_t value) {
+  return prv_tupel(iter, key, TUPLE_UINT, &value, 1);
+}
+DictionaryResult dict_write_int16(DictionaryIterator *iter, uint32_t key, int16_t value) {
+  return prv_tupel(iter, key, TUPLE_INT, &value, 2);
+}
 uint32_t dict_write_end(DictionaryIterator *iter) { return iter ? iter->belegt : 0; }
 
 Tuple *dict_find(const DictionaryIterator *iter, uint32_t key) {
@@ -193,3 +201,26 @@ int attrappe_zeitgeber_ablaufen(void) {
 
 const char *attrappe_sprache = "en_US";
 const char *i18n_get_system_locale(void) { return attrappe_sprache; }
+
+// --- Wecker ---
+// Wie wakeup_schedule der Firmware (pebbleos src/fw/services/wakeup/service.c):
+// E_RANGE, wenn ein anderer Wecker naeher als 60 s liegt (WAKEUP_EVENT_WINDOW),
+// und hoechstens acht je App.
+#define WECKER_MAX 8
+static struct { time_t zeit; int32_t cookie; } s_wecker[WECKER_MAX];
+static int s_wecker_n;
+WakeupId wakeup_schedule(time_t t, int32_t cookie, bool notify) {
+  (void)notify;
+  for (int i = 0; i < s_wecker_n; i++) {
+    const time_t d = s_wecker[i].zeit > t ? s_wecker[i].zeit - t : t - s_wecker[i].zeit;
+    if (d < 60) return E_RANGE;
+  }
+  if (s_wecker_n == WECKER_MAX) return E_OUT_OF_RESOURCES;
+  s_wecker[s_wecker_n].zeit = t;
+  s_wecker[s_wecker_n].cookie = cookie;
+  return s_wecker_n++;
+}
+void wakeup_cancel_all(void) { s_wecker_n = 0; }
+int attrappe_wecker_anzahl(void) { return s_wecker_n; }
+time_t attrappe_wecker_zeit(int nummer) { return nummer < s_wecker_n ? s_wecker[nummer].zeit : 0; }
+int32_t attrappe_wecker_cookie(int nummer) { return nummer < s_wecker_n ? s_wecker[nummer].cookie : -1; }
