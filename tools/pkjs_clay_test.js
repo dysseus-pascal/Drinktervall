@@ -1,6 +1,10 @@
 // Die Konfigseite mit dem ECHTEN Clay (Audit N8).
 //
-//   node tools/pkjs_clay_test.js       (nach npm install)
+//   node tools/pkjs_clay_test.js       (nach npm install und pebble build)
+//
+// npm install legt Clay nur als dist.zip ab; nach dist/ entpackt es erst
+// pebble build - oder, ohne Bau, wie die CI:
+//   python3 -m zipfile -e node_modules/@rebble/clay/dist.zip node_modules/@rebble/clay/dist
 //
 // Was hier leicht falsch und schwer zu bemerken ist:
 //
@@ -39,7 +43,10 @@ function check(name, ok, detail) {
 }
 
 if (!fs.existsSync(CLAY)) {
-  console.log('  FEHLER Clay fehlt (' + CLAY + ') - erst npm install');
+  // npm install allein reicht nicht: Clay liegt dann nur als dist.zip da.
+  console.log('  FEHLER Clay fehlt (' + CLAY + ') - erst npm install und pebble build,'
+              + ' oder dist.zip entpacken: python3 -m zipfile -e'
+              + ' node_modules/@rebble/clay/dist.zip node_modules/@rebble/clay/dist');
   process.exit(1);
 }
 

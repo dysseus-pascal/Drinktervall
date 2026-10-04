@@ -47,8 +47,14 @@ jobs:
           pip install --quiet pebble-tool
           pebble sdk install latest < /dev/null
 
+      # NPM LIEFERT CLAY NUR ALS dist.zip. Entpackt wird es sonst erst von
+      # "pebble build" (nach dist/, mit Pythons zipfile) - der Clay-Test der
+      # Telefonseite laeuft aber vorher und liest dist/js/index.js. Darum hier
+      # genau so entpacken; "Uebersetzen" macht es spaeter noch einmal.
       - name: Clay holen
-        run: npm install --no-audit --no-fund
+        run: |
+          npm install --no-audit --no-fund
+          python -m zipfile -e node_modules/@rebble/clay/dist.zip node_modules/@rebble/clay/dist
 
       # Alle Tests laufen, auch wenn einer rot ist - damit man alle Fehler auf
       # einmal sieht; der Schritt scheitert danach. Die Host-Tests der Zeitzonen

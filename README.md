@@ -410,13 +410,18 @@ sh tools/glas_host_test.sh                # Milch auf Schwarz-Weiss: lichteres R
 sh tools/plan_host_test.sh                # Wecker, Plan-Liste, Pins an Umstellungstagen; Tagesziel erreicht (drei Zeitzonen)
 sh tools/app_host_test.sh                 # die App als Ganzes: Glance, Pin von gestern, Kaffee nach dem Haken
 node tools/pkjs_pins_test.js              # Timeline-Pins: veraltete löschen, REST mit Rückfall, Tag im Launch-Code
-node tools/pkjs_clay_test.js              # Konfigseite mit dem echten Clay (nach npm install)
+node tools/pkjs_clay_test.js              # Konfigseite mit dem echten Clay (nach npm install und pebble build)
 node tools/catch_check.js                 # kein catch ohne Log in der Telefonseite
 ```
 
-Die CI (`.github/workflows/bauen.yml`) führt alle `tools/*host_test.sh` und
-`tools/*test*.js` sowie `catch_check.js` und `strings_check.js` aus; ein roter
-Test hält den Lauf vor dem Einchecken und vor dem Release an.
+Den Clay-Test erst nach `pebble build`: `npm install` legt Clay nur als
+`dist.zip` ab, entpackt wird es beim Bau. Ohne Bau geht es so:
+`python3 -m zipfile -e node_modules/@rebble/clay/dist.zip node_modules/@rebble/clay/dist`.
+
+Die CI (`.github/workflows/bauen.yml`) entpackt Clay so und führt dann alle
+`tools/*host_test.sh` und `tools/*test*.js` sowie `catch_check.js` und
+`strings_check.js` aus; ein roter Test hält den Lauf vor dem Einchecken und vor
+dem Release an.
 
 Eine Kopie des fertigen Pakets liegt als `drinktervall.pbw` neben dieser README.
 
