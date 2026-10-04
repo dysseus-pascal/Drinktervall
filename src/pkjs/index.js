@@ -147,38 +147,61 @@ function utf8Kuerzen(text, max) {
   return s.slice(0, ende);
 }
 
-// WAS AUF DER KONFIGSEITE STEHT, MUSS DURCH CLAY. Clay baut die Seite mit
-// String.replace und setzt die gemerkten Werte in einen <script>-Block:
-// "$&", "$'" oder "$$" in einem Wert werden dabei zu Teilen der Seite, und
-// ein "</script>" beendet das Skript. Bis 1.20 kam so ein Getraenkename bis
-// in die Seite - sie ging nicht mehr auf, und weil die Uhr den Namen jedes
-// Mal zurueckmeldet, blieb das so (Audit N8). "$", "<" und ">" werden darum
-// zu Leerzeichen.
-function seitenSicher(text) {
-  return String(text).replace(/[$<>]/g, ' ');
+// WAS AUF DER KONFIGSEITE STEHT, KOMMT UNVERAENDERT DURCH (Audit N8). Clay
+// setzt die gemerkten Werte mit String.replace in die Seite ein: dort sind
+// "$&", "$'", "$`" und "$$" in einem Wert Ersetzungsmuster, und ein
+// "$$META$$" im Namen faengt das naechste replace ab. Maskiert wird nichts:
+// ein "</script>" beendete das Skript der Seite. Bis 1.20 ging die Seite mit
+// so einem Getraenkenamen nicht mehr auf, und weil die Uhr den Namen mit
+// jeder Meldung zurueckschickt, blieb das so. Clay bleibt, wie es ist, und
+// die Namen auch: generateUrl bekommt eine Marke statt der Einstellungen, an
+// ihre Stelle kommt danach das JSON - ohne replace, mit "<" als \u003c (in
+// der Seite wieder "<"). Derselbe Weg wie bei SupCycle.
+var SEITEN_MARKE = 'drinktervall-einstellungen';
+
+// JSON als Ausdruck im <script> der Seite. U+2028/U+2029 sind in JSON
+// erlaubt, in einem JavaScript-String aelterer WebViews nicht.
+function jsonFuerSeite(werte) {
+  return JSON.stringify(werte)
+    .replace(/</g, '\\u003c')
+    .replace(/\u2028/g, '\\u2028')
+    .replace(/\u2029/g, '\\u2029');
 }
 
-// Alle gemerkten Werte der Seite saeubern, bevor Clay sie einbaut - auch die,
-// die Clay beim Schliessen selbst ungeprueft gemerkt hat.
-function claySaeubern() {
+function konfigUrl() {
+  var echt = null;
+  var werte = {};
   try {
-    var s = JSON.parse(localStorage.getItem('clay-settings') || '{}') || {};
-    var geaendert = false;
-    Object.keys(s).forEach(function (k) {
-      if (typeof s[k] === 'string' && seitenSicher(s[k]) !== s[k]) { s[k] = seitenSicher(s[k]); geaendert = true; }
-    });
-    if (geaendert) localStorage.setItem('clay-settings', JSON.stringify(s));
-  } catch (e) { meldeFehler('Konfigseite saeubern', e); }
+    echt = localStorage.getItem('clay-settings');
+    werte = JSON.parse(echt || '{}') || {};
+  } catch (e) { meldeFehler('Konfigseite lesen', e); }
+  var url = null;
+  try {
+    localStorage.setItem('clay-settings', JSON.stringify(SEITEN_MARKE));
+    url = getClay().generateUrl();
+  } catch (e) { meldeFehler('Konfigseite bauen', e); }
+  // Die Marke nie stehen lassen: Clay liest 'clay-settings' auch sonst.
+  try {
+    if (echt === null) localStorage.removeItem('clay-settings');
+    else localStorage.setItem('clay-settings', echt);
+  } catch (e) { meldeFehler('Konfigseite zuruecklegen', e); }
+  var teile = url ? url.split(encodeURIComponent(JSON.stringify(SEITEN_MARKE))) : [];
+  if (teile.length !== 2) {
+    // Ein anderes Clay, das die Einstellungen anders einsetzt: dann eben
+    // wie bisher - eine Seite mit Sonderzeichen-Fehler ist besser als keine.
+    console.log('Konfigseite: Marke ' + (teile.length - 1) + ' mal gefunden, Clay setzt selbst ein');
+    return getClay().generateUrl();
+  }
+  return teile[0] + encodeURIComponent(jsonFuerSeite(werte)) + teile[1];
 }
 
 // Die eigenen Getraenke aus den Feldern. Ohne Namen zaehlt ein Getraenk
-// nicht; "|" und Zeilenumbruch im Namen wuerden die Zeile zerlegen, "$", "<"
-// und ">" die Konfigseite (seitenSicher).
+// nicht; "|" und Zeilenumbruch im Namen wuerden die Zeile zerlegen.
 function customText(dict) {
   var n = parseInt(dict.CUSTOM_N && dict.CUSTOM_N.value, 10) || 0;
   var zeilen = [];
   for (var i = 1; i <= n && i <= clayConfig.CUSTOM_MAX; i++) {
-    var name = utf8Kuerzen(seitenSicher(String((dict['CUSTOM_NAME' + i] && dict['CUSTOM_NAME' + i].value) || ''))
+    var name = utf8Kuerzen(String((dict['CUSTOM_NAME' + i] && dict['CUSTOM_NAME' + i].value) || '')
       .replace(/[|\n\r]/g, ' ').trim(), CUSTOM_NAME_BYTES).trim();
     if (!name) continue;
     var kcal = Math.max(0, Math.min(2000, parseInt(dict['CUSTOM_KCAL' + i] && dict['CUSTOM_KCAL' + i].value, 10) || 0));
@@ -197,7 +220,7 @@ function customToClay(text, clay) {
   clay.CUSTOM_N = String(zeilen.length);
   zeilen.forEach(function (z, i) {
     var f = z.split('|');
-    clay['CUSTOM_NAME' + (i + 1)] = seitenSicher(f[0] || '');
+    clay['CUSTOM_NAME' + (i + 1)] = f[0] || '';
     clay['CUSTOM_KCAL' + (i + 1)] = f[1] || '0';
     clay['CUSTOM_MG' + (i + 1)] = f[2] || '0';
     // Ohne viertes Feld (Uhr bis 1.16) oder mit -1: keine Erinnerung.
@@ -646,8 +669,7 @@ Pebble.addEventListener('appmessage', function (e) {
 });
 
 Pebble.addEventListener('showConfiguration', function () {
-  claySaeubern();
-  Pebble.openURL(getClay().generateUrl());
+  Pebble.openURL(konfigUrl());
 });
 
 Pebble.addEventListener('webviewclosed', function (e) {
