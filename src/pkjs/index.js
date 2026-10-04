@@ -10,8 +10,9 @@
 // haben die feste ID drinktervall-JJJJMMTT-n und wechseln ihren Inhalt.
 //
 // Uebertragung: zuerst Pebble.getTimelineToken + Rebble-REST-API
-// (funktioniert mit der neuen Pebble-App); ohne Token die lokale
-// Schnittstelle Pebble.insertTimelinePin.
+// (funktioniert mit der neuen Pebble-App); ohne Token, und wenn REST
+// scheitert, die lokale Schnittstelle Pebble.insertTimelinePin bzw.
+// Pebble.deleteTimelinePin.
 
 var Clay = require('@rebble/clay');
 var clayConfig = require('./config');
@@ -33,7 +34,8 @@ var FORGET_AFTER_MS = 3 * 86400 * 1000;   // alte Eintraege vergessen
 // Titel, Text, Aktionen) erhoehen. Sonst bleiben schon gesendete Pins auf ihrem
 // alten Stand stehen - ihr Zustand hat sich ja nicht geaendert. Die Sprache
 // steht zusaetzlich in der Signatur, die braucht also keine Erhoehung.
-var LOOK_VERSION = 7;
+// 8: die Trink-Aktion traegt den Tag des Pins im Launch-Code (Audit N5).
+var LOOK_VERSION = 8;
 // Einzel-Pin der Versionen 1.1.0 (aquatakt-next) und 1.1.1 (drinktervall-next).
 // Die Tages-Pins aquatakt-JJJJMMTT-n aus 1.0.x stehen bewusst nicht hier: sie
 // liegen in der Vergangenheit und werden nicht mehr aufgeraeumt.
@@ -145,13 +147,38 @@ function utf8Kuerzen(text, max) {
   return s.slice(0, ende);
 }
 
+// WAS AUF DER KONFIGSEITE STEHT, MUSS DURCH CLAY. Clay baut die Seite mit
+// String.replace und setzt die gemerkten Werte in einen <script>-Block:
+// "$&", "$'" oder "$$" in einem Wert werden dabei zu Teilen der Seite, und
+// ein "</script>" beendet das Skript. Bis 1.20 kam so ein Getraenkename bis
+// in die Seite - sie ging nicht mehr auf, und weil die Uhr den Namen jedes
+// Mal zurueckmeldet, blieb das so (Audit N8). "$", "<" und ">" werden darum
+// zu Leerzeichen.
+function seitenSicher(text) {
+  return String(text).replace(/[$<>]/g, ' ');
+}
+
+// Alle gemerkten Werte der Seite saeubern, bevor Clay sie einbaut - auch die,
+// die Clay beim Schliessen selbst ungeprueft gemerkt hat.
+function claySaeubern() {
+  try {
+    var s = JSON.parse(localStorage.getItem('clay-settings') || '{}') || {};
+    var geaendert = false;
+    Object.keys(s).forEach(function (k) {
+      if (typeof s[k] === 'string' && seitenSicher(s[k]) !== s[k]) { s[k] = seitenSicher(s[k]); geaendert = true; }
+    });
+    if (geaendert) localStorage.setItem('clay-settings', JSON.stringify(s));
+  } catch (e) { meldeFehler('Konfigseite saeubern', e); }
+}
+
 // Die eigenen Getraenke aus den Feldern. Ohne Namen zaehlt ein Getraenk
-// nicht; "|" und Zeilenumbruch im Namen wuerden die Zeile zerlegen.
+// nicht; "|" und Zeilenumbruch im Namen wuerden die Zeile zerlegen, "$", "<"
+// und ">" die Konfigseite (seitenSicher).
 function customText(dict) {
   var n = parseInt(dict.CUSTOM_N && dict.CUSTOM_N.value, 10) || 0;
   var zeilen = [];
   for (var i = 1; i <= n && i <= clayConfig.CUSTOM_MAX; i++) {
-    var name = utf8Kuerzen(String((dict['CUSTOM_NAME' + i] && dict['CUSTOM_NAME' + i].value) || '')
+    var name = utf8Kuerzen(seitenSicher(String((dict['CUSTOM_NAME' + i] && dict['CUSTOM_NAME' + i].value) || ''))
       .replace(/[|\n\r]/g, ' ').trim(), CUSTOM_NAME_BYTES).trim();
     if (!name) continue;
     var kcal = Math.max(0, Math.min(2000, parseInt(dict['CUSTOM_KCAL' + i] && dict['CUSTOM_KCAL' + i].value, 10) || 0));
@@ -170,7 +197,7 @@ function customToClay(text, clay) {
   clay.CUSTOM_N = String(zeilen.length);
   zeilen.forEach(function (z, i) {
     var f = z.split('|');
-    clay['CUSTOM_NAME' + (i + 1)] = f[0] || '';
+    clay['CUSTOM_NAME' + (i + 1)] = seitenSicher(f[0] || '');
     clay['CUSTOM_KCAL' + (i + 1)] = f[1] || '0';
     clay['CUSTOM_MG' + (i + 1)] = f[2] || '0';
     // Ohne viertes Feld (Uhr bis 1.16) oder mit -1: keine Erinnerung.
@@ -239,6 +266,15 @@ function adoptWatchSettings(p) {
 
 var LAUNCH_CODE_DRUNK = 1;
 var LAUNCH_CODE_OPEN = 2;
+
+// DER TAG DES PINS IM LAUNCH-CODE: JJJJMMTT * 10 + 1. Bis 1.20 trug die
+// Trink-Aktion nur die 1, und "Nachholen" an einem Pin von gestern zaehlte
+// auf der Uhr ein Glas fuer heute (Audit N5). Die Uhr vergleicht den Tag mit
+// ihrem eigenen (src/c/drinktervall.c). Passt in einen uint32.
+function drunkCode(epoch) {
+  return parseInt(dayKey(new Date(epoch * 1000)), 10) * 10 + LAUNCH_CODE_DRUNK;
+}
+
 var SLOT_DRUNK = 2, SLOT_MISSED = 3;
 
 // Symbole je Zustand. Sprachunabhaengig - die Texte stehen darunter.
@@ -378,7 +414,7 @@ function buildPin(id, epoch, state, index, goal, lang) {
   };
   if (look.body) layout.body = look.body;
   var actions = [];
-  if (look.action) actions.push({ title: look.action, type: 'openWatchApp', launchCode: LAUNCH_CODE_DRUNK });
+  if (look.action) actions.push({ title: look.action, type: 'openWatchApp', launchCode: drunkCode(epoch) });
   actions.push({ title: texts.open, type: 'openWatchApp', launchCode: LAUNCH_CODE_OPEN });
   return { id: id, time: new Date(epoch * 1000).toISOString(), layout: layout, actions: actions };
 }
@@ -394,14 +430,29 @@ function decodeSlots(bytes) {
   return slots;
 }
 
+// Ein Aufruf der REST-API, der IMMER genau einmal zurueckmeldet. Bis 1.20
+// stand hier kein try: verweigert die Telefon-App der Watchapp das Netz
+// (Boulder: Standard), wirft schon xhr.open - und kein Pin ging hinaus, auch
+// keiner ueber die lokale Schnittstelle (Audit M5).
+function rest(methode, id, token, body, callback) {
+  var fertig = false;
+  var melde = function (ok, info) { if (!fertig) { fertig = true; callback(ok, info); } };
+  try {
+    var xhr = new XMLHttpRequest();
+    xhr.onload = function () { melde(this.status >= 200 && this.status < 300, 'REST ' + this.status); };
+    xhr.onerror = function () { melde(false, 'REST Netzwerkfehler'); };
+    xhr.open(methode, API_URL + id);
+    if (body !== null) xhr.setRequestHeader('Content-Type', 'application/json');
+    xhr.setRequestHeader('X-User-Token', '' + token);
+    xhr.send(body);
+  } catch (e) {
+    meldeFehler('REST ' + methode, e);
+    melde(false, 'REST: ' + e);
+  }
+}
+
 function insertViaRest(pin, token, callback) {
-  var xhr = new XMLHttpRequest();
-  xhr.onload = function () { callback(this.status >= 200 && this.status < 300, 'REST ' + this.status); };
-  xhr.onerror = function () { callback(false, 'REST Netzwerkfehler'); };
-  xhr.open('PUT', API_URL + pin.id);
-  xhr.setRequestHeader('Content-Type', 'application/json');
-  xhr.setRequestHeader('X-User-Token', '' + token);
-  xhr.send(JSON.stringify(pin));
+  rest('PUT', pin.id, token, JSON.stringify(pin), callback);
 }
 
 // Lokale API: Core Devices nimmt nur den Pin (synchron), die klassische App
@@ -423,29 +474,83 @@ function insertViaLocal(pin, callback) {
   }
 }
 
-// Pins frueherer Versionen einmalig entfernen
-function deleteLegacy(token) {
+// Lokal loeschen: wie insertViaLocal - Core Devices synchron mit der ID,
+// die klassische App mit Rueckrufen.
+function deleteViaLocal(id, callback) {
+  if (typeof Pebble.deleteTimelinePin !== 'function') { callback(false, 'keine lokale API'); return; }
+  try {
+    if (Pebble.deleteTimelinePin.length >= 3) {
+      var done = false;
+      var finish = function (ok) { if (!done) { done = true; callback(ok, 'lokal'); } };
+      setTimeout(function () { finish(false); }, 5000);
+      Pebble.deleteTimelinePin(id, function () { finish(true); }, function () { finish(false); });
+    } else {
+      Pebble.deleteTimelinePin(id);
+      callback(true, 'lokal');
+    }
+  } catch (e) {
+    meldeFehler('Pin lokal loeschen', e);
+    callback(false, 'lokal: ' + e);
+  }
+}
+
+// REST ZUERST, DANN LOKAL. Bis 1.20 galt der REST-Weg als gesetzt, sobald
+// ein Token kam - ob er gelang, wurde nicht ausgewertet. Boulder gibt einer
+// selbst installierten App ein Ersatz-Token und verweigert ihr das Netz:
+// dann ging kein einziger Pin hinaus (Audit M5). Doppelt ankommen kann ein
+// Pin so hoechstens mit derselben ID - er wird dann nur ersetzt.
+function mitRueckfall(token) {
+  return {
+    insert: function (pin, cb) {
+      insertViaRest(pin, token, function (ok, info) {
+        if (ok || typeof Pebble.insertTimelinePin !== 'function') { cb(ok, info); return; }
+        console.log('timeline: ' + pin.id + ' per REST fehlgeschlagen (' + info + '), lokal');
+        insertViaLocal(pin, cb);
+      });
+    },
+    remove: function (id, cb) {
+      rest('DELETE', id, token, null, function (ok, info) {
+        if (ok || typeof Pebble.deleteTimelinePin !== 'function') { cb(ok, info); return; }
+        console.log('timeline: ' + id + ' per REST nicht geloescht (' + info + '), lokal');
+        deleteViaLocal(id, cb);
+      });
+    }
+  };
+}
+
+// Pins frueherer Versionen einmalig entfernen. EIN VERSUCH JE PIN, gleich wie
+// er ausgeht: bis 1.20 zaehlte nur ein Erfolg herunter - nach einem
+// Netzfehler blieb der Vermerk aus, und jede Meldung versuchte es von vorn.
+// Die Pins liegen ohnehin seit 1.1 in der Vergangenheit.
+function deleteLegacy(wege) {
   var store = loadStore();
   if (store.legacyDeleted) return;
   var left = LEGACY_IDS.length;
   LEGACY_IDS.forEach(function (id) {
-    var xhr = new XMLHttpRequest();
-    xhr.onload = function () {
-      console.log('timeline: alter Pin ' + id + ' geloescht (' + this.status + ')');
+    wege.remove(id, function (ok, info) {
+      console.log('timeline: alter Pin ' + id + (ok ? ' geloescht' : ' nicht geloescht') + ' (' + info + ')');
       left -= 1;
       if (left === 0) { var s = loadStore(); s.legacyDeleted = true; saveStore(s); }
-    };
-    xhr.open('DELETE', API_URL + id);
-    xhr.setRequestHeader('X-User-Token', '' + token);
-    xhr.send();
+    });
   });
 }
 
-function sendAll(queue, insert) {
+// Der Reihe nach: Pins senden ({ pin, sig }) und veraltete loeschen ({ weg }).
+function sendAll(queue, wege) {
   (function next() {
     var item = queue.shift();
     if (!item) { console.log('timeline: fertig'); return; }
-    insert(item.pin, function (ok, info) {
+    if (item.weg) {
+      wege.remove(item.weg, function (ok, info) {
+        console.log('timeline: ' + item.weg + ' loeschen -> ' + (ok ? 'ok' : 'fehlgeschlagen') + ' (' + info + ')');
+        // Was nicht weg ist, bleibt vermerkt und wird beim naechsten Mal
+        // wieder versucht.
+        if (ok) { var s = loadStore(); delete s[item.weg]; saveStore(s); }
+        next();
+      });
+      return;
+    }
+    wege.insert(item.pin, function (ok, info) {
       console.log('timeline: ' + item.pin.id + ' [' + item.sig + '] -> ' + (ok ? 'ok' : 'fehlgeschlagen') + ' (' + info + ')');
       // Pro Pin neu laden und sofort sichern: deleteLegacy schreibt nebenlaeufig
       // in denselben Store, und pkjs wird mit der App beendet - ein
@@ -469,38 +574,55 @@ function pushState(msg) {
   saveStore(store);
 
   // Ein Pin je Slot; nur senden, was sich geaendert hat oder zu lange liegt.
-  var queue = [], wanted = 0;
+  var queue = [], wanted = 0, gewollt = {};
   function want(epoch, state, index) {
     wanted += 1;
     // Die Sprache gehoert in die Signatur: ein Pin, der schon draussen ist,
     // hat nach einem Sprachwechsel unveraenderten Zustand und wuerde sonst in
     // der alten Sprache stehen bleiben.
     var id = pinId(epoch, index);
+    gewollt[id] = true;
     var sig = state + ':' + epoch + ':' + goal + ':v' + LOOK_VERSION + ':l' + lang;
     var had = store[id];
     if (had && had.sig === sig && now - had.sentAt < RESEND_AFTER_MS) return;
     queue.push({ pin: buildPin(id, epoch, state, index, goal, lang), sig: sig });
   }
   want(msg.NEXT_TIME, 'next', msg.NEXT_INDEX);
-  decodeSlots(msg.SLOTS).forEach(function (s, i) {
+  var slots = decodeSlots(msg.SLOTS);
+  slots.forEach(function (s, i) {
     if (s.state === SLOT_DRUNK) want(s.time, 'drunk', i);
     else if (s.state === SLOT_MISSED) want(s.time, 'missed', i);
   });
-  console.log('timeline: ' + queue.length + ' von ' + wanted + ' Pins zu senden');
+  var neu = queue.length;
 
+  // VERALTETE PINS MIT TRINK-AKTION WEG (Audit M4). Die IDs haengen am
+  // Slot-Index: sinkt das Soll, kommt fuer die oberen Slots keine Meldung
+  // mehr, und ihr "Getrunken"/"Nachholen" zaehlte auf der Uhr weiter ein
+  // Glas. Ebenso die naechste Erinnerung von heute, die keine mehr ist
+  // (Tagesziel erreicht). Nur Pins von heute, nur mit Aktion: getrunkene
+  // bleiben als Verlauf stehen.
+  var heute = 'drinktervall-' + dayKey(slots.length ? new Date(slots[0].time * 1000) : new Date(now)) + '-';
+  Object.keys(store).forEach(function (id) {
+    if (id.indexOf(heute) !== 0 || gewollt[id] || !store[id] || typeof store[id].sig !== 'string') return;
+    if (/^(next|missed):/.test(store[id].sig)) queue.push({ weg: id });
+  });
+  console.log('timeline: ' + neu + ' von ' + wanted + ' Pins zu senden, ' + (queue.length - neu) + ' zu loeschen');
+
+  var lokal = { insert: insertViaLocal, remove: deleteViaLocal };
   var useLocal = function (reason) {
     if (queue.length === 0) return;
     if (typeof Pebble.insertTimelinePin === 'function') {
       console.log('timeline: ' + reason + ', nutze lokale API');
-      sendAll(queue, insertViaLocal);
+      sendAll(queue, lokal);
     } else {
       console.log('timeline: ' + reason + ', keine lokale API - Pins uebersprungen');
     }
   };
   if (typeof Pebble.getTimelineToken !== 'function') { useLocal('kein getTimelineToken'); return; }
   Pebble.getTimelineToken(function (token) {
-    deleteLegacy(token);
-    if (queue.length) sendAll(queue, function (pin, cb) { insertViaRest(pin, token, cb); });
+    var wege = mitRueckfall(token);
+    deleteLegacy(wege);
+    if (queue.length) sendAll(queue, wege);
   }, function (error) {
     useLocal('kein Token (' + error + ')');
   });
@@ -524,6 +646,7 @@ Pebble.addEventListener('appmessage', function (e) {
 });
 
 Pebble.addEventListener('showConfiguration', function () {
+  claySaeubern();
   Pebble.openURL(getClay().generateUrl());
 });
 
@@ -531,7 +654,15 @@ Pebble.addEventListener('webviewclosed', function (e) {
   if (!e || !e.response) return;
   // false = Clay soll nichts von sich aus schicken; wir pruefen die Werte erst
   // und schicken sie dann selbst - alle in EINER Nachricht.
-  var dict = getClay().getSettings(e.response, false);
+  // Clay WIRFT bei einer Antwort, die kein JSON ist ("CANCELLED" der
+  // klassischen App, ein kaputter %-Code) - bis 1.20 ungefangen (Audit N8).
+  var dict;
+  try {
+    dict = getClay().getSettings(e.response, false);
+  } catch (err) {
+    meldeFehler('Konfig lesen', err);
+    return;
+  }
   var msg = {};
 
   if (dict.GLASS_ML !== undefined) {
