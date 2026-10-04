@@ -119,7 +119,8 @@ Uhr, und zwei Schalter für dieselbe Sache wären einer zu viel.
 
 Der Zähler wird um Mitternacht automatisch auf 0 gesetzt, auch wenn die App
 gerade offen ist (siehe [Der Tag von Zähler und Ziel](#der-tag-von-zähler-und-ziel)).
-Die App-Glance im Launcher zeigt "n von m Gläsern, nächste HH:MM".
+Die App-Glance im Launcher zeigt "n von m Gläsern, nächste HH:MM" - bis
+Mitternacht; danach "0 von m Gläsern" mit dem ersten Glas des neuen Tages.
 
 ## Einstellungen
 
@@ -255,6 +256,17 @@ Slot, so dass Wakeups, Plan-Liste und Glance dieselben Zeiten zeigen; das
 Fenster wird nicht verlassen. Alle Werte stehen in `src/c/config.h`
 (`DT_START_HOUR`, `DT_END_HOUR`, `DT_JITTER_MIN`, `DT_SNOOZE_MIN`).
 
+Gerechnet wird in Wanduhrzeit vom Mittag des Tages aus (`schedule_tag`,
+`schedule_wandzeit`), nicht als Mitternacht plus Minuten: am Tag der
+Sommerzeit-Umstellung hat der Tag 23 oder 25 Stunden, und bis 1.20 kamen die
+Wecker dann eine Stunde daneben. Geprüft unter drei Zeitzonen in
+`tools/plan_host_test.c`.
+
+Ist das Tagesziel erreicht, kommt für den Rest des Tages keine
+Wasser-Erinnerung mehr (auch kein "Später" dazu); Kaffee und eigene Getränke
+erinnern weiter. Wird das Ziel mit der Taste unten erhöht, kommen die
+Wasser-Erinnerungen zurück.
+
 Pebble erlaubt pro App höchstens **8 geplante Wakeups**. Das ist trotzdem keine
 Obergrenze für die Gläser: die App plant bei jedem Start (auch beim
 Wakeup-Start) immer nur die *nächsten* acht Slots und beim übernächsten Start
@@ -267,7 +279,10 @@ In der Zukunft steht genau ein Pin für die nächste Erinnerung mit den Aktionen
 "Getrunken" (öffnet die App und zählt +1) und "App öffnen". In der
 Vergangenheit steht für jeden heutigen Slot, der vorbei ist, ein Pin: "Glas n
 getrunken" oder "Glas n verpasst" mit der Aktion "Nachholen", die das Glas
-nachträglich zählt. Die kommende Erinnerung trägt `NOTIFICATION_REMINDER`, eine
+nachträglich zählt - nur am selben Tag: die Aktion trägt den Tag des Pins im
+Launch-Code (`JJJJMMTT1`), und ein Pin von gestern zählt nicht für heute.
+Pins von heute, die eine Aktion tragen, aber nicht mehr gelten (Soll gesenkt,
+Tagesziel erreicht), werden gelöscht. Die kommende Erinnerung trägt `NOTIFICATION_REMINDER`, eine
 Hand mit Trinkglas, getrunkene Gläser `GENERIC_CONFIRMATION` (einen Stern) und
 verpasste `RESULT_DELETED` (einen Totenkopf). Jeder Slot hat die feste ID
 `drinktervall-JJJJMMTT-n`; der Pin der nächsten Erinnerung wird nach dem
@@ -279,9 +294,10 @@ Die Pin-Texte gibt es auf Englisch und Deutsch; welche gilt, sagt die Watch mit
 
 Übertragung: Das JS holt per `Pebble.getTimelineToken` einen Token und sendet
 die Pins an `https://timeline-api.rebble.io`. Das funktioniert mit der neuen
-Pebble-App (Core Devices), sofern sie bei Rebble angemeldet ist. Nur wenn kein
-Token zu bekommen ist, wird die lokale Schnittstelle `Pebble.insertTimelinePin`
-versucht. Unveränderte Pins werden nach 12 Stunden erneut gesendet. Im Emulator gibt
+Pebble-App (Core Devices), sofern sie bei Rebble angemeldet ist. Ohne Token,
+und wenn der REST-Aufruf scheitert (Boulder verweigert einer selbst
+installierten App das Netz), geht derselbe Pin über die lokale Schnittstelle
+`Pebble.insertTimelinePin` bzw. `Pebble.deleteTimelinePin`. Unveränderte Pins werden nach 12 Stunden erneut gesendet. Im Emulator gibt
 es keinen Token; die Pins werden dann übersprungen (Log: "timeline: kein Token").
 
 ## Sprachen
@@ -391,8 +407,16 @@ sh tools/schedule_host_test.sh            # Tag von Zähler und Ziel (Rechner-C,
 sh tools/phone_host_test.sh               # Nachricht ans Telefon: grösster Fall, Schlange, Log, Namen, Frage nach der Zeit
 sh tools/farben_check.sh                  # Getränkefarben, wie Farb- und Schwarz-Weiss-Display sie zeigen
 sh tools/glas_host_test.sh                # Milch auf Schwarz-Weiss: lichteres Raster statt Grau (Grafik als Attrappe)
+sh tools/plan_host_test.sh                # Wecker, Plan-Liste, Pins an Umstellungstagen; Tagesziel erreicht (drei Zeitzonen)
+sh tools/app_host_test.sh                 # die App als Ganzes: Glance, Pin von gestern, Kaffee nach dem Haken
+node tools/pkjs_pins_test.js              # Timeline-Pins: veraltete löschen, REST mit Rückfall, Tag im Launch-Code
+node tools/pkjs_clay_test.js              # Konfigseite mit dem echten Clay (nach npm install)
 node tools/catch_check.js                 # kein catch ohne Log in der Telefonseite
 ```
+
+Die CI (`.github/workflows/bauen.yml`) führt alle `tools/*host_test.sh` und
+`tools/*test*.js` sowie `catch_check.js` und `strings_check.js` aus; ein roter
+Test hält den Lauf vor dem Einchecken und vor dem Release an.
 
 Eine Kopie des fertigen Pakets liegt als `drinktervall.pbw` neben dieser README.
 

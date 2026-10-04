@@ -5,8 +5,11 @@
 # Startmeldung, ohne Saetze und ohne Bahnen. Sie von Hand nachzuziehen,
 # wird vergessen; hier entsteht sie bei jeder Aenderung an den Quellen neu.
 #
-# Der Lauf belegt, dass die App uebersetzt. Dass sie auf der Uhr das
-# Richtige TUT, belegt er nicht.
+# Der Lauf belegt, dass die App uebersetzt und ihre Tests auf dem Rechner
+# bestehen (tools/*host_test.sh fuer die Uhr, tools/*test*.js fuer die
+# Telefonseite). Ein roter Test haelt ihn an - vor dem Einchecken der pbw und
+# vor jedem Release. Dass die App auf der Uhr das Richtige TUT, belegt er
+# nicht.
 name: Bauen
 
 on:
@@ -17,6 +20,7 @@ on:
       - 'resources/**'
       - 'package.json'
       - 'wscript'
+      - 'tools/**'
       - '.github/workflows/bauen.yml'
   workflow_dispatch:
 
@@ -45,6 +49,30 @@ jobs:
 
       - name: Clay holen
         run: npm install --no-audit --no-fund
+
+      # Alle Tests laufen, auch wenn einer rot ist - damit man alle Fehler auf
+      # einmal sieht; der Schritt scheitert danach. Die Host-Tests der Zeitzonen
+      # brauchen tzdata (auf ubuntu-latest vorhanden; fehlt es, meldet
+      # plan_host_test das selbst als Fehler).
+      - name: Host-Tests (Uhr)
+        run: |
+          rot=0
+          for t in tools/*host_test.sh; do
+            echo "::group::$t"
+            sh "$t" || { echo "::error::$t rot"; rot=1; }
+            echo "::endgroup::"
+          done
+          exit $rot
+
+      - name: Tests der Telefonseite (node)
+        run: |
+          rot=0
+          for t in tools/*test*.js tools/catch_check.js tools/strings_check.js; do
+            echo "::group::$t"
+            node "$t" || { echo "::error::$t rot"; rot=1; }
+            echo "::endgroup::"
+          done
+          exit $rot
 
       - name: Uebersetzen
         run: pebble build < /dev/null
