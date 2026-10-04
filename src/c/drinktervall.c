@@ -83,8 +83,16 @@ static void prv_glance_reload(AppGlanceReloadSession *session, size_t limit, voi
   app_glance_add_slice(session, danach);
 }
 
+// Bis 1.20 ging die App hier immer mit pop_all - auch wenn waehrend "Enjoy!"
+// oder der Trink-Animation schon die naechste Erinnerung gekommen war.
+bool drinktervall_verlassen(void) {
+  if (reminder_window_offen() || coffee_window_offen()) return false;
+  window_stack_pop_all(false);
+  return true;
+}
+
 void drinktervall_reminder_closed(void) {
-  if (s_launched_by_wakeup) window_stack_pop_all(false);
+  if (s_launched_by_wakeup) drinktervall_verlassen();
 }
 
 // --- Ruhezeit ---

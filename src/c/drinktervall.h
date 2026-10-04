@@ -3,9 +3,15 @@
 
 // Vom Erinnerungs-Screen gerufen, wenn er mit Zurueck weggedrueckt wurde
 // (Glas verpasst). Wurde die App durch das Wakeup gestartet, beendet sie sich
-// dabei, damit die Watch zum Zifferblatt zurueckkehrt. "Getrunken" und
-// "Spaeter" beenden die App selbst und rufen hier nicht.
+// dabei, damit die Watch zum Zifferblatt zurueckkehrt - wie
+// drinktervall_verlassen nur, wenn keine andere Erinnerung mehr offen ist.
 void drinktervall_reminder_closed(void);
+
+// Die App verlassen (alle Fenster weg, die Watch zeigt das Zifferblatt) -
+// AUSSER eine Erinnerung steht noch auf dem Stapel. Ihr Wecker ist dann schon
+// verbraucht; ginge die App, waere sie verloren (Audit N7). Wer schliesst,
+// nimmt vorher sein eigenes Fenster weg. TRUE: die App geht.
+bool drinktervall_verlassen(void);
 
 /**
  * Die Ruhezeit der Uhr.

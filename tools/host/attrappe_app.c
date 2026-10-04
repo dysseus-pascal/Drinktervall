@@ -14,6 +14,10 @@ static Window *s_stapel[STAPEL_MAX];
 static int s_stapel_n;
 static int s_gezeigt;
 static Window *s_konfiguriert_gerade;
+// Schon vom Stapel, aber noch nicht entladen: das war das oberste Fenster,
+// und sein Uebergang zum naechsten laeuft noch (siehe window_stack_remove).
+static Window *s_entfernt[STAPEL_MAX];
+static int s_entfernt_n;
 
 Window *window_create(void) { return calloc(1, sizeof(Window)); }
 void window_destroy(Window *window) { free(window); }
@@ -29,6 +33,8 @@ Layer *window_get_root_layer(const Window *window) {
 
 void window_stack_push(Window *window, bool animated) {
   (void)animated;
+  // Wie beim Wegnehmen: ein laufender Uebergang endet, bevor der neue beginnt.
+  attrappe_uebergang_ende();
   if (s_stapel_n == STAPEL_MAX) return;
   s_stapel[s_stapel_n++] = window;
   s_gezeigt++;
@@ -42,13 +48,27 @@ static void prv_weg(Window *window) {
   if (window->handler.unload) window->handler.unload(window);
 }
 
+void attrappe_uebergang_ende(void) {
+  while (s_entfernt_n > 0) prv_weg(s_entfernt[--s_entfernt_n]);
+}
+
 bool window_stack_remove(Window *window, bool animated) {
   (void)animated;
   for (int i = 0; i < s_stapel_n; i++) {
     if (s_stapel[i] != window) continue;
+    const bool oben_mit_folger = i == s_stapel_n - 1 && s_stapel_n > 1;
     memmove(&s_stapel[i], &s_stapel[i + 1], (size_t)(s_stapel_n - i - 1) * sizeof(Window *));
     s_stapel_n--;
-    prv_weg(window);
+    // Ein laufender Uebergang wird zuerst zu Ende gebracht (prv_transition_to).
+    attrappe_uebergang_ende();
+    // Das oberste Fenster geht ueber einen Uebergang zum naechsten - auch
+    // ohne Animation (die "none"-Animation wird ebenfalls geplant); unload
+    // kommt erst an dessen Ende. Jedes andere wird sofort entladen.
+    if (oben_mit_folger) {
+      s_entfernt[s_entfernt_n++] = window;
+    } else {
+      prv_weg(window);
+    }
     return true;
   }
   return false;
@@ -56,7 +76,15 @@ bool window_stack_remove(Window *window, bool animated) {
 
 void window_stack_pop_all(bool animated) {
   (void)animated;
+  attrappe_uebergang_ende();
   while (s_stapel_n > 0) prv_weg(s_stapel[--s_stapel_n]);
+}
+
+bool window_stack_contains_window(Window *window) {
+  for (int i = 0; i < s_stapel_n; i++) {
+    if (s_stapel[i] == window) return true;
+  }
+  return false;
 }
 
 void window_single_click_subscribe(ButtonId button_id, ClickHandler handler) {
@@ -64,6 +92,8 @@ void window_single_click_subscribe(ButtonId button_id, ClickHandler handler) {
 }
 
 bool attrappe_taste(ButtonId button_id) {
+  // Gedrueckt wird, wenn der Uebergang vorbei ist.
+  attrappe_uebergang_ende();
   if (s_stapel_n == 0) return false;
   Window *oben = s_stapel[s_stapel_n - 1];
   if (!oben->konfiguriert && oben->klicks) {

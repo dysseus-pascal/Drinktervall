@@ -108,11 +108,13 @@ static void prv_select(ClickRecognizerRef recognizer, void *context) {
 }
 
 // Spaeter: in DT_SNOOZE_MIN Minuten nochmals erinnern und die App sofort
-// beenden, damit die Uhr zum Zifferblatt zurueckkehrt
+// beenden, damit die Uhr zum Zifferblatt zurueckkehrt - es sei denn, unter
+// diesem Fenster wartet noch eine Kaffee-Erinnerung (Audit N7).
 static void prv_down(ClickRecognizerRef recognizer, void *context) {
   schedule_plan_wakeups(time(NULL) + DT_SNOOZE_MIN * 60, schedule_snooze_cookie());
   prv_cancel_vibes();
-  window_stack_pop_all(false);
+  window_stack_remove(s_window, false);
+  drinktervall_verlassen();
 }
 
 // Zurueck: schliessen, ohne zu zaehlen - das Glas gilt als verpasst
@@ -163,6 +165,13 @@ static void prv_unload(Window *window) {
   window_destroy(s_window);
   s_window = NULL;
   s_canvas = NULL;
+}
+
+// AUF DEM STAPEL, nicht bloss noch nicht entladen: nimmt man das oberste
+// Fenster weg, ruft die Firmware unload erst nach dem Uebergang
+// (applib/ui/window_stack.c) - so lange steht s_window noch.
+bool reminder_window_offen(void) {
+  return s_window && window_stack_contains_window(s_window);
 }
 
 void reminder_window_push(void) {

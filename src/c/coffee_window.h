@@ -8,3 +8,6 @@ void coffee_window_push(int idx);
 
 // Dasselbe fuer ein eigenes Getraenk mit Erinnerungszeit (Platz `idx`).
 void coffee_window_push_custom(int idx);
+
+// Steht die Kaffee-Erinnerung auf dem Fensterstapel?
+bool coffee_window_offen(void);

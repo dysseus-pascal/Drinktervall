@@ -151,11 +151,13 @@ static void prv_select(ClickRecognizerRef recognizer, void *context) {
 }
 
 // Spaeter: in DT_SNOOZE_MIN Minuten dieselbe Kaffee-Erinnerung nochmals.
+// Die App geht, ausser darunter wartet noch eine Wasser-Erinnerung (N7).
 static void prv_down(ClickRecognizerRef recognizer, void *context) {
   if (s_done) return;
   schedule_plan_wakeups(time(NULL) + DT_SNOOZE_MIN * 60, prv_cookie());
   prv_cancel_vibes();
-  window_stack_pop_all(false);
+  window_stack_remove(s_window, false);
+  drinktervall_verlassen();
 }
 
 // Zurueck: diesmal keinen. Nichts geht an die Akte.
@@ -245,6 +247,12 @@ static void prv_push(int idx, bool eigen) {
     .load = prv_load, .unload = prv_unload,
   });
   window_stack_push(s_window, true);
+}
+
+// Wie reminder_window_offen: auf dem Stapel, nicht bloss noch nicht entladen -
+// sonst hielte das eigene, eben weggenommene Fenster die App offen.
+bool coffee_window_offen(void) {
+  return s_window && window_stack_contains_window(s_window);
 }
 
 void coffee_window_push(int idx) {

@@ -3,6 +3,7 @@
 #include "glass_fx.h"
 #include "schedule.h"
 #include "phone.h"
+#include "drinktervall.h"
 
 // Nach dem Ende der Animation bleibt der leere Grund noch so lange stehen
 #define HOLD_AFTER_MS 350
@@ -38,8 +39,11 @@ static void prv_close(void *data) {
   // dieser Zeitgeber ohne ein s_window - und dann ist gerade das Beenden der
   // App seine ganze Aufgabe. Das fruehere "if (!s_window) return" haette die
   // App offen stehen lassen.
+  // NUR DAS EIGENE FENSTER, WENN EINE ERINNERUNG KAM (Audit N7). Bis 1.20
+  // nahm pop_all hier auch eine Erinnerung mit, deren Wecker waehrend der
+  // Animation oder des Wartens aufs Telefon kam - der war damit verbraucht.
   if (s_quit_after) {
-    window_stack_pop_all(false);      // App verlassen, Watch zeigt das Zifferblatt
+    if (!drinktervall_verlassen() && s_window) window_stack_remove(s_window, false);
   } else if (s_window) {
     window_stack_remove(s_window, true);
   }

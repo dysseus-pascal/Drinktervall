@@ -16,11 +16,17 @@
 //     bisher.
 //   - TAGESZIEL ERREICHT (Audit N5): ein Wasser-Wecker, der noch stand,
 //     bleibt still - kein Fenster, kein Vibrieren.
-//   - NEUE KAFFEE-ERINNERUNG NACH DEM HAKEN (Audit N7): bis 1.20 verwarf
-//     "Enjoy!" sie, und die App ging mitsamt Fenster zu.
+//   - NEUE ERINNERUNG NACH DEM HAKEN (Audit N7): bis 1.20 verwarf "Enjoy!"
+//     eine neue Kaffee-Erinnerung, und das Schliessen nach "Enjoy!", nach
+//     der Trink-Animation oder "Spaeter" nahm mit pop_all jede andere
+//     Erinnerung mit - ihr Wecker war da schon verbraucht. Geprueft mit und
+//     ohne Animation, Wasser und Kaffee in beiden Reihenfolgen; danach geht
+//     die App trotzdem zu.
 //
-// Den Hauptscreen gibt es hier nicht - main_window_push tut nichts. Was er
-// zeigt, pruefen die Emulator-Bilder.
+// Der Hauptscreen ist hier ein leeres Fenster - auf der Uhr liegt er immer
+// zuunterst, und erst mit ihm darunter laeuft das Wegnehmen einer Erinnerung
+// ueber einen Uebergang (attrappe_app.h). Was er zeigt, pruefen die
+// Emulator-Bilder.
 // Exitcode 0 = alles wie zugesagt.
 #include <pebble.h>
 #include <sys/wait.h>
@@ -30,7 +36,7 @@
 #include "strings.h"
 
 time_t stub_jetzt;
-void main_window_push(void) {}
+void main_window_push(void) { window_stack_push(window_create(), false); }
 void main_window_refresh(void) {}
 int dt_main(void);   // main() aus drinktervall.c, umbenannt (app_host_test.sh)
 
@@ -75,8 +81,10 @@ static void vorbereiten(time_t jetzt, bool animation) {
 static void ausklingen(void) {
   for (int i = 0; i < 100 && (attrappe_zeitgeber_offen() || attrappe_unterwegs()); i++) {
     attrappe_ack();
+    attrappe_uebergang_ende();
     attrappe_zeitgeber_ablaufen();
   }
+  attrappe_uebergang_ende();
 }
 
 static void starten(AppLaunchReason grund, uint32_t args, int32_t cookie, void (*ereignisse)(void)) {
@@ -134,7 +142,8 @@ static void abschnitt_ziel(void) {
   vorbereiten(lokal(2026, 10, 3, 14, 0), true);
   while (schedule_count() < schedule_goal()) schedule_set_count(schedule_count() + 1);
   starten(APP_LAUNCH_WAKEUP, 0, 4, NULL);
-  pruefe("kein Fenster, kein Vibrieren", attrappe_fenster_gezeigt() == 0 && attrappe_vibes_doppelt() == 0);
+  pruefe("kein Fenster ausser dem Hauptscreen, kein Vibrieren",
+         attrappe_fenster_gezeigt() == 1 && attrappe_vibes_doppelt() == 0);
   pruefe("steht im Log", strstr(attrappe_log_text, "Wasser-Erinnerung 4 entfaellt") != NULL);
   ausklingen();
   // Gegenprobe: ein Glas unter dem Ziel kommt die Erinnerung.
@@ -143,35 +152,109 @@ static void abschnitt_ziel(void) {
   schedule_set_count(schedule_goal() - 1);
   starten(APP_LAUNCH_WAKEUP, 0, 4, NULL);
   pruefe("Gegenprobe, ein Glas fehlt: Erinnerung mit Vibrieren",
-         attrappe_fenster_gezeigt() == fenster + 1 && attrappe_vibes_doppelt() == vibes + 1);
+         attrappe_fenster_gezeigt() == fenster + 2 && attrappe_vibes_doppelt() == vibes + 1);
 }
 
-static void ereignisse_kaffee(void) {
-  pruefe("Kaffee-Erinnerung offen, einmal vibriert", attrappe_fenster_offen() == 1 && attrappe_vibes_doppelt() == 1);
-  attrappe_taste(BUTTON_ID_SELECT);                  // Haken: "Enjoy!", Fenster schliesst gleich
-  attrappe_ack();
-  attrappe_wecker_ausloesen(SCHEDULE_COOKIE_CUSTOM + 0);
-  pruefe("der naechste Wecker kommt dazwischen: vibriert wieder", attrappe_vibes_doppelt() == 2);
-  ausklingen();
-  pruefe("das alte Schliessen schliesst die neue Erinnerung nicht", attrappe_fenster_offen() == 1);
-  attrappe_taste(BUTTON_ID_SELECT);
-  pruefe("ihr Haken traegt das eigene Getraenk ein",
-         zahl(MESSAGE_KEY_COFFEE_KIND) == COFFEE_KIND_CUSTOM && strcmp(text(MESSAGE_KEY_DRINK_NAME), "Mate") == 0);
+// Ein eigener Prozess: frische statische Variablen wie bei jedem Start auf
+// der Uhr. Rueckgabe: Zahl der Fehler darin.
+static int getrennt(void (*was)(void)) {
+  fflush(stdout);
+  const pid_t kind = fork();
+  if (kind == 0) {
+    was();
+    fflush(stdout);
+    _exit(s_fehler > 100 ? 100 : s_fehler);
+  }
+  int status = 0;
+  waitpid(kind, &status, 0);
+  return WIFEXITED(status) ? WEXITSTATUS(status) : 1;
 }
 
-static void abschnitt_kaffee(void) {
-  printf("\nNeue Kaffee-Erinnerung nach dem Haken (N7)\n");
-  vorbereiten(lokal(2026, 10, 3, 8, 30), false);
+// Wecker der beiden Erinnerungen: Kaffee um 08:30, Mate (eigenes Getraenk)
+// um 08:31, Wasser.
+#define KAFFEE (SCHEDULE_COOKIE_COFFEE + 0)
+#define MATE   (SCHEDULE_COOKIE_CUSTOM + 0)
+#define WASSER 3
+
+// Die erste Erinnerung bekommt ihren Haken; waehrend sie noch schliesst
+// ("Enjoy!", Trink-Fenster oder Warten aufs Telefon), kommt der Wecker der
+// zweiten.
+static const struct n7_fall {
+  bool animation;
+  int32_t erste, zweite;
+  const char *was;
+} N7_FAELLE[] = {
+  { false, KAFFEE, MATE,   "ohne Animation, Mate nach \"Enjoy!\"" },
+  { false, KAFFEE, WASSER, "ohne Animation, Wasser nach \"Enjoy!\"" },
+  { false, WASSER, MATE,   "ohne Animation, Mate nach dem Wasser-Haken" },
+  { true,  KAFFEE, MATE,   "mit Animation, Mate nach dem Kaffee-Haken" },
+  { true,  KAFFEE, WASSER, "mit Animation, Wasser nach dem Kaffee-Haken" },
+  { true,  WASSER, MATE,   "mit Animation, Mate nach dem Wasser-Haken" },
+};
+static const struct n7_fall *s_fall;
+
+static void vorbereiten_n7(bool animation) {
+  vorbereiten(lokal(2026, 10, 3, 8, 30), animation);
   const uint8_t plan[] = { 1, 510 & 0xFF, 510 >> 8, CoffeeCoffee, 0 };
   coffee_from_bytes(plan, sizeof(plan));
   custom_from_string("Mate|20|80|511");
-  starten(APP_LAUNCH_WAKEUP, 0, SCHEDULE_COOKIE_COFFEE + 0, ereignisse_kaffee);
 }
 
-// Jeder Abschnitt in einem eigenen Prozess: frische statische Variablen wie
-// bei jedem Start auf der Uhr.
+// Offen heisst hier: der Hauptscreen und darueber die Erinnerung.
+static void ereignisse_n7(void) {
+  pruefe("erste Erinnerung offen, einmal vibriert",
+         attrappe_fenster_offen() == 2 && attrappe_vibes_doppelt() == 1);
+  attrappe_taste(BUTTON_ID_SELECT);
+  attrappe_ack();
+  attrappe_wecker_ausloesen(s_fall->zweite);
+  pruefe("der naechste Wecker kommt dazwischen: vibriert", attrappe_vibes_doppelt() == 2);
+  ausklingen();
+  pruefe("das Schliessen der ersten nimmt die zweite nicht mit", attrappe_fenster_offen() == 2);
+  const int glaeser = schedule_count();
+  attrappe_taste(BUTTON_ID_SELECT);
+  if (s_fall->zweite == WASSER) {
+    pruefe("ihr Haken zaehlt das Glas", schedule_count() == glaeser + 1);
+  } else {
+    pruefe("ihr Haken traegt das eigene Getraenk ein",
+           zahl(MESSAGE_KEY_COFFEE_KIND) == COFFEE_KIND_CUSTOM && strcmp(text(MESSAGE_KEY_DRINK_NAME), "Mate") == 0);
+  }
+  ausklingen();
+  pruefe("danach geht die App zu", attrappe_fenster_offen() == 0);
+}
+
+static void n7_fall(void) {
+  vorbereiten_n7(s_fall->animation);
+  starten(APP_LAUNCH_WAKEUP, 0, s_fall->erste, ereignisse_n7);
+}
+
+static void abschnitt_n7(void) {
+  for (unsigned i = 0; i < sizeof(N7_FAELLE) / sizeof(N7_FAELLE[0]); i++) {
+    s_fall = &N7_FAELLE[i];
+    printf("\nNeue Erinnerung nach dem Haken (N7), %s\n", s_fall->was);
+    s_fehler += getrennt(n7_fall);
+  }
+}
+
+// "Spaeter" an der oberen von zwei offenen Erinnerungen.
+static void ereignisse_spaeter(void) {
+  attrappe_wecker_ausloesen(MATE);
+  pruefe("Mate kommt ueber die offene Wasser-Erinnerung", attrappe_fenster_offen() == 3);
+  attrappe_taste(BUTTON_ID_DOWN);
+  ausklingen();
+  pruefe("\"Spaeter\" am Mate: die Wasser-Erinnerung bleibt", attrappe_fenster_offen() == 2);
+  attrappe_taste(BUTTON_ID_DOWN);
+  ausklingen();
+  pruefe("\"Spaeter\" am Wasser: jetzt geht die App zu", attrappe_fenster_offen() == 0);
+}
+
+static void abschnitt_spaeter(void) {
+  printf("\n\"Spaeter\" mit einer zweiten Erinnerung darunter (N7)\n");
+  vorbereiten_n7(true);
+  starten(APP_LAUNCH_WAKEUP, 0, WASSER, ereignisse_spaeter);
+}
+
 static void (*const ABSCHNITTE[])(void) = {
-  abschnitt_glance, abschnitt_pin_tag, abschnitt_ziel, abschnitt_kaffee,
+  abschnitt_glance, abschnitt_pin_tag, abschnitt_ziel, abschnitt_n7, abschnitt_spaeter,
 };
 
 int main(void) {
@@ -179,16 +262,7 @@ int main(void) {
   printf("\nZeitzone %s\n", tz ? tz : "(keine)");
   int fehler = 0;
   for (unsigned i = 0; i < sizeof(ABSCHNITTE) / sizeof(ABSCHNITTE[0]); i++) {
-    fflush(stdout);
-    const pid_t kind = fork();
-    if (kind == 0) {
-      ABSCHNITTE[i]();
-      fflush(stdout);
-      _exit(s_fehler > 100 ? 100 : s_fehler);
-    }
-    int status = 0;
-    waitpid(kind, &status, 0);
-    fehler += WIFEXITED(status) ? WEXITSTATUS(status) : 1;
+    fehler += getrennt(ABSCHNITTE[i]);
   }
   printf("%s\n", fehler ? "NICHT BESTANDEN" : "alles bestanden");
   return fehler ? 1 : 0;

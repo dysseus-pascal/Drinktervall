@@ -6,6 +6,11 @@
 // WIE DIE FIRMWARE (pebbleos applib/ui/window_stack.c, app_glance.c):
 //   - window_stack_push ruft load und appear; remove und pop_all rufen
 //     disappear und unload - danach ist das Fenster weg.
+//   - AUSSER beim obersten Fenster, unter dem noch eines liegt: es ist sofort
+//     vom Stapel (window_stack_contains_window sagt nein), disappear und
+//     unload kommen aber erst am Ende des Uebergangs - auch ohne Animation.
+//     Das Ende kommt mit dem naechsten push, remove, pop_all, einer Taste
+//     oder attrappe_uebergang_ende; ein Wecker kann mitten hinein fallen.
 //   - Eine Taste geht an das oberste Fenster. Dessen Klick-Konfiguration
 //     (auch die der Aktionsleiste) laeuft, bevor die erste Taste ankommt.
 //   - app_glance_add_slice kopiert den Text und weist eine Scheibe ab, die
@@ -35,6 +40,7 @@ Layer *window_get_root_layer(const Window *window);
 void window_stack_push(Window *window, bool animated);
 bool window_stack_remove(Window *window, bool animated);
 void window_stack_pop_all(bool animated);
+bool window_stack_contains_window(Window *window);
 void window_single_click_subscribe(ButtonId button_id, ClickHandler handler);
 
 typedef struct GBitmap GBitmap;
@@ -122,6 +128,7 @@ extern void (*attrappe_ereignisse)(void);
 void attrappe_wecker_ausloesen(int32_t cookie);     //< ein Wecker, waehrend die App laeuft
 bool attrappe_taste(ButtonId button_id);            //< false: kein Fenster oder kein Handler
 int attrappe_fenster_offen(void);                   //< Fenster auf dem Stapel
+void attrappe_uebergang_ende(void);                 //< laufender Uebergang vorbei: unload
 int attrappe_fenster_gezeigt(void);                 //< wie oft ein Fenster kam
 int attrappe_vibes_doppelt(void);
 int attrappe_vibes_kurz(void);

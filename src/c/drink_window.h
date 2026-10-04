@@ -5,7 +5,8 @@
 // Vollbild-Fenster fuer die Trink-Animation: das Glas gross in der Bildmitte,
 // sonst nichts. Es schliesst sich nach der Animation von selbst. `quit_after`
 // beendet dabei gleich die ganze App - so bleibt der Weg ueber die Erinnerung
-// oder einen Timeline-Pin auf eine kurze Rueckmeldung beschraenkt. Zurueck
+// oder einen Timeline-Pin auf eine kurze Rueckmeldung beschraenkt. Kam
+// inzwischen eine neue Erinnerung, geht nur das Fenster (Audit N7). Zurueck
 // bricht nur die Animation ab; das Glas ist da schon gezaehlt.
 //
 // Rueckgabe FALSE heisst: es wurde nichts gezeigt, weil die Animation auf der

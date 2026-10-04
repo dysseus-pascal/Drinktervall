@@ -5,3 +5,6 @@
 // von 20 s und bleibt stehen, bis Getrunken, Spaeter oder Zurueck gedrueckt
 // wird. Erneuter Aufruf bei schon offenem Fenster: nur neu vibrieren.
 void reminder_window_push(void);
+
+// Steht die Erinnerung auf dem Fensterstapel?
+bool reminder_window_offen(void);
