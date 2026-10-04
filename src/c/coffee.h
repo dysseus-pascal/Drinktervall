@@ -41,8 +41,8 @@ void coffee_init(void);
 int coffee_count(void);
 const CoffeeSlot *coffee_slot(int idx);
 
-// Zeitpunkt des Kaffees `idx` an dem Tag mit Mitternacht `midnight`.
-time_t coffee_time(time_t midnight, int idx);
+// Zeitpunkt des Kaffees `idx` an dem Tag mit Anker `tag` (schedule_tag).
+time_t coffee_time(time_t tag, int idx);
 
 // Der Plan als Bytes, wie er zwischen Uhr und Telefon geht: ein Byte Anzahl,
 // dann je Kaffee Minute (little endian, 2 Byte), Sorte, Flags. Die Anzahl
@@ -78,8 +78,9 @@ typedef struct {
   int16_t minute;    //< Erinnerung, Minute des Tages; -1 = keine
 } CustomDrink;
 
-// Zeitpunkt der Erinnerung an das eigene Getraenk `idx`, 0 ohne Erinnerung.
-time_t custom_time(time_t midnight, int idx);
+// Zeitpunkt der Erinnerung an das eigene Getraenk `idx` an dem Tag mit Anker
+// `tag` (schedule_tag), 0 ohne Erinnerung.
+time_t custom_time(time_t tag, int idx);
 
 int custom_count(void);
 const CustomDrink *custom_drink(int idx);

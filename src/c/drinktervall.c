@@ -10,9 +10,21 @@
 #include "strings.h"
 
 // Launch-Code der Timeline-Pin-Aktion "Getrunken"/"Nachholen" (siehe
-// src/pkjs/index.js). Code 2 ("App oeffnen") braucht hier keinen Fall: die
-// App startet ohnehin.
+// src/pkjs/index.js): der Tag des Pins mal zehn plus diese 1, also
+// JJJJMMTT1. Pins aelterer Fassungen tragen nur die 1. Code 2 ("App
+// oeffnen") braucht hier keinen Fall: die App startet ohnehin.
 #define LAUNCH_CODE_DRUNK 1
+
+// EIN PIN VON GESTERN ZAEHLT NICHT FUER HEUTE (Audit N5, so entschieden).
+// Bis 1.20 trug die Aktion keinen Tag, und "Nachholen" an einem verpassten
+// Glas von gestern zaehlte ein Glas fuer heute. Ein Pin von morgen (die
+// naechste Erinnerung am Abend) zaehlt weiter fuer heute, wie bisher. Nur
+// die 1 ohne Tag gilt wie frueher - von wann sie ist, weiss niemand.
+static bool prv_pin_zaehlt(uint32_t code) {
+  if (code == LAUNCH_CODE_DRUNK) return true;
+  if (code < 10 || code % 10 != LAUNCH_CODE_DRUNK) return false;
+  return (int32_t)(code / 10) >= schedule_day();
+}
 
 static bool s_launched_by_wakeup;
 
@@ -23,6 +35,12 @@ static void prv_remind(int32_t cookie) {
     coffee_window_push_custom((int)(cookie - SCHEDULE_COOKIE_CUSTOM));
   } else if (cookie >= SCHEDULE_COOKIE_COFFEE) {
     coffee_window_push((int)(cookie - SCHEDULE_COOKIE_COFFEE));
+  } else if (schedule_count() >= schedule_goal()) {
+    // Ziel erreicht: keine Wasser-Erinnerung mehr (Audit N5). Die Wecker
+    // werden dann ohnehin neu geplant; kommt doch noch einer, der vorher
+    // stand, bleibt die Uhr still.
+    APP_LOG(APP_LOG_LEVEL_INFO, "Tagesziel erreicht: Wasser-Erinnerung %d entfaellt", (int)cookie);
+    drinktervall_reminder_closed();
   } else {
     reminder_window_push();
   }
@@ -34,20 +52,35 @@ static void prv_wakeup_handler(WakeupId id, int32_t cookie) {
   phone_send_next();   // Timeline-Pins auf den neuen Stand bringen
 }
 
+// DER STAND VON HEUTE GILT BIS MITTERNACHT. Bis 1.20 lief die eine Scheibe
+// nie ab: wer die App abends schloss, sah bis zum ersten Wecker am Morgen
+// den Vortag ("8 von 8 Glaesern", Audit N4). Gebaut wird nur beim Beenden -
+// darum liegt der Morgen schon als zweite Scheibe bereit.
 static void prv_glance_reload(AppGlanceReloadSession *session, size_t limit, void *context) {
   if (limit < 1) return;
+  const time_t now = time(NULL);
+  const time_t morgen = schedule_tag(schedule_tag(now) + 86400);
   time_t next;
-  schedule_next(time(NULL), &next);
+  schedule_next(now, &next);
   char hhmm[8];
   schedule_format_time(next, hhmm, sizeof(hhmm));
   char text[48];
   snprintf(text, sizeof(text), S(STR_GLANCE_FMT),
            schedule_count(), schedule_goal(), hhmm);
-  const AppGlanceSlice slice = {
+  const AppGlanceSlice heute = {
+    .layout = { .icon = APP_GLANCE_SLICE_DEFAULT_ICON, .subtitle_template_string = text },
+    .expiration_time = schedule_wandzeit(morgen, 0),
+  };
+  app_glance_add_slice(session, heute);
+  if (limit < 2) return;
+  // Ab Mitternacht: null Glaeser, das Soll als Ziel, das erste Glas.
+  schedule_format_time(schedule_slot(morgen, 0), hhmm, sizeof(hhmm));
+  snprintf(text, sizeof(text), S(STR_GLANCE_FMT), 0, schedule_target(), hhmm);
+  const AppGlanceSlice danach = {
     .layout = { .icon = APP_GLANCE_SLICE_DEFAULT_ICON, .subtitle_template_string = text },
     .expiration_time = APP_GLANCE_SLICE_NO_EXPIRATION,
   };
-  app_glance_add_slice(session, slice);
+  app_glance_add_slice(session, danach);
 }
 
 void drinktervall_reminder_closed(void) {
@@ -87,7 +120,7 @@ static void prv_init(void) {
   if (reason == APP_LAUNCH_WAKEUP && wakeup_get_launch_event(&id, &cookie)) {
     s_launched_by_wakeup = true;
     prv_remind(cookie);
-  } else if (reason == APP_LAUNCH_TIMELINE_ACTION && launch_get_args() == LAUNCH_CODE_DRUNK
+  } else if (reason == APP_LAUNCH_TIMELINE_ACTION && prv_pin_zaehlt(launch_get_args())
              && schedule_count() < schedule_goal()) {
     // Aus einem Timeline-Pin: zaehlen, kurz zeigen, App wieder verlassen
     schedule_set_count(schedule_count() + 1);

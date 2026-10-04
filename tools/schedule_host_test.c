@@ -38,9 +38,9 @@ time_t stub_jetzt;
 
 // Kaffees und eigene Getraenke spielen hier keine Rolle.
 int coffee_count(void) { return 0; }
-time_t coffee_time(time_t midnight, int idx) { (void)idx; return midnight; }
+time_t coffee_time(time_t tag, int idx) { (void)idx; return tag; }
 int custom_count(void) { return 0; }
-time_t custom_time(time_t midnight, int idx) { (void)idx; return midnight; }
+time_t custom_time(time_t tag, int idx) { (void)idx; return tag; }
 
 static int s_fehler;
 static void pruefe(const char *was, bool ok) {

@@ -216,8 +216,19 @@ static void prv_push(int idx, bool eigen) {
     return;
   }
   if (s_window) {
-    // Schon offen: auf das neue Getraenk umstellen und neu vibrieren.
-    if (s_done) return;
+    // Schon offen: auf das neue Getraenk umstellen und neu vibrieren - AUCH
+    // NACH DEM HAKEN. Bis 1.20 verwarf "Enjoy!" eine neue Erinnerung, die
+    // kurz danach kam; der Wecker war verbraucht, und das Fenster schloss
+    // mit der App (Audit N7). Das vorige Getraenk ist schon vorgemerkt
+    // (phone_note_*), also faellt nur das Schliessen weg.
+    if (s_done) {
+      if (s_close_timer) {
+        app_timer_cancel(s_close_timer);
+        s_close_timer = NULL;
+      }
+      s_done = false;
+      s_waited_ms = 0;
+    }
     s_idx = idx;
     s_eigen = eigen;
     s_vibes_left = VIBE_REPEATS;

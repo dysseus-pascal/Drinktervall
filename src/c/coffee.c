@@ -1,6 +1,7 @@
 #include "coffee.h"
 #include "config.h"
 #include "strings.h"
+#include "schedule.h"
 
 static CoffeeSlot s_slots[DT_COFFEE_MAX];
 static int s_count;
@@ -55,9 +56,10 @@ static void prv_custom_load(void) {
   }
 }
 
-time_t custom_time(time_t midnight, int idx) {
+// Die Uhrzeit wie auf der Uhr, auch am Tag der Umstellung (schedule.h).
+time_t custom_time(time_t tag, int idx) {
   const CustomDrink *d = custom_drink(idx);
-  return (d && d->minute >= 0) ? midnight + (time_t)d->minute * 60 : 0;
+  return (d && d->minute >= 0) ? schedule_wandzeit(tag, d->minute) : 0;
 }
 
 int custom_count(void) {
@@ -138,9 +140,9 @@ const CoffeeSlot *coffee_slot(int idx) {
   return (idx >= 0 && idx < s_count) ? &s_slots[idx] : NULL;
 }
 
-time_t coffee_time(time_t midnight, int idx) {
+time_t coffee_time(time_t tag, int idx) {
   const CoffeeSlot *s = coffee_slot(idx);
-  return s ? midnight + (time_t)s->minute * 60 : 0;
+  return s ? schedule_wandzeit(tag, s->minute) : 0;
 }
 
 int coffee_to_bytes(uint8_t *buf) {

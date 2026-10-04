@@ -30,8 +30,8 @@ static void prv_draw_row(GContext *ctx, const Layer *cell, MenuIndex *index, voi
   const bool wide = PBL_DISPLAY_WIDTH - DT_SIDEBAR_W >= 130;   // flint schmal
   const int16_t margin = PBL_IF_ROUND_ELSE(34, 9);
   const time_t now = time(NULL);
-  const time_t midnight = schedule_midnight(now);
-  const time_t slot = schedule_slot(midnight, index->row);
+  const time_t tag = schedule_tag(now);
+  const time_t slot = schedule_slot(tag, index->row);
   char hhmm[8];
   schedule_format_time(slot, hhmm, sizeof(hhmm));
   // Auf dem schmalen Schirm passt "Glass 12" nicht mehr neben die Zeit - es
@@ -48,7 +48,7 @@ static void prv_draw_row(GContext *ctx, const Layer *cell, MenuIndex *index, voi
   } else {
     time_t next;
     const int next_idx = schedule_next(now, &next);
-    if (next < midnight + 86400 && index->row == next_idx) {
+    if (schedule_tag(next) == tag && index->row == next_idx) {
       state = S(STR_STATE_NEXT);
     } else {
       state = slot <= now ? S(STR_STATE_MISSED) : S(STR_STATE_OPEN);
@@ -117,7 +117,7 @@ static void prv_load(Window *window) {
   const time_t now = time(NULL);
   time_t next;
   int idx = schedule_next(now, &next);
-  const bool today = next < schedule_midnight(now) + 86400;
+  const bool today = schedule_tag(next) == schedule_tag(now);
   s_past_rows = today ? idx : schedule_target();
   if (!today) idx = schedule_target() - 1;
   menu_layer_set_selected_index(s_menu, MenuIndex(0, idx), MenuRowAlignCenter, false);

@@ -204,13 +204,23 @@ int schedule_count(void) {
   return s_count;
 }
 
+// Erreicht oder verlassen ein Glas oder die Taste unten das Tagesziel, gelten
+// andere Wecker: ab dem Ziel keine Wasser-Erinnerung mehr fuer heute, nach
+// dem Erhoehen wieder. Die Wecker stehen sonst bis zum naechsten Neuplanen -
+// und das waere oft genau der Wecker, der nicht mehr kommen soll.
+static void prv_ziel_neu_planen(bool vorher) {
+  if ((s_count >= s_goal) != vorher) schedule_plan_wakeups(0, 0);
+}
+
 void schedule_set_count(int count) {
   prv_tag_pruefen();
+  const bool vorher = s_count >= s_goal;
   if (count < 0) count = 0;
   if (count > s_goal) count = s_goal;
   s_count = count;
   persist_write_int(DT_PERSIST_DAY, s_day);
   persist_write_int(DT_PERSIST_COUNT, s_count);
+  prv_ziel_neu_planen(vorher);
 }
 
 int schedule_goal(void) {
@@ -226,51 +236,86 @@ int32_t schedule_day(void) {
 void schedule_raise_goal(void) {
   prv_tag_pruefen();
   if (s_goal >= DT_GOAL_MAX) return;
+  const bool vorher = s_count >= s_goal;
   s_goal++;
   persist_write_int(DT_PERSIST_DAY, s_day);
   persist_write_int(DT_PERSIST_GOAL, s_goal);
+  prv_ziel_neu_planen(vorher);
 }
 
 int schedule_interval_min(void) {
   return ((DT_END_HOUR - DT_START_HOUR) * 60) / s_target;
 }
 
-// Ohne mktime: Mitternacht = jetzt minus Sekunden seit lokaler Mitternacht.
-// Am Tag einer Sommerzeit-Umstellung kann das um eine Stunde abweichen.
-time_t schedule_midnight(time_t t) {
+#define MITTAG_S (12 * 3600)
+
+// Sekunden seit Mitternacht, wie die Uhr sie zeigt.
+static int32_t prv_wand_s(time_t t) {
   struct tm *lt = localtime(&t);
-  return t - (lt->tm_hour * 3600 + lt->tm_min * 60 + lt->tm_sec);
+  return lt->tm_hour * 3600 + lt->tm_min * 60 + lt->tm_sec;
+}
+
+// Ohne mktime (siehe schedule.h): erst grob, dann nachgezogen. Lag zwischen
+// Mitternacht und `t` eine Umstellung, steht der grobe Anker eine Stunde neben
+// 12:00 - aber am selben Datum, also genuegt einmal Nachziehen.
+time_t schedule_tag(time_t t) {
+  const time_t grob = t - prv_wand_s(t) + MITTAG_S;
+  return grob + (MITTAG_S - prv_wand_s(grob));
+}
+
+// Vom Mittag zurueckgerechnet stimmt jede Zeit nach der Umstellung; eine
+// davor liegt eine Stunde daneben und wird um die Abweichung der Wanduhr
+// nachgezogen. Die Abweichung kann ueber Mitternacht reichen (23:30 statt
+// 00:30) - darum auf einen halben Tag gekappt.
+time_t schedule_wandzeit(time_t tag, int minute) {
+  const time_t grob = tag - MITTAG_S + (time_t)minute * 60;
+  int32_t ab = (int32_t)minute * 60 - prv_wand_s(grob);
+  if (ab > MITTAG_S) ab -= 2 * MITTAG_S;
+  if (ab < -MITTAG_S) ab += 2 * MITTAG_S;
+  return grob + ab;
 }
 
 // Deterministischer Versatz in [-DT_JITTER_MIN, +DT_JITTER_MIN] Minuten aus Tag
 // und Slot (Integer-Hash), damit Wakeups, Plan-Liste und Glance dieselben
 // Zeiten zeigen. Der Faktor muss groesser sein als der groesste Slot-Index,
 // sonst faellt der Versatz eines Tages mit dem eines Nachbartags zusammen.
-static int prv_jitter_min(time_t midnight, int idx) {
-  uint32_t h = (uint32_t)prv_day_key(midnight) * 32u + (uint32_t)idx;
+// Der Schluessel ist das Datum des Ankers - bis 1.20 das der berechneten
+// Mitternacht, und die lag nach der Fruehlings-Umstellung am Vortag.
+static int prv_jitter_min(time_t tag, int idx) {
+  uint32_t h = (uint32_t)prv_day_key(tag) * 32u + (uint32_t)idx;
   h ^= h >> 16; h *= 0x7feb352dU; h ^= h >> 15; h *= 0x846ca68bU; h ^= h >> 16;
   return (int)(h % (2 * DT_JITTER_MIN + 1)) - DT_JITTER_MIN;
 }
 
-time_t schedule_slot(time_t midnight, int idx) {
-  int minutes = DT_START_HOUR * 60 + idx * schedule_interval_min() + prv_jitter_min(midnight, idx);
+time_t schedule_slot(time_t tag, int idx) {
+  int minutes = DT_START_HOUR * 60 + idx * schedule_interval_min() + prv_jitter_min(tag, idx);
   if (minutes < DT_START_HOUR * 60) minutes = DT_START_HOUR * 60;
   if (minutes > DT_END_HOUR * 60) minutes = DT_END_HOUR * 60;
-  return midnight + (time_t)minutes * 60;
+  return schedule_wandzeit(tag, minutes);
+}
+
+// TAGESZIEL ERREICHT: fuer den Rest dieses Tages keine Wasser-Erinnerung mehr
+// (so entschieden, Audit N5). Bis 1.20 kam jede weitere und zeigte nur
+// "Tagesziel erreicht" - mit Vibration. Gemeint ist der Tag, zu dem Zaehler
+// und Ziel gehoeren; Kaffee und eigene Getraenke laufen weiter.
+static bool prv_wasser_an(time_t tag) {
+  return !(prv_day_key(tag) == schedule_day() && schedule_count() >= schedule_goal());
 }
 
 int schedule_next(time_t now, time_t *when) {
-  time_t midnight = schedule_midnight(now);
+  const time_t heute = schedule_tag(now);
   for (int day = 0; day < 2; day++) {
+    const time_t tag = schedule_tag(heute + day * 86400);
+    if (!prv_wasser_an(tag)) continue;
     for (int i = 0; i < s_target; i++) {
-      time_t t = schedule_slot(midnight + day * 86400, i);
+      const time_t t = schedule_slot(tag, i);
       if (t > now) {
         if (when) *when = t;
         return i;
       }
     }
   }
-  if (when) *when = schedule_slot(midnight + 86400, 0);
+  if (when) *when = schedule_slot(schedule_tag(heute + 86400), 0);
   return 0;
 }
 
@@ -299,19 +344,19 @@ typedef struct {
 
 static int prv_termine(time_t now, Termin *out) {
   int n = 0;
-  const time_t midnight = schedule_midnight(now);
+  const time_t heute = schedule_tag(now);
   for (int day = 0; day < 3; day++) {
-    const time_t m = midnight + day * 86400;
-    for (int i = 0; i < s_target; i++) {
-      const time_t t = schedule_slot(m, i);
+    const time_t tag = schedule_tag(heute + day * 86400);
+    for (int i = 0; i < s_target && prv_wasser_an(tag); i++) {
+      const time_t t = schedule_slot(tag, i);
       if (t > now + LEAD_S) out[n++] = (Termin){ t, i };
     }
     for (int k = 0; k < coffee_count(); k++) {
-      const time_t t = coffee_time(m, k);
+      const time_t t = coffee_time(tag, k);
       if (t > now + LEAD_S) out[n++] = (Termin){ t, SCHEDULE_COOKIE_COFFEE + k };
     }
     for (int k = 0; k < custom_count(); k++) {
-      const time_t t = custom_time(m, k);
+      const time_t t = custom_time(tag, k);
       if (t > now + LEAD_S) out[n++] = (Termin){ t, SCHEDULE_COOKIE_CUSTOM + k };
     }
   }
@@ -354,7 +399,12 @@ void schedule_plan_wakeups(time_t snooze_until, int32_t snooze_cookie) {
     }
   }
   int n = 0;
-  if (snooze_until > now + LEAD_S && prv_schedule(snooze_until, snooze_cookie)) n++;
+  if (snooze_until > now + LEAD_S) {
+    // Ein "Spaeter" beim Wasser ist auch eine Wasser-Erinnerung. Es bleibt
+    // vermerkt: wird das Ziel wieder erhoeht, kommt es doch noch.
+    const bool wasser = snooze_cookie < SCHEDULE_COOKIE_COFFEE;
+    if ((!wasser || prv_wasser_an(schedule_tag(snooze_until))) && prv_schedule(snooze_until, snooze_cookie)) n++;
+  }
 #ifdef DT_TEST_WAKEUP
   // Nur fuer Emulator-Tests: Erinnerung eine Minute nach dem Start.
   if (prv_schedule(now + 60, 0)) n++;

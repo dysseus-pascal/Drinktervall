@@ -38,13 +38,17 @@ static inline time_t stub_time(time_t *t) {
 }
 #define time(t) stub_time(t)
 
+// --- Wecker (attrappe.c) ---
+// Wie die Firmware: hoechstens acht je App, und keiner naeher als eine Minute
+// an einem anderen (E_RANGE). Die Tests lesen mit, was gestellt ist.
 typedef int32_t WakeupId;
 #define E_RANGE (-8)
-static inline WakeupId wakeup_schedule(time_t t, int32_t cookie, bool notify) {
-  (void)t; (void)cookie; (void)notify;
-  return 1;
-}
-static inline void wakeup_cancel_all(void) {}
+#define E_OUT_OF_RESOURCES (-7)
+WakeupId wakeup_schedule(time_t t, int32_t cookie, bool notify);
+void wakeup_cancel_all(void);
+int attrappe_wecker_anzahl(void);
+time_t attrappe_wecker_zeit(int nummer);
+int32_t attrappe_wecker_cookie(int nummer);
 static inline bool clock_is_24h_style(void) { return true; }
 
 bool persist_exists(uint32_t key);
@@ -91,6 +95,8 @@ DictionaryResult dict_write_begin(DictionaryIterator *iter, uint8_t *buffer, uin
 DictionaryResult dict_write_data(DictionaryIterator *iter, uint32_t key, const uint8_t *data, uint16_t size);
 DictionaryResult dict_write_cstring(DictionaryIterator *iter, uint32_t key, const char *cstring);
 DictionaryResult dict_write_int32(DictionaryIterator *iter, uint32_t key, int32_t value);
+DictionaryResult dict_write_uint8(DictionaryIterator *iter, uint32_t key, uint8_t value);
+DictionaryResult dict_write_int16(DictionaryIterator *iter, uint32_t key, int16_t value);
 uint32_t dict_write_end(DictionaryIterator *iter);
 Tuple *dict_find(const DictionaryIterator *iter, uint32_t key);
 
@@ -139,7 +145,12 @@ int attrappe_zeitgeber_ablaufen(void);             //< alle offenen einmal auslo
 const char *i18n_get_system_locale(void);
 extern const char *attrappe_sprache;
 
-// Grafik nur fuer tools/glas_host_test.c (siehe attrappe_grafik.h).
+// Grafik nur fuer tools/glas_host_test.c und tools/app_host_test.c (siehe
+// attrappe_grafik.h), Fenster, Start und Glance nur fuer den zweiten (siehe
+// attrappe_app.h).
 #ifdef ATTRAPPE_GRAFIK
 #include "attrappe_grafik.h"
+#endif
+#ifdef ATTRAPPE_APP
+#include "attrappe_app.h"
 #endif

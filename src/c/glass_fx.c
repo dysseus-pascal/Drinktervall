@@ -484,7 +484,8 @@ static void prv_update(Animation *animation, const AnimationProgress progress) {
 static const AnimationImplementation s_impl = { .update = prv_update };
 
 static void prv_stopped(Animation *animation, bool finished, void *context) {
-  // Das SDK gibt beendete Animationen nicht selbst frei
+  // Seit SDK 3 gibt die Firmware eine beendete Animation selbst frei; das
+  // Zerstoeren im stopped-Handler wird nur vorgemerkt und ist folgenlos.
   animation_destroy(animation);
   s_anim = NULL;
   layer_set_hidden(s_layer, true);
