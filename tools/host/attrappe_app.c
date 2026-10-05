@@ -7,6 +7,8 @@ struct Window {
   WindowHandlers handler;
   ClickConfigProvider klicks;
   bool konfiguriert;
+  bool geladen;     // wie is_loaded der Firmware: load kam, unload noch nicht
+  bool sichtbar;    // wie on_screen: appear kam, disappear noch nicht
   ClickHandler tasten[NUM_BUTTONS];
 };
 #define STAPEL_MAX 8
@@ -14,10 +16,6 @@ static Window *s_stapel[STAPEL_MAX];
 static int s_stapel_n;
 static int s_gezeigt;
 static Window *s_konfiguriert_gerade;
-// Schon vom Stapel, aber noch nicht entladen: das war das oberste Fenster,
-// und sein Uebergang zum naechsten laeuft noch (siehe window_stack_remove).
-static Window *s_entfernt[STAPEL_MAX];
-static int s_entfernt_n;
 
 Window *window_create(void) { return calloc(1, sizeof(Window)); }
 void window_destroy(Window *window) { free(window); }
@@ -31,53 +29,80 @@ Layer *window_get_root_layer(const Window *window) {
   return layer_create(GRect(0, 0, PBL_DISPLAY_WIDTH, PBL_DISPLAY_HEIGHT));
 }
 
-void window_stack_push(Window *window, bool animated) {
-  (void)animated;
-  // Wie beim Wegnehmen: ein laufender Uebergang endet, bevor der neue beginnt.
-  attrappe_uebergang_ende();
-  if (s_stapel_n == STAPEL_MAX) return;
-  s_stapel[s_stapel_n++] = window;
-  s_gezeigt++;
-  if (window->handler.load) window->handler.load(window);
+// Wie window_set_on_screen der Firmware: load nur beim ersten Mal, appear
+// und disappear nur bei einem Wechsel. Die Tasten werden danach neu verteilt.
+static void prv_auf_schirm(Window *window) {
+  if (window->sichtbar) return;
+  window->sichtbar = true;
+  window->konfiguriert = false;
+  if (!window->geladen) {
+    window->geladen = true;
+    if (window->handler.load) window->handler.load(window);
+  }
   if (window->handler.appear) window->handler.appear(window);
 }
 
-// Erst vom Stapel, dann die Handler: unload darf das Fenster zerstoeren.
-static void prv_weg(Window *window) {
-  if (window->handler.disappear) window->handler.disappear(window);
+static void prv_vom_schirm(Window *window) {
+  if (!window->sichtbar) return;
+  window->sichtbar = false;
+  if (window->geladen && window->handler.disappear) window->handler.disappear(window);
+}
+
+// Wie window_unload: danach das Fenster nicht mehr anfassen - unload darf
+// es zerstoeren.
+static void prv_entladen(Window *window) {
+  if (!window->geladen) return;
+  window->geladen = false;
   if (window->handler.unload) window->handler.unload(window);
 }
 
-void attrappe_uebergang_ende(void) {
-  while (s_entfernt_n > 0) prv_weg(s_entfernt[--s_entfernt_n]);
+void window_stack_push(Window *window, bool animated) {
+  (void)animated;
+  if (s_stapel_n == STAPEL_MAX) return;
+  Window *vorher = s_stapel_n > 0 ? s_stapel[s_stapel_n - 1] : NULL;
+  s_stapel[s_stapel_n++] = window;
+  s_gezeigt++;
+  // Im setup des Uebergangs: erst geht das bisherige vom Schirm, dann kommt
+  // das neue (window_transition_context_appearance_call_all).
+  if (vorher) prv_vom_schirm(vorher);
+  prv_auf_schirm(window);
 }
 
+// SOFORT ENTLADEN, auch das oberste Fenster und auch mit Animation: die
+// Firmware plant den Uebergang, sein setup laeuft noch im Aufruf und entlaedt
+// dabei das Weggenommene (window_stack.c prv_remove_item -> prv_transition_to
+// -> animation_schedule -> setup -> prv_unload_removed_windows). Ohne Fenster
+// darunter oder fuer ein verdecktes ebenso, ueber den else-Zweig.
 bool window_stack_remove(Window *window, bool animated) {
   (void)animated;
   for (int i = 0; i < s_stapel_n; i++) {
     if (s_stapel[i] != window) continue;
-    const bool oben_mit_folger = i == s_stapel_n - 1 && s_stapel_n > 1;
+    const bool oben = i == s_stapel_n - 1;
     memmove(&s_stapel[i], &s_stapel[i + 1], (size_t)(s_stapel_n - i - 1) * sizeof(Window *));
     s_stapel_n--;
-    // Ein laufender Uebergang wird zuerst zu Ende gebracht (prv_transition_to).
-    attrappe_uebergang_ende();
-    // Das oberste Fenster geht ueber einen Uebergang zum naechsten - auch
-    // ohne Animation (die "none"-Animation wird ebenfalls geplant); unload
-    // kommt erst an dessen Ende. Jedes andere wird sofort entladen.
-    if (oben_mit_folger) {
-      s_entfernt[s_entfernt_n++] = window;
-    } else {
-      prv_weg(window);
-    }
+    prv_vom_schirm(window);
+    prv_entladen(window);
+    // Das darunter kommt wieder zum Vorschein: appear (Trink-Fenster: die
+    // Animation beginnt neu).
+    if (oben && s_stapel_n > 0) prv_auf_schirm(s_stapel[s_stapel_n - 1]);
     return true;
   }
   return false;
 }
 
+// Die Firmware legt erst die verdeckten Fenster auf die Liste der entfernten,
+// dann das oberste davor - entladen wird darum das oberste zuerst, danach von
+// unten nach oben.
 void window_stack_pop_all(bool animated) {
   (void)animated;
-  attrappe_uebergang_ende();
-  while (s_stapel_n > 0) prv_weg(s_stapel[--s_stapel_n]);
+  if (s_stapel_n == 0) return;
+  Window *weg[STAPEL_MAX];
+  const int n = s_stapel_n;
+  memcpy(weg, s_stapel, (size_t)n * sizeof(Window *));
+  s_stapel_n = 0;
+  prv_vom_schirm(weg[n - 1]);
+  prv_entladen(weg[n - 1]);
+  for (int i = 0; i < n - 1; i++) prv_entladen(weg[i]);
 }
 
 bool window_stack_contains_window(Window *window) {
@@ -92,8 +117,6 @@ void window_single_click_subscribe(ButtonId button_id, ClickHandler handler) {
 }
 
 bool attrappe_taste(ButtonId button_id) {
-  // Gedrueckt wird, wenn der Uebergang vorbei ist.
-  attrappe_uebergang_ende();
   if (s_stapel_n == 0) return false;
   Window *oben = s_stapel[s_stapel_n - 1];
   if (!oben->konfiguriert && oben->klicks) {

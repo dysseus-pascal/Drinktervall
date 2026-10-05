@@ -24,9 +24,9 @@
 //     die App trotzdem zu.
 //
 // Der Hauptscreen ist hier ein leeres Fenster - auf der Uhr liegt er immer
-// zuunterst, und erst mit ihm darunter laeuft das Wegnehmen einer Erinnerung
-// ueber einen Uebergang (attrappe_app.h). Was er zeigt, pruefen die
-// Emulator-Bilder.
+// zuunterst, und erst mit ihm zaehlt "die App ist zu" (kein Fenster mehr)
+// dasselbe wie dort. Was er zeigt, pruefen die Emulator-Bilder. Entladen wird
+// wie auf der Uhr noch im Aufruf von window_stack_remove (attrappe_app.h).
 // Exitcode 0 = alles wie zugesagt.
 #include <pebble.h>
 #include <sys/wait.h>
@@ -81,10 +81,8 @@ static void vorbereiten(time_t jetzt, bool animation) {
 static void ausklingen(void) {
   for (int i = 0; i < 100 && (attrappe_zeitgeber_offen() || attrappe_unterwegs()); i++) {
     attrappe_ack();
-    attrappe_uebergang_ende();
     attrappe_zeitgeber_ablaufen();
   }
-  attrappe_uebergang_ende();
 }
 
 static void starten(AppLaunchReason grund, uint32_t args, int32_t cookie, void (*ereignisse)(void)) {

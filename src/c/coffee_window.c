@@ -249,8 +249,8 @@ static void prv_push(int idx, bool eigen) {
   window_stack_push(s_window, true);
 }
 
-// Wie reminder_window_offen: auf dem Stapel, nicht bloss noch nicht entladen -
-// sonst hielte das eigene, eben weggenommene Fenster die App offen.
+// Wie reminder_window_offen: auf der Uhr dasselbe wie s_window, der Stapel
+// ist nur die Absicherung.
 bool coffee_window_offen(void) {
   return s_window && window_stack_contains_window(s_window);
 }

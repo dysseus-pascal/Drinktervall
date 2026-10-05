@@ -4,15 +4,22 @@
 // gesetzt ist; Layer und Animation kommen aus attrappe_grafik.h.
 //
 // WIE DIE FIRMWARE (pebbleos applib/ui/window_stack.c, app_glance.c):
-//   - window_stack_push ruft load und appear; remove und pop_all rufen
-//     disappear und unload - danach ist das Fenster weg.
-//   - AUSSER beim obersten Fenster, unter dem noch eines liegt: es ist sofort
-//     vom Stapel (window_stack_contains_window sagt nein), disappear und
-//     unload kommen aber erst am Ende des Uebergangs - auch ohne Animation.
-//     Das Ende kommt mit dem naechsten push, remove, pop_all, einer Taste
-//     oder attrappe_uebergang_ende; ein Wecker kann mitten hinein fallen.
+//   - Alles geschieht noch im Aufruf selbst, mit und ohne Animation: der
+//     Uebergang wird mit animation_schedule geplant, und das ruft sein setup
+//     sofort (applib/ui/animation.c, prv_schedule_low_level_animation). Erst
+//     danach laeuft die Bewegung - sie ruft keinen Handler mehr.
+//   - window_stack_push: das bisher oberste Fenster bekommt disappear, das
+//     neue load (einmal) und appear.
+//   - window_stack_remove: das Fenster ist vom Stapel, hat disappear (wenn es
+//     zu sehen war) und unload hinter sich, bevor der Aufruf zurueckkehrt
+//     (prv_unload_removed_windows); war es das oberste, bekommt das naechste
+//     danach appear. Einen Zustand "weg, aber noch nicht entladen", in den
+//     ein Wecker fallen koennte, gibt es nicht.
+//   - window_stack_pop_all: disappear fuer das oberste, unload fuer alle -
+//     das oberste zuerst, dann von unten nach oben.
 //   - Eine Taste geht an das oberste Fenster. Dessen Klick-Konfiguration
-//     (auch die der Aktionsleiste) laeuft, bevor die erste Taste ankommt.
+//     (auch die der Aktionsleiste) laeuft, bevor die erste Taste ankommt -
+//     nach jedem Wiederauftauchen neu.
 //   - app_glance_add_slice kopiert den Text und weist eine Scheibe ab, die
 //     schon abgelaufen ist; hoechstens acht je Glance.
 // Gezeichnet wird hier nicht.
@@ -128,7 +135,6 @@ extern void (*attrappe_ereignisse)(void);
 void attrappe_wecker_ausloesen(int32_t cookie);     //< ein Wecker, waehrend die App laeuft
 bool attrappe_taste(ButtonId button_id);            //< false: kein Fenster oder kein Handler
 int attrappe_fenster_offen(void);                   //< Fenster auf dem Stapel
-void attrappe_uebergang_ende(void);                 //< laufender Uebergang vorbei: unload
 int attrappe_fenster_gezeigt(void);                 //< wie oft ein Fenster kam
 int attrappe_vibes_doppelt(void);
 int attrappe_vibes_kurz(void);

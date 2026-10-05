@@ -167,9 +167,11 @@ static void prv_unload(Window *window) {
   s_canvas = NULL;
 }
 
-// AUF DEM STAPEL, nicht bloss noch nicht entladen: nimmt man das oberste
-// Fenster weg, ruft die Firmware unload erst nach dem Uebergang
-// (applib/ui/window_stack.c) - so lange steht s_window noch.
+// Auf der Uhr dasselbe wie s_window: window_stack_remove entlaedt noch im
+// Aufruf, auch das oberste Fenster und auch mit Animation - das setup des
+// Uebergangs laeuft schon in animation_schedule (pebbleos applib/ui/
+// animation.c, window_stack.c). Die Frage nach dem Stapel bleibt als
+// Absicherung: sie haengt nicht daran, dass unload s_window zuruecksetzt.
 bool reminder_window_offen(void) {
   return s_window && window_stack_contains_window(s_window);
 }
