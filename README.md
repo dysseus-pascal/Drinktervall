@@ -115,7 +115,8 @@ Uhr, und zwei Schalter für dieselbe Sache wären einer zu viel.
 |        | Animation bleibt stattdessen kurz der neue Stand stehen |
 | Unten  | Später: in 10 Minuten nochmals erinnern, die App schliesst sich sofort |
 | Zurück | Schliessen ohne zu zählen, das Glas gilt als verpasst; nach einem
-|        | Wakeup-Start beendet sich die App, sonst zurück zum Hauptscreen |
+|        | Wakeup-Start, oder wenn die App gerade gehen wollte (Glas über
+|        | einen Timeline-Pin), beendet sich die App, sonst zurück zum Hauptscreen |
 
 Der Zähler wird um Mitternacht automatisch auf 0 gesetzt, auch wenn die App
 gerade offen ist (siehe [Der Tag von Zähler und Ziel](#der-tag-von-zähler-und-ziel)).
@@ -408,7 +409,7 @@ sh tools/phone_host_test.sh               # Nachricht ans Telefon: grösster Fal
 sh tools/farben_check.sh                  # Getränkefarben, wie Farb- und Schwarz-Weiss-Display sie zeigen
 sh tools/glas_host_test.sh                # Milch auf Schwarz-Weiss: lichteres Raster statt Grau (Grafik als Attrappe)
 sh tools/plan_host_test.sh                # Wecker, Plan-Liste, Pins an Umstellungstagen; Tagesziel erreicht (drei Zeitzonen)
-sh tools/app_host_test.sh                 # die App als Ganzes: Glance, Pin von gestern, neue Erinnerung nach dem Haken
+sh tools/app_host_test.sh                 # die App als Ganzes: Glance, Pin von gestern, neue Erinnerung nach dem Haken oder der Pin-Aktion
 node tools/pkjs_pins_test.js              # Timeline-Pins: veraltete löschen, REST mit Rückfall, Tag im Launch-Code
 node tools/pkjs_clay_test.js              # Konfigseite mit dem echten Clay (nach npm install und pebble build)
 node tools/catch_check.js                 # kein catch ohne Log in der Telefonseite

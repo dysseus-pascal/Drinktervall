@@ -22,11 +22,15 @@
 //     Erinnerung mit - ihr Wecker war da schon verbraucht. Geprueft mit und
 //     ohne Animation, Wasser und Kaffee in beiden Reihenfolgen; danach geht
 //     die App trotzdem zu.
+//   - PIN-START MIT ERINNERUNG DAZWISCHEN: das Trink-Fenster der Pin-Aktion
+//     laesst eine Erinnerung stehen, die waehrend Animation oder Warten aufs
+//     Telefon kam. Geht sie mit Zurueck oder nach "Enjoy!" zu, geht die App
+//     - bis zum Fix blieb sie auf dem Hauptscreen offen.
 //
 // Der Hauptscreen ist hier ein leeres Fenster - auf der Uhr liegt er immer
-// zuunterst, und erst mit ihm zaehlt "die App ist zu" (kein Fenster mehr)
-// dasselbe wie dort. Was er zeigt, pruefen die Emulator-Bilder. Entladen wird
-// wie auf der Uhr noch im Aufruf von window_stack_remove (attrappe_app.h).
+// zuunterst; erst mit ihm heisst "kein Fenster mehr" wie dort, dass die App
+// zu ist. Was er zeigt, pruefen die Emulator-Bilder. Entladen wird wie auf
+// der Uhr noch im Aufruf von window_stack_remove (attrappe_app.h).
 // Exitcode 0 = alles wie zugesagt.
 #include <pebble.h>
 #include <sys/wait.h>
@@ -251,8 +255,72 @@ static void abschnitt_spaeter(void) {
   starten(APP_LAUNCH_WAKEUP, 0, WASSER, ereignisse_spaeter);
 }
 
+// Start ueber die Pin-Aktion "Getrunken": das Trink-Fenster will die App
+// danach verlassen. Kommt vorher ein Wecker, bleibt dessen Erinnerung offen
+// (N7) - und wenn sie zugeht, muss die App trotzdem gehen, wie nach einem
+// Wakeup-Start. `sofort`: die Taste kommt, bevor das Trink-Fenster schliesst.
+static const struct pin_fall {
+  bool animation;
+  int32_t wecker;
+  ButtonId taste;
+  bool sofort;
+  const char *was;
+} PIN_FAELLE[] = {
+  { true,  WASSER, BUTTON_ID_BACK,   false, "mit Animation, Wasser, Zurueck" },
+  { true,  KAFFEE, BUTTON_ID_BACK,   false, "mit Animation, Kaffee, Zurueck" },
+  { false, WASSER, BUTTON_ID_BACK,   false, "ohne Animation, Wasser, Zurueck" },
+  { false, KAFFEE, BUTTON_ID_BACK,   false, "ohne Animation, Kaffee, Zurueck" },
+  { false, KAFFEE, BUTTON_ID_SELECT, false, "ohne Animation, Kaffee, \"Enjoy!\"" },
+  { true,  WASSER, BUTTON_ID_BACK,   true,  "mit Animation, Wasser, Zurueck noch waehrend der Animation" },
+};
+static const struct pin_fall *s_pin;
+
+static void ereignisse_pin(void) {
+  pruefe("der Pin zaehlt ein Glas", schedule_count() == 1);
+  attrappe_wecker_ausloesen(s_pin->wecker);
+  pruefe("der Wecker kommt dazwischen: vibriert", attrappe_vibes_doppelt() == 1);
+  if (!s_pin->sofort) {
+    ausklingen();
+    pruefe("nach dem Trink-Fenster bleibt die Erinnerung offen", attrappe_fenster_offen() == 2);
+  }
+  attrappe_taste(s_pin->taste);
+  ausklingen();
+  pruefe("danach geht die App zu", attrappe_fenster_offen() == 0);
+}
+
+static void pin_fall(void) {
+  vorbereiten_n7(s_pin->animation);
+  starten(APP_LAUNCH_TIMELINE_ACTION, 1, 0, ereignisse_pin);
+}
+
+// Gegenprobe: von Hand gestartet fuehrt Zurueck an der Erinnerung wie bisher
+// auf den Hauptscreen - die App geht nur, wenn jemand gehen wollte.
+static void ereignisse_von_hand(void) {
+  attrappe_wecker_ausloesen(WASSER);
+  pruefe("die Erinnerung kommt ueber den Hauptscreen", attrappe_fenster_offen() == 2);
+  attrappe_taste(BUTTON_ID_BACK);
+  ausklingen();
+  pruefe("von Hand gestartet: nach Zurueck bleibt der Hauptscreen", attrappe_fenster_offen() == 1);
+}
+
+static void von_hand(void) {
+  vorbereiten_n7(true);
+  starten(APP_LAUNCH_USER, 0, 0, ereignisse_von_hand);
+}
+
+static void abschnitt_pin_dazwischen(void) {
+  for (unsigned i = 0; i < sizeof(PIN_FAELLE) / sizeof(PIN_FAELLE[0]); i++) {
+    s_pin = &PIN_FAELLE[i];
+    printf("\nPin-Aktion, eine Erinnerung kommt dazwischen, %s\n", s_pin->was);
+    s_fehler += getrennt(pin_fall);
+  }
+  printf("\nGegenprobe: Start von Hand, Erinnerung, Zurueck\n");
+  s_fehler += getrennt(von_hand);
+}
+
 static void (*const ABSCHNITTE[])(void) = {
   abschnitt_glance, abschnitt_pin_tag, abschnitt_ziel, abschnitt_n7, abschnitt_spaeter,
+  abschnitt_pin_dazwischen,
 };
 
 int main(void) {

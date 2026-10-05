@@ -16,7 +16,8 @@
 //   Mitte   Getrunken: zaehlt +1, zeigt die Trink-Animation, App beendet sich
 //   Unten   Spaeter: in DT_SNOOZE_MIN Minuten nochmals, App beendet sich
 //   Zurueck schliesst ohne zu zaehlen (Glas verpasst); nach einem
-//           Wakeup-Start beendet sich die App, sonst zurueck zum Hauptscreen
+//           Wakeup-Start oder wenn die App schon gehen wollte (Trink-Fenster
+//           eines Pin-Starts) beendet sie sich, sonst zurueck zum Hauptscreen
 
 #define VIBE_REPEATS 3
 #define VIBE_INTERVAL_MS 20000

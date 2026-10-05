@@ -42,8 +42,13 @@ static void prv_close(void *data) {
   // NUR DAS EIGENE FENSTER, WENN EINE ERINNERUNG KAM (Audit N7). Bis 1.20
   // nahm pop_all hier auch eine Erinnerung mit, deren Wecker waehrend der
   // Animation oder des Wartens aufs Telefon kam - der war damit verbraucht.
+  // Die App geht dann, sobald die Erinnerung zugeht - auch nach einem
+  // Pin-Start, der kein Wakeup-Start ist.
   if (s_quit_after) {
-    if (!drinktervall_verlassen() && s_window) window_stack_remove(s_window, false);
+    if (!drinktervall_verlassen()) {
+      drinktervall_verlassen_vormerken();
+      if (s_window) window_stack_remove(s_window, false);
+    }
   } else if (s_window) {
     window_stack_remove(s_window, true);
   }

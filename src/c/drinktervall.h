@@ -2,10 +2,16 @@
 #include <pebble.h>
 
 // Vom Erinnerungs-Screen gerufen, wenn er mit Zurueck weggedrueckt wurde
-// (Glas verpasst). Wurde die App durch das Wakeup gestartet, beendet sie sich
-// dabei, damit die Watch zum Zifferblatt zurueckkehrt - wie
-// drinktervall_verlassen nur, wenn keine andere Erinnerung mehr offen ist.
+// (Glas verpasst). Wurde die App durch das Wakeup gestartet oder ist das
+// Verlassen vorgemerkt, beendet sie sich dabei, damit die Watch zum
+// Zifferblatt zurueckkehrt - wie drinktervall_verlassen nur, wenn keine
+// andere Erinnerung mehr offen ist.
 void drinktervall_reminder_closed(void);
+
+// Die App wollte gehen, aber eine Erinnerung stand noch offen: dann geht sie,
+// sobald die zugeht - auch mit Zurueck oder nach "Enjoy!", wie nach einem
+// Wakeup-Start.
+void drinktervall_verlassen_vormerken(void);
 
 // Die App verlassen (alle Fenster weg, die Watch zeigt das Zifferblatt) -
 // AUSSER eine Erinnerung steht noch auf dem Stapel. Ihr Wecker ist dann schon

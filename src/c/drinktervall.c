@@ -27,6 +27,11 @@ static bool prv_pin_zaehlt(uint32_t code) {
 }
 
 static bool s_launched_by_wakeup;
+// Gesetzt, wenn die App gehen wollte, waehrend eine Erinnerung offen stand -
+// etwa das Trink-Fenster eines Pin-Starts, in dessen Animation ein Wecker
+// fiel. Ohne Wakeup-Start bliebe die App sonst nach dieser Erinnerung auf
+// dem Hauptscreen stehen.
+static bool s_verlassen_vorgemerkt;
 
 // Welche Erinnerung ein Wecker meint, steht in seinem Cookie: Kaffees tragen
 // SCHEDULE_COOKIE_COFFEE + Platz, alles darunter ist Wasser.
@@ -91,8 +96,12 @@ bool drinktervall_verlassen(void) {
   return true;
 }
 
+void drinktervall_verlassen_vormerken(void) {
+  s_verlassen_vorgemerkt = true;
+}
+
 void drinktervall_reminder_closed(void) {
-  if (s_launched_by_wakeup) drinktervall_verlassen();
+  if (s_launched_by_wakeup || s_verlassen_vorgemerkt) drinktervall_verlassen();
 }
 
 // --- Ruhezeit ---
